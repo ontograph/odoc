@@ -1,0 +1,30 @@
+Contains My Notes.md -> My Notes.md#notes
+Contains My Notes.md#notes -> My Notes.md#notes~0
+Contains a.md -> a.md#alpha
+Contains a.md#alpha -> a.md#alpha/details
+Contains a.md#alpha -> a.md#alpha~0
+Contains a.md#alpha/details -> a.md#alpha/details~0
+Contains b.md -> b.md#
+Contains b.md -> b.md#beta
+Contains b.md# -> b.md#~0
+Contains b.md#beta -> b.md#beta/setup
+Contains b.md#beta -> b.md#beta~0
+Contains b.md#beta/setup -> b.md#beta/setup~0
+Contains sub/c.md -> sub/c.md#gamma
+Contains sub/c.md -> sub/c.md#gamma-1
+Contains sub/c.md#gamma -> sub/c.md#gamma~0
+Contains sub/c.md#gamma-1 -> sub/c.md#gamma-1~0
+Next a.md#alpha~0 -> a.md#alpha/details~0
+Next b.md#beta~0 -> b.md#beta/setup~0
+Next b.md#~0 -> b.md#beta~0
+Next sub/c.md#gamma~0 -> sub/c.md#gamma-1~0
+LinksTo a.md#alpha/details~0 -> a.md#alpha~0
+LinksTo a.md#alpha/details~0 -> sub/c.md#gamma-1~0
+LinksTo a.md#alpha~0 -> b.md#beta/setup~0
+LinksTo a.md#alpha~0 -> b.md#~0
+LinksTo b.md#beta/setup~0 -> a.md#alpha/details~0
+LinksTo sub/c.md#gamma~0 -> My Notes.md#notes~0
+LinksTo sub/c.md#gamma~0 -> a.md#alpha~0
+Mentions a.md#alpha~0 -> code:run_all
+Mentions b.md#~0 -> code:cfg
+Mentions sub/c.md#gamma-1~0 -> code:run_all

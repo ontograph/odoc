@@ -1,0 +1,39 @@
+[package]
+name = "ontodoc"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license-file = "LICENSE"
+description = "Documentation graph-RAG MCP service with pre-registered retrieval evaluation"
+publish = false
+
+# Empty table: this package is its own workspace root, so `ontocode-rs/`
+# (a read-only prior-attempt snapshot) is never resolved.
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "ontodoc"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+ignore = "0.4"
+pulldown-cmark = { version = "0.13", default-features = false }
+rmcp = { version = "1.7", default-features = false, features = ["server", "macros", "transport-io"] }
+rustix = { version = "1.1.4", features = ["fs"] }
+schemars = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std"] }
+
+[dev-dependencies]
+pretty_assertions = "1"
+rmcp = { version = "1.7", default-features = false, features = ["client", "server", "macros", "transport-io"] }
+tempfile = "3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "io-util"] }

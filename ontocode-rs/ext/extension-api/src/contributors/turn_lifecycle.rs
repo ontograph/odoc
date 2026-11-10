@@ -1,0 +1,83 @@
+use ontocode_protocol::config_types::CollaborationMode;
+use ontocode_protocol::protocol::CodexErrorInfo;
+use ontocode_protocol::protocol::TokenUsage;
+use ontocode_protocol::protocol::TurnAbortReason;
+
+use crate::ExtensionData;
+
+/// Host-owned filesystem capability for a turn.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TurnFilesystemCapability {
+    /// The turn may write according to its effective permission profile.
+    Writable,
+    /// The turn is read-only but was started through an ordinary user flow.
+    ReadOnly,
+    /// The turn is an automatic continuation with host-enforced read-only access.
+    UnattendedReadOnly,
+}
+
+/// Input supplied when the host starts a turn.
+pub struct TurnStartInput<'a> {
+    /// Stable host-owned turn identifier.
+    pub turn_id: &'a str,
+    /// Effective collaboration mode for this turn.
+    pub collaboration_mode: &'a CollaborationMode,
+    /// Total token usage snapshot captured when the turn started.
+    pub token_usage_at_turn_start: &'a TokenUsage,
+    /// Effective host-owned filesystem capability for this turn.
+    pub filesystem_capability: TurnFilesystemCapability,
+    /// Store scoped to the host session runtime.
+    pub session_store: &'a ExtensionData,
+    /// Store scoped to this thread runtime.
+    pub thread_store: &'a ExtensionData,
+    /// Store scoped to this turn runtime.
+    pub turn_store: &'a ExtensionData,
+}
+
+/// Input supplied when typed host runtime evidence requires a writable-turn handoff.
+pub struct WriteHandoffRequiredInput<'a> {
+    /// Stable host-owned turn identifier.
+    pub turn_id: &'a str,
+    /// Store scoped to the host session runtime.
+    pub session_store: &'a ExtensionData,
+    /// Store scoped to this thread runtime.
+    pub thread_store: &'a ExtensionData,
+    /// Store scoped to this turn runtime.
+    pub turn_store: &'a ExtensionData,
+}
+
+/// Input supplied when the host completes a turn.
+pub struct TurnStopInput<'a> {
+    /// Store scoped to the host session runtime.
+    pub session_store: &'a ExtensionData,
+    /// Store scoped to this thread runtime.
+    pub thread_store: &'a ExtensionData,
+    /// Store scoped to this turn runtime.
+    pub turn_store: &'a ExtensionData,
+}
+
+/// Input supplied when the host aborts a turn.
+pub struct TurnAbortInput<'a> {
+    /// Reason the host aborted the turn.
+    pub reason: TurnAbortReason,
+    /// Store scoped to the host session runtime.
+    pub session_store: &'a ExtensionData,
+    /// Store scoped to this thread runtime.
+    pub thread_store: &'a ExtensionData,
+    /// Store scoped to this turn runtime.
+    pub turn_store: &'a ExtensionData,
+}
+
+/// Input supplied when the host observes an error for a turn.
+pub struct TurnErrorInput<'a> {
+    /// Stable host-owned turn identifier.
+    pub turn_id: &'a str,
+    /// Error surfaced by the host for this turn.
+    pub error: CodexErrorInfo,
+    /// Store scoped to the host session runtime.
+    pub session_store: &'a ExtensionData,
+    /// Store scoped to this thread runtime.
+    pub thread_store: &'a ExtensionData,
+    /// Store scoped to this turn runtime.
+    pub turn_store: &'a ExtensionData,
+}

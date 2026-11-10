@@ -1,0 +1,16 @@
+{
+  "corpora": [
+    {"name": "a", "root": "corpus_a"},
+    {"name": "b", "root": "corpus_b"}
+  ],
+  "queries": "queries.jsonl",
+  "qrels": "qrels.jsonl",
+  "splits": "splits.json",
+  "seed": 20261108,
+  "resamples": 2000,
+  "alpha_grid": [0.0, 0.2, 0.4],
+  "beta_grid": [0.0, 0.2, 0.4],
+  "alpha": 0.2,
+  "beta": 0.2,
+  "threshold": 0.3
+}

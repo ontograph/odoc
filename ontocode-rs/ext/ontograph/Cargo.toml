@@ -1,0 +1,45 @@
+[package]
+edition.workspace = true
+license.workspace = true
+name = "ontocode-ontograph-extension"
+version = "1.1.9"
+
+[lib]
+name = "ontocode_ontograph_extension"
+path = "src/lib.rs"
+doctest = false
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+ontocode-core = { workspace = true }
+ontocode-extension-api = { workspace = true }
+ontocode-features = { workspace = true }
+ontocode-otel = { workspace = true }
+ontocode-protocol = { workspace = true }
+ontocode-secrets = { workspace = true }
+ontocode-tools = { workspace = true }
+ontocode-utils-home-dir = { workspace = true }
+ontocode-utils-path = { workspace = true }
+libc = { workspace = true }
+proc-macro2 = { workspace = true }
+schemars = { workspace = true }
+semver = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+syn = { workspace = true }
+tokio = { workspace = true, features = ["rt", "time"] }
+toml = { workspace = true }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+core_test_support = { workspace = true }
+ontocode-utils-cargo-bin = { workspace = true }
+opentelemetry_sdk = { workspace = true, features = ["testing"] }
+pretty_assertions = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+ontocode-utils-output-truncation = { workspace = true }

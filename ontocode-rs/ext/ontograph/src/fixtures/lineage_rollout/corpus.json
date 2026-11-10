@@ -1,0 +1,76 @@
+{
+  "corpus_id": "lineage-rollout-v1",
+  "prompt_id": "lineage-rollout-prompt-v1",
+  "model_settings": "temperature=0;top_p=1;seed=0",
+  "passages": [
+    {"passage_id":"p-dispatch","path":"src/dispatch.rs","start_line":10,"end_line":24,"terms":["dispatch","lease"],"token_cost":40},
+    {"passage_id":"p-revision","path":"src/revision.rs","start_line":5,"end_line":18,"terms":["revision","tracking"],"token_cost":35},
+    {"passage_id":"p-noise","path":"src/noise.rs","start_line":1,"end_line":8,"terms":["audit","banner"],"token_cost":20},
+    {"passage_id":"p-duplicate","path":"src/shared.rs","start_line":30,"end_line":45,"terms":["account","owner","permission"],"token_cost":50},
+    {"passage_id":"p-single","path":"src/single.rs","start_line":2,"end_line":7,"terms":["cache","expiry"],"token_cost":18},
+    {"passage_id":"p-utf8","path":"src/locale.rs","start_line":1,"end_line":12,"terms":["café","naïve"],"token_cost":22},
+    {"passage_id":"p-long","path":"src/large_record.rs","start_line":100,"end_line":180,"terms":["ledger","snapshot"],"token_cost":99999},
+    {"passage_id":"p-overlap-a","path":"src/overlap.rs","start_line":20,"end_line":40,"terms":["parser","token"],"token_cost":24},
+    {"passage_id":"p-overlap-b","path":"src/overlap.rs","start_line":35,"end_line":55,"terms":["parser","span"],"token_cost":26}
+  ],
+  "cases": [
+    {
+      "case_id":"multi-hop",
+      "question_terms":["dispatch","lease"],
+      "demands":[
+        {"demand_id":"d-dispatch","description":"dispatch lease","satisfying_passages":["p-dispatch"]},
+        {"demand_id":"d-revision","description":"revision tracking","satisfying_passages":["p-revision"]}
+      ],
+      "required_passages":["p-dispatch","p-revision"]
+    },
+    {
+      "case_id":"irrelevant-evidence",
+      "question_terms":["audit","policy"],
+      "demands":[{"demand_id":"d-policy","description":"policy ownership","satisfying_passages":[]}],
+      "required_passages":[]
+    },
+    {
+      "case_id":"duplicate-evidence",
+      "question_terms":["account","owner","permission"],
+      "demands":[
+        {"demand_id":"d-account","description":"account owner","satisfying_passages":["p-duplicate"]},
+        {"demand_id":"d-permission","description":"owner permission","satisfying_passages":["p-duplicate"]}
+      ],
+      "required_passages":["p-duplicate"]
+    },
+    {
+      "case_id":"single-hop",
+      "question_terms":["cache","expiry"],
+      "demands":[{"demand_id":"d-cache","description":"cache expiry","satisfying_passages":["p-single"]}],
+      "required_passages":["p-single"]
+    },
+    {
+      "case_id":"utf8-passage-terms",
+      "question_terms":["café","naïve"],
+      "demands":[{"demand_id":"d-locale","description":"café naïve","satisfying_passages":["p-utf8"]}],
+      "required_passages":["p-utf8"]
+    },
+    {
+      "case_id":"long-token-cost",
+      "question_terms":["ledger","snapshot"],
+      "demands":[{"demand_id":"d-ledger","description":"ledger snapshot","satisfying_passages":["p-long"]}],
+      "required_passages":["p-long"]
+    },
+    {
+      "case_id":"no-satisfying-passage",
+      "question_terms":["missing","evidence"],
+      "demands":[{"demand_id":"d-missing","description":"missing evidence","satisfying_passages":[]}],
+      "required_passages":[]
+    },
+    {
+      "case_id":"overlapping-spans",
+      "question_terms":["parser","token","span"],
+      "demands":[
+        {"demand_id":"d-token","description":"parser token","satisfying_passages":["p-overlap-a"]},
+        {"demand_id":"d-span","description":"parser span","satisfying_passages":["p-overlap-b"]}
+      ],
+      "required_passages":["p-overlap-a","p-overlap-b"]
+    }
+  ],
+  "max_selected_passages": 3
+}

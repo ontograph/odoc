@@ -1,0 +1,703 @@
+use std::pin::Pin;
+use std::sync::Arc;
+
+use ontocode_extension_api::ExtensionData;
+use ontocode_protocol::config_types::ModeKind;
+use ontocode_protocol::items::ImageGenerationItem;
+use ontocode_protocol::items::TurnItem;
+use ontocode_utils_stream_parser::strip_citations;
+use tokio_util::sync::CancellationToken;
+
+use crate::context::ContextualUserFragment;
+use crate::context::ImageGenerationInstructions;
+use crate::final_answer_verifier::final_answer_verification_warning;
+use crate::function_tool::FunctionCallError;
+use crate::generated_image_persistence::GeneratedImageWriteOutcome;
+pub(crate) use crate::generated_image_persistence::image_generation_artifact_path;
+use crate::generated_image_persistence::save_image_generation_result;
+use crate::parse_turn_item;
+use crate::session::ProviderHistoryRecordOutcome;
+use crate::session::session::Session;
+use crate::session::turn_context::TurnContext;
+use crate::tools::parallel::ToolCallResult;
+use crate::tools::parallel::ToolCallRuntime;
+use crate::tools::router::ToolRouter;
+use futures::Future;
+use ontocode_memories_read::citations::parse_memory_citation;
+use ontocode_memories_read::citations::thread_ids_from_memory_citation;
+use ontocode_protocol::error::CodexErr;
+use ontocode_protocol::error::Result;
+use ontocode_protocol::memory_citation::MEMORY_CITATION_USAGE_SCHEMA_VERSION;
+use ontocode_protocol::memory_citation::MemoryCitation;
+use ontocode_protocol::memory_citation::MemoryCitationRegressionStatus;
+use ontocode_protocol::memory_citation::MemoryCitationTaskOutcome;
+use ontocode_protocol::memory_citation::MemoryCitationUsageRecord;
+use ontocode_protocol::models::FunctionCallOutputBody;
+use ontocode_protocol::models::FunctionCallOutputPayload;
+use ontocode_protocol::models::MessagePhase;
+use ontocode_protocol::models::ResponseInputItem;
+use ontocode_protocol::models::ResponseItem;
+use ontocode_protocol::protocol::EventMsg;
+use ontocode_protocol::protocol::WarningEvent;
+use ontocode_protocol::read_evidence::ArtifactReceiptOperation;
+use ontocode_protocol::read_evidence::ArtifactReceiptOutcome;
+use ontocode_protocol::read_evidence::ArtifactReceiptProducer;
+use ontocode_rollout::state_db;
+use ontocode_utils_absolute_path::AbsolutePathBuf;
+use ontocode_utils_stream_parser::strip_proposed_plan_blocks;
+use tracing::debug;
+use tracing::instrument;
+use tracing::warn;
+
+fn strip_hidden_assistant_markup(text: &str, plan_mode: bool) -> String {
+    let (without_citations, _) = strip_citations(text);
+    if plan_mode {
+        strip_proposed_plan_blocks(&without_citations)
+    } else {
+        without_citations
+    }
+}
+
+fn strip_hidden_assistant_markup_and_parse_memory_citation(
+    text: &str,
+    plan_mode: bool,
+) -> (
+    String,
+    Option<ontocode_protocol::memory_citation::MemoryCitation>,
+) {
+    let (without_citations, citations) = strip_citations(text);
+    let visible_text = if plan_mode {
+        strip_proposed_plan_blocks(&without_citations)
+    } else {
+        without_citations
+    };
+    (visible_text, parse_memory_citation(citations))
+}
+
+fn provisional_memory_citation_usage_record(citation: MemoryCitation) -> MemoryCitationUsageRecord {
+    MemoryCitationUsageRecord {
+        schema_version: MEMORY_CITATION_USAGE_SCHEMA_VERSION,
+        citation,
+        task_outcome: MemoryCitationTaskOutcome::Unknown,
+        regression_status: MemoryCitationRegressionStatus::NotEvaluated,
+    }
+}
+
+pub(crate) fn raw_assistant_output_text_from_item(item: &ResponseItem) -> Option<String> {
+    if let ResponseItem::Message { role, content, .. } = item
+        && role == "assistant"
+    {
+        let combined = content
+            .iter()
+            .filter_map(|ci| match ci {
+                ontocode_protocol::models::ContentItem::OutputText { text } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect::<String>();
+        return Some(combined);
+    }
+    None
+}
+
+pub(crate) async fn persist_image_generation_item(
+    sess: &Session,
+    turn_context: &TurnContext,
+    image_item: &mut ImageGenerationItem,
+) -> Option<AbsolutePathBuf> {
+    image_item.saved_path = None;
+    let session_id = sess.thread_id.to_string();
+    match save_image_generation_result(
+        &turn_context.config.codex_home,
+        &session_id,
+        &image_item.id,
+        &image_item.result,
+    )
+    .await
+    {
+        Ok(saved) => {
+            let receipt = ontocode_protocol::read_evidence::ArtifactReceipt {
+                producer: ArtifactReceiptProducer::ImageGeneration,
+                call_id: image_item.id.clone(),
+                path: saved.path.clone(),
+                source_path: None,
+                content_sha256: Some(saved.content_sha256),
+                operation: ArtifactReceiptOperation::Create,
+                outcome: ArtifactReceiptOutcome::Success,
+            };
+            if let Err(err) = sess.commit_artifact_receipt(turn_context, receipt).await {
+                if saved.write_outcome == GeneratedImageWriteOutcome::Created
+                    && let Err(cleanup_err) = tokio::fs::remove_file(saved.path.as_path()).await
+                {
+                    tracing::warn!(
+                        error = %cleanup_err,
+                        path = %saved.path.as_path().display(),
+                        "failed to remove generated image after artifact receipt persistence failed"
+                    );
+                }
+                tracing::warn!(
+                    error = %err,
+                    path = %saved.path.as_path().display(),
+                    "generated image was not published because its artifact receipt was not persisted"
+                );
+                return None;
+            }
+            image_item.saved_path = Some(saved.path.clone());
+            Some(saved.path)
+        }
+        Err(err) => {
+            let output_path = image_generation_artifact_path(
+                &turn_context.config.codex_home,
+                &session_id,
+                &image_item.id,
+            );
+            let output_dir = output_path
+                .parent()
+                .unwrap_or_else(|| turn_context.config.codex_home.clone());
+            tracing::warn!(
+                call_id = %image_item.id,
+                output_dir = %output_dir.display(),
+                "failed to save generated image: {err}"
+            );
+            None
+        }
+    }
+}
+
+async fn record_image_generation_instructions(
+    sess: &Session,
+    turn_context: &TurnContext,
+    image_item: &ImageGenerationItem,
+) {
+    if image_item.saved_path.is_none() {
+        return;
+    }
+    let session_id = sess.thread_id.to_string();
+    let image_output_path =
+        image_generation_artifact_path(&turn_context.config.codex_home, &session_id, "<image_id>");
+    let image_output_dir = image_output_path
+        .parent()
+        .unwrap_or_else(|| turn_context.config.codex_home.clone());
+    let message: ResponseItem = ContextualUserFragment::into(ImageGenerationInstructions::new(
+        image_output_dir.display(),
+        image_output_path.display(),
+    ));
+    sess.record_conversation_items(turn_context, &[message])
+        .await;
+}
+
+/// Persist a completed model response item and record any cited memory usage.
+pub(crate) async fn record_completed_response_item(
+    sess: &Session,
+    turn_context: &TurnContext,
+    item: &ResponseItem,
+) {
+    record_completed_response_item_with_finalized_facts(
+        sess,
+        turn_context,
+        item,
+        /*finalized_facts*/ None,
+    )
+    .await;
+}
+
+pub(crate) async fn record_completed_response_item_with_finalized_facts(
+    sess: &Session,
+    turn_context: &TurnContext,
+    item: &ResponseItem,
+    finalized_facts: Option<&FinalizedTurnItemFacts>,
+) {
+    sess.record_conversation_items(turn_context, std::slice::from_ref(item))
+        .await;
+    let defers_mailbox_delivery = finalized_facts.map_or_else(
+        || {
+            completed_item_defers_mailbox_delivery_to_next_turn(
+                item,
+                turn_context.collaboration_mode.mode == ModeKind::Plan,
+            )
+        },
+        |facts| facts.defers_mailbox_delivery_to_next_turn,
+    );
+    if defers_mailbox_delivery {
+        sess.input_queue
+            .defer_mailbox_delivery_to_next_turn(&sess.active_turn, &turn_context.sub_id)
+            .await;
+    }
+    mark_thread_memory_mode_polluted_if_external_context(sess, turn_context, item).await;
+    let memory_citation_usage_record = finalized_facts
+        .and_then(|facts| facts.memory_citation_usage_record.clone())
+        .or_else(|| {
+            raw_assistant_output_text_from_item(item).and_then(|raw_text| {
+                let (_, citations) = strip_citations(&raw_text);
+                parse_memory_citation(citations).map(provisional_memory_citation_usage_record)
+            })
+        });
+    if let Some(record) = memory_citation_usage_record {
+        record_stage1_output_usage_for_memory_citation(
+            sess.services.state_db.as_ref(),
+            &record.citation,
+        )
+        .await;
+        if let Some(turn_state) = sess
+            .input_queue
+            .turn_state_for_sub_id(&sess.active_turn, &turn_context.sub_id)
+            .await
+        {
+            turn_state
+                .lock()
+                .await
+                .retain_memory_citation_usage_record(record);
+        }
+        sess.record_memory_citation_for_turn(&turn_context.sub_id)
+            .await;
+    }
+    if defers_mailbox_delivery
+        && let Some(answer) = last_assistant_message_from_item(
+            item,
+            turn_context.collaboration_mode.mode == ModeKind::Plan,
+        )
+    {
+        let warning = turn_context
+            .file_read_evidence
+            .lock()
+            .ok()
+            .and_then(|evidence| final_answer_verification_warning(&answer, &evidence));
+        if let Some(message) = warning {
+            sess.send_event(turn_context, EventMsg::Warning(WarningEvent { message }))
+                .await;
+        }
+    }
+}
+
+fn response_item_may_include_external_context(item: &ResponseItem) -> bool {
+    matches!(
+        item,
+        ResponseItem::ToolSearchCall { .. }
+            | ResponseItem::ToolSearchOutput { .. }
+            | ResponseItem::WebSearchCall { .. }
+    )
+}
+
+pub(crate) async fn mark_thread_memory_mode_polluted_if_external_context(
+    sess: &Session,
+    turn_context: &TurnContext,
+    item: &ResponseItem,
+) {
+    if !turn_context.config.memories.disable_on_external_context
+        || !response_item_may_include_external_context(item)
+    {
+        return;
+    }
+    state_db::mark_thread_memory_mode_polluted(
+        sess.services.state_db.as_deref(),
+        sess.thread_id,
+        "record_completed_response_item",
+    )
+    .await;
+}
+
+async fn record_stage1_output_usage_for_memory_citation(
+    state_db_ctx: Option<&state_db::StateDbHandle>,
+    memory_citation: &MemoryCitation,
+) -> bool {
+    let thread_ids = thread_ids_from_memory_citation(memory_citation);
+    if thread_ids.is_empty() {
+        return true;
+    }
+
+    if let Some(db) = state_db_ctx {
+        let _ = db.memories().record_stage1_output_usage(&thread_ids).await;
+    }
+    true
+}
+
+/// Handle a completed output item from the model stream, recording it and
+/// queuing any tool execution futures. This records items immediately so
+/// history and rollout stay in sync even if the turn is later cancelled.
+pub(crate) type InFlightFuture<'f> = Pin<Box<dyn Future<Output = ToolCallResult> + Send + 'f>>;
+
+#[derive(Default)]
+pub(crate) struct OutputItemResult {
+    pub last_agent_message: Option<String>,
+    pub needs_follow_up: bool,
+    pub tool_future: Option<InFlightFuture<'static>>,
+    pub tool_call_is_read_only: Option<bool>,
+}
+
+pub(crate) struct HandleOutputCtx {
+    pub sess: Arc<Session>,
+    pub turn_context: Arc<TurnContext>,
+    pub turn_store: Arc<ExtensionData>,
+    pub tool_runtime: ToolCallRuntime,
+    pub cancellation_token: CancellationToken,
+}
+
+async fn apply_turn_item_contributors(
+    sess: &Session,
+    turn_store: &ExtensionData,
+    item: &mut TurnItem,
+) {
+    let contributors = sess.services.extensions.turn_item_contributors().to_vec();
+    for contributor in contributors {
+        if let Err(err) = contributor
+            .contribute(&sess.services.thread_extension_data, turn_store, item)
+            .await
+        {
+            warn!("turn item contributor failed: {err}");
+        }
+    }
+}
+
+pub(crate) enum TurnItemContributorPolicy<'a> {
+    Skip,
+    Run(&'a ExtensionData),
+}
+
+pub(crate) struct FinalizedTurnItem {
+    pub(crate) turn_item: TurnItem,
+    pub(crate) facts: FinalizedTurnItemFacts,
+}
+
+#[derive(Clone, Default)]
+pub(crate) struct FinalizedTurnItemFacts {
+    pub(crate) memory_citation: Option<MemoryCitation>,
+    pub(crate) memory_citation_usage_record: Option<MemoryCitationUsageRecord>,
+    pub(crate) last_agent_message: Option<String>,
+    pub(crate) defers_mailbox_delivery_to_next_turn: bool,
+}
+
+pub(crate) async fn finalize_non_tool_response_item(
+    sess: &Session,
+    turn_context: &TurnContext,
+    contributor_policy: TurnItemContributorPolicy<'_>,
+    item: &ResponseItem,
+    plan_mode: bool,
+) -> Option<FinalizedTurnItem> {
+    let turn_item =
+        handle_non_tool_response_item(sess, turn_context, contributor_policy, item, plan_mode)
+            .await?;
+    let (
+        memory_citation,
+        memory_citation_usage_record,
+        last_agent_message,
+        defers_mailbox_delivery_to_next_turn,
+    ) = match &turn_item {
+        TurnItem::AgentMessage(agent_message) => {
+            let combined = agent_message
+                .content
+                .iter()
+                .map(|entry| match entry {
+                    ontocode_protocol::items::AgentMessageContent::Text { text } => text.as_str(),
+                })
+                .collect::<String>();
+            let last_agent_message = if combined.trim().is_empty() {
+                None
+            } else {
+                Some(combined)
+            };
+            let defers_mailbox_delivery_to_next_turn =
+                !matches!(agent_message.phase, Some(MessagePhase::Commentary))
+                    && last_agent_message.is_some();
+            (
+                agent_message.memory_citation.clone(),
+                agent_message
+                    .memory_citation
+                    .clone()
+                    .map(provisional_memory_citation_usage_record),
+                last_agent_message,
+                defers_mailbox_delivery_to_next_turn,
+            )
+        }
+        TurnItem::ImageGeneration(_) => (None, None, None, true),
+        _ => (None, None, None, false),
+    };
+    Some(FinalizedTurnItem {
+        turn_item,
+        facts: FinalizedTurnItemFacts {
+            memory_citation,
+            memory_citation_usage_record,
+            last_agent_message,
+            defers_mailbox_delivery_to_next_turn,
+        },
+    })
+}
+
+#[instrument(level = "trace", skip_all)]
+pub(crate) async fn handle_output_item_done(
+    ctx: &mut HandleOutputCtx,
+    item: ResponseItem,
+    previously_active_item: Option<TurnItem>,
+) -> Result<OutputItemResult> {
+    let mut output = OutputItemResult::default();
+    let plan_mode = ctx.turn_context.collaboration_mode.mode == ModeKind::Plan;
+
+    match ToolRouter::build_tool_call(item.clone()) {
+        // The model emitted a tool call; log it, persist the item immediately, and queue the tool execution.
+        Ok(Some(call)) => {
+            let record_outcome = ctx
+                .sess
+                .record_provider_history_item(ctx.turn_context.as_ref(), &item)
+                .await?;
+            if record_outcome == ProviderHistoryRecordOutcome::ExactDuplicate {
+                return Ok(output);
+            }
+            mark_thread_memory_mode_polluted_if_external_context(
+                ctx.sess.as_ref(),
+                ctx.turn_context.as_ref(),
+                &item,
+            )
+            .await;
+
+            ctx.sess
+                .input_queue
+                .accept_mailbox_delivery_for_current_turn(
+                    &ctx.sess.active_turn,
+                    &ctx.turn_context.sub_id,
+                )
+                .await;
+
+            let payload_preview = call.payload.log_payload().into_owned();
+            tracing::info!(
+                thread_id = %ctx.sess.thread_id,
+                "ToolCall: {} {}",
+                call.tool_name,
+                payload_preview
+            );
+
+            output.tool_call_is_read_only = Some(ctx.tool_runtime.tool_is_read_only(&call));
+            let cancellation_token = ctx.cancellation_token.child_token();
+            let tool_future: InFlightFuture<'static> = Box::pin(
+                ctx.tool_runtime
+                    .clone()
+                    .handle_tool_call(call, cancellation_token),
+            );
+
+            output.needs_follow_up = true;
+            output.tool_future = Some(tool_future);
+        }
+        // No tool call: convert messages/reasoning into turn items and mark them as complete.
+        Ok(None) => {
+            let finalized_turn_item = finalize_non_tool_response_item(
+                ctx.sess.as_ref(),
+                ctx.turn_context.as_ref(),
+                TurnItemContributorPolicy::Run(ctx.turn_store.as_ref()),
+                &item,
+                plan_mode,
+            )
+            .await;
+            let finalized_facts = finalized_turn_item
+                .as_ref()
+                .map(|finalized| finalized.facts.clone());
+            if let Some(finalized_turn_item) = finalized_turn_item {
+                if previously_active_item.is_none() {
+                    let mut started_item = finalized_turn_item.turn_item.clone();
+                    if let TurnItem::ImageGeneration(item) = &mut started_item {
+                        item.status = "in_progress".to_string();
+                        item.revised_prompt = None;
+                        item.result.clear();
+                        item.saved_path = None;
+                    }
+                    ctx.sess
+                        .emit_turn_item_started(&ctx.turn_context, &started_item)
+                        .await;
+                }
+
+                ctx.sess
+                    .emit_turn_item_completed(&ctx.turn_context, finalized_turn_item.turn_item)
+                    .await;
+            }
+            record_completed_response_item_with_finalized_facts(
+                ctx.sess.as_ref(),
+                ctx.turn_context.as_ref(),
+                &item,
+                finalized_facts.as_ref(),
+            )
+            .await;
+
+            output.last_agent_message = finalized_facts.and_then(|facts| facts.last_agent_message);
+        }
+        // The tool request should be answered directly (or was denied); push that response into the transcript.
+        Err(error) => match error.reason_code() {
+            ontocode_tools::FunctionCallErrorReasonCode::RespondToModel => {
+                let (FunctionCallError::RespondToModel(message)
+                | FunctionCallError::InvalidArguments(message)) = error
+                else {
+                    unreachable!("respond_to_model reason code must carry a model-facing message")
+                };
+                let response = ResponseInputItem::FunctionCallOutput {
+                    call_id: String::new(),
+                    output: FunctionCallOutputPayload {
+                        body: FunctionCallOutputBody::Text(message),
+                        ..Default::default()
+                    },
+                };
+                record_completed_response_item(ctx.sess.as_ref(), ctx.turn_context.as_ref(), &item)
+                    .await;
+                if let Some(response_item) = response_input_to_response_item(&response) {
+                    ctx.sess
+                        .record_conversation_items(
+                            &ctx.turn_context,
+                            std::slice::from_ref(&response_item),
+                        )
+                        .await;
+                }
+
+                output.needs_follow_up = true;
+            }
+            ontocode_tools::FunctionCallErrorReasonCode::Fatal => {
+                let FunctionCallError::Fatal(message) = error else {
+                    unreachable!("fatal reason code must carry a fatal message")
+                };
+                return Err(CodexErr::Fatal(message));
+            }
+        },
+    }
+
+    Ok(output)
+}
+
+pub(crate) async fn handle_non_tool_response_item(
+    sess: &Session,
+    turn_context: &TurnContext,
+    contributor_policy: TurnItemContributorPolicy<'_>,
+    item: &ResponseItem,
+    plan_mode: bool,
+) -> Option<TurnItem> {
+    debug!(?item, "Output item");
+
+    match item {
+        ResponseItem::Message { .. }
+        | ResponseItem::Reasoning { .. }
+        | ResponseItem::WebSearchCall { .. }
+        | ResponseItem::ImageGenerationCall { .. } => {
+            let mut turn_item = parse_turn_item(item)?;
+            finalize_turn_item(
+                sess,
+                turn_context,
+                contributor_policy,
+                &mut turn_item,
+                plan_mode,
+            )
+            .await;
+            if let TurnItem::ImageGeneration(image_item) = &turn_item {
+                record_image_generation_instructions(sess, turn_context, image_item).await;
+            }
+            Some(turn_item)
+        }
+        ResponseItem::FunctionCallOutput { .. }
+        | ResponseItem::CustomToolCallOutput { .. }
+        | ResponseItem::ToolSearchOutput { .. } => {
+            debug!("unexpected tool output from stream");
+            None
+        }
+        _ => None,
+    }
+}
+
+pub(crate) async fn finalize_turn_item(
+    sess: &Session,
+    turn_context: &TurnContext,
+    contributor_policy: TurnItemContributorPolicy<'_>,
+    turn_item: &mut TurnItem,
+    plan_mode: bool,
+) {
+    if let TurnItemContributorPolicy::Run(turn_store) = contributor_policy {
+        apply_turn_item_contributors(sess, turn_store, turn_item).await;
+    }
+    if let TurnItem::AgentMessage(agent_message) = &mut *turn_item {
+        let combined = agent_message
+            .content
+            .iter()
+            .map(|entry| match entry {
+                ontocode_protocol::items::AgentMessageContent::Text { text } => text.as_str(),
+            })
+            .collect::<String>();
+        let (stripped, memory_citation) =
+            strip_hidden_assistant_markup_and_parse_memory_citation(&combined, plan_mode);
+        agent_message.content =
+            vec![ontocode_protocol::items::AgentMessageContent::Text { text: stripped }];
+        if agent_message.memory_citation.is_none() {
+            agent_message.memory_citation = memory_citation;
+        }
+    }
+    if let TurnItem::ImageGeneration(image_item) = &mut *turn_item {
+        persist_image_generation_item(sess, turn_context, image_item).await;
+    }
+}
+
+pub(crate) fn last_assistant_message_from_item(
+    item: &ResponseItem,
+    plan_mode: bool,
+) -> Option<String> {
+    if let Some(combined) = raw_assistant_output_text_from_item(item) {
+        if combined.is_empty() {
+            return None;
+        }
+        let stripped = strip_hidden_assistant_markup(&combined, plan_mode);
+        if stripped.trim().is_empty() {
+            return None;
+        }
+        return Some(stripped);
+    }
+    None
+}
+
+fn completed_item_defers_mailbox_delivery_to_next_turn(
+    item: &ResponseItem,
+    plan_mode: bool,
+) -> bool {
+    match item {
+        ResponseItem::Message { role, phase, .. } => {
+            if role != "assistant" || matches!(phase, Some(MessagePhase::Commentary)) {
+                return false;
+            }
+            // Treat `None` like final-answer text so untagged providers default
+            // to the safer "defer mailbox mail" behavior.
+            last_assistant_message_from_item(item, plan_mode).is_some()
+        }
+        ResponseItem::ImageGenerationCall { .. } => true,
+        _ => false,
+    }
+}
+
+pub(crate) fn response_input_to_response_item(input: &ResponseInputItem) -> Option<ResponseItem> {
+    match input {
+        ResponseInputItem::FunctionCallOutput { call_id, output } => {
+            Some(ResponseItem::FunctionCallOutput {
+                call_id: call_id.clone(),
+                output: output.clone(),
+            })
+        }
+        ResponseInputItem::CustomToolCallOutput {
+            call_id,
+            name,
+            output,
+        } => Some(ResponseItem::CustomToolCallOutput {
+            call_id: call_id.clone(),
+            name: name.clone(),
+            output: output.clone(),
+        }),
+        ResponseInputItem::McpToolCallOutput { call_id, output } => {
+            let output = output.as_function_call_output_payload();
+            Some(ResponseItem::FunctionCallOutput {
+                call_id: call_id.clone(),
+                output,
+            })
+        }
+        ResponseInputItem::ToolSearchOutput {
+            call_id,
+            status,
+            execution,
+            tools,
+        } => Some(ResponseItem::ToolSearchOutput {
+            call_id: Some(call_id.clone()),
+            status: status.clone(),
+            execution: execution.clone(),
+            tools: tools.clone(),
+        }),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+#[path = "stream_events_utils_tests.rs"]
+mod tests;

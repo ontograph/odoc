@@ -1,0 +1,998 @@
+{
+  "source_root": "/opt/d1/_wrk/ontocode",
+  "source_head": "1e0598cb3925358482ec81c2282ea83085ef302d",
+  "snapshot": "current working-tree bytes, including local edits in selected files",
+  "standalone_build": false,
+  "files": [
+    {
+      "path": "LICENSE",
+      "bytes": 10926,
+      "sha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc"
+    },
+    {
+      "path": "NOTICE",
+      "bytes": 242,
+      "sha256": "9d71575ecfd9a843fc1677b0efb08053c6ba9fd686a0de1a6f5382fd3c220915"
+    },
+    {
+      "path": "ontocode-rs/Cargo.lock",
+      "bytes": 361993,
+      "sha256": "db31d253dcfbac785d3e91ece9580e302749f5712b80d1e8c5cce294c38bd763"
+    },
+    {
+      "path": "ontocode-rs/Cargo.toml",
+      "bytes": 17290,
+      "sha256": "784ab9e6ac832fd7b88fc8ad3b9c41d501c260ce1aab679c0e1827687b61ac7a"
+    },
+    {
+      "path": "ontocode-rs/app-server/Cargo.toml",
+      "bytes": 4405,
+      "sha256": "fb41cc0660be48f5ed769fafe7355abacc1d9761fa4e116d370151d5e6345a62"
+    },
+    {
+      "path": "ontocode-rs/app-server/src/extensions.rs",
+      "bytes": 20358,
+      "sha256": "fd72985ff819caf57ea0f591a09a9b6aa978b54af34c0227a5adc6de34df9f0c"
+    },
+    {
+      "path": "ontocode-rs/cli/Cargo.toml",
+      "bytes": 3355,
+      "sha256": "f8c1d0eef91efe706ee8e7bbfd6e6cb95151620506341b6c57f7ec3c76f3795b"
+    },
+    {
+      "path": "ontocode-rs/cli/src/km_cmd.rs",
+      "bytes": 30164,
+      "sha256": "5408c66c26233427df7c9e21386035bee28981f788f3add919472c377cfc89fb"
+    },
+    {
+      "path": "ontocode-rs/cli/src/main.rs",
+      "bytes": 157672,
+      "sha256": "913892185497ac1aef4a6a8cd77f30e1aa9b4f082bf37a7c351154256d7da8f4"
+    },
+    {
+      "path": "ontocode-rs/cli/tests/ontograph_km.rs",
+      "bytes": 19778,
+      "sha256": "6a58c0070b456812d35f90ea6dfcaf3ae98da9b100994dfb98707eac596ef2b1"
+    },
+    {
+      "path": "ontocode-rs/config/Cargo.toml",
+      "bytes": 2292,
+      "sha256": "b8c65ed8cfc979210869b3316825fcc19e0c01f9470178292cddcd060201dac2"
+    },
+    {
+      "path": "ontocode-rs/config/src/config_toml.rs",
+      "bytes": 35344,
+      "sha256": "c73f620d35f8b5ee0a3dc4eda715907c1c63bd6f9204f7cc53153a5ce2375f68"
+    },
+    {
+      "path": "ontocode-rs/core/Cargo.toml",
+      "bytes": 5782,
+      "sha256": "7326bf218512addb1f212dc37621262e271195992b002c493eaa6f931dc80cfe"
+    },
+    {
+      "path": "ontocode-rs/core/config.schema.json",
+      "bytes": 153696,
+      "sha256": "57b51bdc4f49478c9af4bac323b123bec3bd2306fd5c4936e06e4c5a361af445"
+    },
+    {
+      "path": "ontocode-rs/core/src/compact_tests.rs",
+      "bytes": 32919,
+      "sha256": "45f99b4de29515416df3147c2b2fb13487e293e538e021d4b253895c64554dc4"
+    },
+    {
+      "path": "ontocode-rs/core/src/config/config_tests.rs",
+      "bytes": 340267,
+      "sha256": "01ef7462ef22b7edf73d0edb3137d99b0ae849af3d741b0b95ae6a1b750eb9a7"
+    },
+    {
+      "path": "ontocode-rs/core/src/session/tests.rs",
+      "bytes": 485064,
+      "sha256": "6ace691ba01fed83f84e3781aca8c4769c658db771d84c001a3c79c50ac83050"
+    },
+    {
+      "path": "ontocode-rs/core/src/session/turn.rs",
+      "bytes": 133246,
+      "sha256": "785511e4069f15652cc1f9e27bbe3b85d86a1497d1a93725b46202bf4405a38a"
+    },
+    {
+      "path": "ontocode-rs/core/src/session/turn_tests.rs",
+      "bytes": 30894,
+      "sha256": "9dbd945f6e614104d54cf0ffa3f528af516a0453a48695736795b8b0ca1aaf99"
+    },
+    {
+      "path": "ontocode-rs/core/src/stream_events_utils.rs",
+      "bytes": 25287,
+      "sha256": "5fdf01ac6bf342ca14fb1158fa5f59bb5719b96cb239167562d9b1632b841743"
+    },
+    {
+      "path": "ontocode-rs/core/src/stream_events_utils_tests.rs",
+      "bytes": 36877,
+      "sha256": "a161cbf27782cb07f163daf02c840ce3cad3226a8258528deb56ce61df85eb40"
+    },
+    {
+      "path": "ontocode-rs/core/src/tools/handlers/extension_tools.rs",
+      "bytes": 22735,
+      "sha256": "c61ce1295b22c796cfc9c0e26cf2ac7489a174122abd7a600c511c26c1bc4835"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/BUILD.bazel",
+      "bytes": 132,
+      "sha256": "19f9c5cea2674aeb75bde9e262ca48023bdc9d4b25c89eaf0591b866442a9348"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/Cargo.toml",
+      "bytes": 411,
+      "sha256": "ce36a7b11596aa8afd66dd78fd18c6932e904c361c26d78691720ca187e904d7"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/examples/enabled_extensions.rs",
+      "bytes": 2958,
+      "sha256": "3533146b8887278b776625d111dc390098c049791ee67bd6700571b6ed8cdf1f"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/examples/enabled_extensions/shared_state_extension.rs",
+      "bytes": 2899,
+      "sha256": "56d56ab11ad63149a6d03191625d15752c0844668758a357d5ec6db94b65842e"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/notes.md",
+      "bytes": 653,
+      "sha256": "6891eff01534ace9a289115ed64a4bf48b606580d8ba60e445012f5bb70e7209"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/src/capabilities/agent.rs",
+      "bytes": 1090,
+      "sha256": "af8b5ab199f6ebd966b5193ffe4806b5fa2e42421d700727625f63cca7bdfc42"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/src/capabilities/events.rs",
+      "bytes": 706,
+      "sha256": "babeb58e1d8da4dd0273232fffb1d81382b84615453370d187930c24d5fb228f"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/src/capabilities/mod.rs",
+      "bytes": 331,
+      "sha256": "e67a003ca90945a0a4bb2a6b251dbf0cb9ce2aaf344f37436e121d2b9d6d4ad3"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/src/capabilities/response_items.rs",
+      "bytes": 1181,
+      "sha256": "f94c17304f9deb6d46bb976ab6d6f8a83046de2a56ebdfa360636743fed63f78"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/src/contributors.rs",
+      "bytes": 8263,
+      "sha256": "639e43c3c727f16a0bfddca02112bcae373deeb23cf363650e0b558832bedeef"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/src/contributors/prompt.rs",
+      "bytes": 1344,
+      "sha256": "2f6598bb9cd617d8b599f6fa64952c64a9e02fe517f70a9000b694b46311e62b"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/src/contributors/thread_lifecycle.rs",
+      "bytes": 1924,
+      "sha256": "c010f87f51545fc025a40644c2b03981326f32c3ff8085403b39bc64de7e88dd"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/src/contributors/tool_lifecycle.rs",
+      "bytes": 2795,
+      "sha256": "965c25c3d431a920a29e55df16de447cb2d59b998993ce77e3e764f82ae57a86"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/src/contributors/turn_input.rs",
+      "bytes": 2491,
+      "sha256": "784a6aa27f3eb63b003be6b80ec6a809dd78fa02758a5ba8b539a1785fad5f72"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/src/contributors/turn_lifecycle.rs",
+      "bytes": 3134,
+      "sha256": "075fc909fdfb006ebf48a6008fd0ca8fe64acdc44dc800e19437a69f93e8cb81"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/src/lib.rs",
+      "bytes": 2642,
+      "sha256": "96f7ed09a3abb45e2c4f7357111b4f56c45baa2d8c1dfb8e7055608ff96b3b67"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/src/registry.rs",
+      "bytes": 9022,
+      "sha256": "f91c95230e26bfcd7556d4153b0922ea8ab740c73e82c4cec4fd70cfedf44454"
+    },
+    {
+      "path": "ontocode-rs/ext/extension-api/src/state.rs",
+      "bytes": 2533,
+      "sha256": "fcd2784c5d93061e02e736b66ec8be53d66720fc411afe0f6e44b2268fe32c7b"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/BUILD.bazel",
+      "bytes": 564,
+      "sha256": "bc8c0c20bda2f411165836abe40ca93719eaa724fbae0f532f3c543ac54e9885"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/Cargo.toml",
+      "bytes": 1398,
+      "sha256": "29293cf08f8de57fbdab7f519ebc9f9f3e12b9c2a2c052197c39286a8e043f7a"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/artifact_io.rs",
+      "bytes": 4135,
+      "sha256": "06dd84f464823a6d35423663780f4ca227e32c5f1579d8418b967cdf7436a902"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/artifact_io_tests.rs",
+      "bytes": 4275,
+      "sha256": "ab2ec16bd0549fc3b9155dec7b70863bf527cac2a05b837e0fafa97213d1935a"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_abi.rs",
+      "bytes": 6689,
+      "sha256": "944b27d4a707b6428df723328d9a5150652aff646d66b471ea6bcaa419988468"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_build.rs",
+      "bytes": 59790,
+      "sha256": "e3d2fa41455a6719b0a25ae6ec859a0949a2586ad780b077db3f089394a7e636"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_concurrency.rs",
+      "bytes": 5690,
+      "sha256": "ee389b740b79277a22a555f6a8f506d6ffb31682fc5b0b5e6c414346921b33bd"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_coupling.rs",
+      "bytes": 3312,
+      "sha256": "40312f9d6114a2523b38b2c2c46c182b41254ba47cabef921e8081c9d5860a93"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_coupling_tests.rs",
+      "bytes": 4976,
+      "sha256": "028c64d31ffb7ba84a5e230bd40afd2089aabf61611b8b7395df175090dd8437"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_coverage.rs",
+      "bytes": 4383,
+      "sha256": "d37aa1e28610416069163c9ca34dc02d7e00a7ca89a4a28755a20e6ea8748feb"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_cycles.rs",
+      "bytes": 6928,
+      "sha256": "83f8eaacc4c91c7f454cdbcd7bd0ee0077b305b6d3206de30e271e0769dcd381"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_drift.rs",
+      "bytes": 5917,
+      "sha256": "4fdda99363b40d760aa6a024629a225535b25ac0d6c3352338894ac51fe0a482"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_error_topology.rs",
+      "bytes": 8854,
+      "sha256": "a843be6f59926b9526811cbcfc33791d261e4088bc3aa62f748383584c646377"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_fault_simulation.rs",
+      "bytes": 10505,
+      "sha256": "d8c18887db673a0368a991451c3247078996a9cad0450c2622900a8edcbfdc03"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_fsm.rs",
+      "bytes": 15403,
+      "sha256": "919d7ae741495137a9f849263ed254743c57d8df86d202c7d218dbd461c1acf4"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_graph_diff.rs",
+      "bytes": 10462,
+      "sha256": "1b4682a4642742dc274185da918c2837b6a8bb17d43473d01642d7be71cc43bf"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_logic.rs",
+      "bytes": 7898,
+      "sha256": "e858921d22fa0b052c9ed1d8f987a7c830447e4a4b0c5d71561d52110a403d84"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_migration.rs",
+      "bytes": 8875,
+      "sha256": "96ccdc5637b044650b0204413b5cf8bf253c95f8b296aff4ade1c20e6ddcf807"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_path_verify.rs",
+      "bytes": 7381,
+      "sha256": "e5780719613d19d1e33788c5f584233e4ff52dadd11df312377b72afc167cab0"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_pressure.rs",
+      "bytes": 7068,
+      "sha256": "0b6d40e30ddace8f8b8b7446b0506e57a292d73088965531b51b686ba44a16b5"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_report.rs",
+      "bytes": 9281,
+      "sha256": "ce4454d5d8b8d797f53b5a95da4395c30b1a70fae57a14c356acd5ff70fb018d"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_requirements.rs",
+      "bytes": 6544,
+      "sha256": "8d6d74346d72ae2a4826b4432ac780ee5fbc458782ad9893d6ddf1490104825b"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_session.rs",
+      "bytes": 31579,
+      "sha256": "8c120e4f4e740e5bd2b7075072bf538c9dba8e94be0ca3a1ae07b000d532a2e7"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_session_dispatch.rs",
+      "bytes": 3975,
+      "sha256": "95b4d258af1b70b314180a07942ccb71b8dcbd6560b76fdc32c04e8e8f5060a7"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_tech_debt.rs",
+      "bytes": 28273,
+      "sha256": "fbf694548fb020fa30af396b1e16405bfaa5ca7f2e1d56c2581f50f6f5da4717"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_test_gap.rs",
+      "bytes": 15597,
+      "sha256": "5d29f5d413c9d73cc4e27b7b7e6aa87a2f04ef96ff5d43c5e9ccb06c2c9c9dee"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_tests_01.rs",
+      "bytes": 25199,
+      "sha256": "a166cf8f25aeec561f07f5bb2ca3d29b554697e9ae5d2231a825b570fb27b7fe"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_tests_02.rs",
+      "bytes": 24097,
+      "sha256": "8c9c251ba48e340b52de298ea9fe9e948746ea07197f0fa6cdf91b35f0f31aa4"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_tests_03.rs",
+      "bytes": 23992,
+      "sha256": "d9e26b6a1b3bb8953e2a3bd3fcef93744f6c19ce0d166e9c2c738aebcd924b25"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_tests_04.rs",
+      "bytes": 30502,
+      "sha256": "84226a19930407cc6cb762a0e2c544bedfa6745c2434a3e5e9adcab2d87d284d"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_tests_05.rs",
+      "bytes": 23197,
+      "sha256": "d5547f2430c77f8d1173c572f59881f5514769c1d5a24e203ddcceec47c51691"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_verify_diff.rs",
+      "bytes": 9106,
+      "sha256": "6e5b0b219939235974f620de9b5464e12e47d4616ebfb74c083ceda1b94f6d89"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_violations.rs",
+      "bytes": 6855,
+      "sha256": "bb387e0405cbaf77ea845b79d4362cf7293d488e9633ec1909f532d52f40f294"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/audit_worker_scope.rs",
+      "bytes": 7830,
+      "sha256": "baaa1a3efea88098c49c44a3503f66b93f778d47faeb1e2dc475c894aa56b1cf"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/discover_tests_01.rs",
+      "bytes": 23586,
+      "sha256": "073979db195c7b87c4f30d7e524cb32340eea2f1982599ee3abd39d8fa93bdce"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/discover_tests_02.rs",
+      "bytes": 22170,
+      "sha256": "e5720f255e5024c78b8854d708d0846fd4a32f1419da26984b2f94975db45b81"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/discover_tests_03.rs",
+      "bytes": 35606,
+      "sha256": "f7b9815e094e7f4a378a4ee2ef31b2dff98cef8e4e21c63803db87348e1efc58"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/discover_tests_04.rs",
+      "bytes": 24766,
+      "sha256": "300acb9fb011aac6eef2563da34e707ae47d3c30a3943879344fd2bd5677f153"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/discover_tests_05.rs",
+      "bytes": 2786,
+      "sha256": "c8b4ec9802a4f4f38cfd3f74696b6b345dd6c91959d21819d65af4ee310562de"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/docs.rs",
+      "bytes": 37502,
+      "sha256": "0775de5d4e80ff3efd026a57a4669db2d5650d5283dc046fa226fa981e4fc126"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/docs_index.rs",
+      "bytes": 20545,
+      "sha256": "ba5212ce9665368834d964add478394cdc251533c54bbe9a45f3925dfb5a3741"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/docs_index_tests.rs",
+      "bytes": 11400,
+      "sha256": "bc4329f14128e0be4bf246823df165e3cdc12e63da7e76dcd619a56a67baf2ef"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/docs_tests_01.rs",
+      "bytes": 24201,
+      "sha256": "c69c0b6fc7646ae4ae612ce1eae11ec1fa9ff7b3d3adba67145c7eb167604bf2"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/docs_tests_02.rs",
+      "bytes": 25343,
+      "sha256": "1595686de9c97b704e2585f70d5c73709b02f337e6a2906c1cf560e482f84315"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/docs_tests_03.rs",
+      "bytes": 25961,
+      "sha256": "52d8c73c6238a2df93c495fa710173ca829385f9d5be9dc5fae556f2954d50bd"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/docs_tests_04.rs",
+      "bytes": 28715,
+      "sha256": "9e0f9007ec635993ab8ceeb0f3439d1b695690fd14e79340a2a1567820224fae"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/docs_tests_05.rs",
+      "bytes": 26547,
+      "sha256": "22e719fca6531a655f5ed7d77e1320112c786c619c4fe3be91ae6f23a0a46537"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/docs_tests_06.rs",
+      "bytes": 24757,
+      "sha256": "ccd9b2fbc08971cc3cb8397a1b550d359f94fe90d15ff4badeab63626edad513"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/docs_tests_07.rs",
+      "bytes": 1961,
+      "sha256": "3215885aab8aae35ab57f785dc75b78dd987894edc0d3b24d5906648a94b401d"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/evidence_planner.rs",
+      "bytes": 46492,
+      "sha256": "d8144c24089508610bc2fd28f8475aa2f6eb84e11c4d1393ed1356448f47639d"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/evidence_planner_measurement_tests.rs",
+      "bytes": 60330,
+      "sha256": "86c124dd1bf53def6b913453ca312e6cbe4c8f5b61ea9620e7196b70f0e1ce27"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/evidence_planner_tests.rs",
+      "bytes": 116151,
+      "sha256": "888dba922ba2792a9ad754f404264edb0ec005801aec7070e451094d508a5d29"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/extension.rs",
+      "bytes": 53246,
+      "sha256": "42a122eb5a8c85c6069a837a793a87c3caae81b580c2edfaf641362d75e6dce6"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/extension_tests.rs",
+      "bytes": 174439,
+      "sha256": "33f1e7527ef13922ef3cb63bde8ecccfb372e5cffb3ecb0e2b88ece3bf8caefe"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/fixtures/lineage_rollout/corpus.json",
+      "bytes": 3701,
+      "sha256": "11792bbcb63d36b23331ba2c49bda26344a2a7f45678225e0df845a01a1b80a5"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/fixtures/lineage_rollout/mock_records.jsonl",
+      "bytes": 4278,
+      "sha256": "ce3a13a71368d7fc189de79855e1a12d78f00a4fc651bb6cb5c281fbb67036d2"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/group_state.rs",
+      "bytes": 4518,
+      "sha256": "9fd370d00736d026f7abfdac25d1565c2d62a641ef1f938d7b0f10b22013d5d0"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/indexer.rs",
+      "bytes": 91855,
+      "sha256": "11ebc5b4b768a4ecb04875b0c754168f7ac36e3264b70b61bbb804e20e00d553"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/indexer_tests.rs",
+      "bytes": 84261,
+      "sha256": "8a63f9ce287e794b1e43c2343bca0ac9e56b9f8a72b58602eb5b30440dc135da"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km.rs",
+      "bytes": 25959,
+      "sha256": "7f396208fa8212d73ff70fcac9d559466afcee6b8aca9174314de60b72133b27"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_agent_authoring.rs",
+      "bytes": 9475,
+      "sha256": "f11b89c8780e945f7254e9da6bfddd1346b2d0b87b6531e2a385ced6e4c2209e"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_agent_authoring_tests.rs",
+      "bytes": 27289,
+      "sha256": "13c7ee490a57dad3c70da959d9969fe7b26e00df886909e5514c1ab59103152e"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_agent_tools.rs",
+      "bytes": 15751,
+      "sha256": "a10682a2ecd61ce8f68d28fcaefe3d5a475601efaf30fc3d4edcd7bd157da544"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_agent_tools_tests.rs",
+      "bytes": 27626,
+      "sha256": "006d568d76fd3f51dcd7c48972aad024264f21f3b2731299e941b2a2ccea4363"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_context.rs",
+      "bytes": 12032,
+      "sha256": "09249522ac289adbede4d2d20c7ae7d3b3d3c056ddd67de657f429c48872ef11"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_context_tests.rs",
+      "bytes": 28088,
+      "sha256": "9eb1c6ec7309c63eb9938165e2c110c6ddfd5d52395c5e6deab34847e1ba4999"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_eval.rs",
+      "bytes": 8801,
+      "sha256": "93a67b25f5846c23c339a59b484943de0a870a6057aa68f9e125f51f9fa3841d"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_eval_tests.rs",
+      "bytes": 8191,
+      "sha256": "7eb78758fec362d4cb168df8e0a47b95d93e2fd3860f32c15d41bbd0ad4fe006"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_gold.rs",
+      "bytes": 18759,
+      "sha256": "e28cc5075bba089c5b2ff21b170971dd2ede644caf3615f62820426e6cf76bac"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_gold_tests.rs",
+      "bytes": 13257,
+      "sha256": "5b878f5596e0be2ca5672d8487da9b9bacdc6e27d00992805ada7dbb8ad13078"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_import.rs",
+      "bytes": 23185,
+      "sha256": "fcd12dd08a2d14ec2417d2d7aba1ecf43c9661fdc00b32658556a6e192de5c3c"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_import/tests.rs",
+      "bytes": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_import_tests.rs",
+      "bytes": 19622,
+      "sha256": "232ddbad357e0c17265cf2107a6a3f3214109480deb64a248b0f8c914e7d413f"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_librarian.rs",
+      "bytes": 29052,
+      "sha256": "a6c9f5f414f7a3906b5556fdc0d2e48f8034cfe63e2d4588d1cb9ab8e3255915"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_librarian/ontology_query.rs",
+      "bytes": 11083,
+      "sha256": "4099cdadc324497cb5fe63f3ce2460a3b6ec24dff3010457508711c2ef1ce0ba"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_librarian/source_drift.rs",
+      "bytes": 2098,
+      "sha256": "d8d74de409236cb733ff6637cee06e195cf3e1707713451dd6b729fe184d8404"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_librarian/version_diff.rs",
+      "bytes": 9938,
+      "sha256": "5615a6a996aa14e2b3d2bf16860869de3610cb26ca6e64c23af054aaea361ac7"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_librarian/version_diff_tests.rs",
+      "bytes": 11617,
+      "sha256": "87e935226df150b1ebecd52c3acef1c7c1263e993ed7ca1fc4048992668a0f8f"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_librarian_tests.rs",
+      "bytes": 46918,
+      "sha256": "c3c419d395c2926681fb7baa8b5e3777fe5f178955efcdf6bfc98814a3df5921"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_llm_client.rs",
+      "bytes": 17155,
+      "sha256": "f882b3f79831e38678cd72337140565e041b0b5582122409c3482871b4044bff"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_llm_client_tests.rs",
+      "bytes": 31281,
+      "sha256": "30d3cc9987cc3777bb9eb98b74a933d7b36374f442bb60f574b014c0685c41ad"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_llm_consolidate.rs",
+      "bytes": 15267,
+      "sha256": "ba571d9040ba93a341b439dbae3cf71a50f5b8767b39453edbb042b72c7dac41"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_llm_consolidate_tests.rs",
+      "bytes": 13862,
+      "sha256": "e38530191db983e34c51b4ee39afad6176df52c315ca05fc26c25cacb8d4867a"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_llm_extract.rs",
+      "bytes": 16639,
+      "sha256": "7a3a83bc254e39f8bb612f91140dd3a7bb904e29dd09fd13f4346c678f23085d"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_llm_extract_tests.rs",
+      "bytes": 22153,
+      "sha256": "88debb66148f35c75d680509f9abcc294768ba9d9ba26b98af4d788f9b91d6e2"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_llm_judge.rs",
+      "bytes": 11385,
+      "sha256": "55c3a125c56f9a62a725c07edab49c223f8b8fe10c63b6767b5bf789cdea9749"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_llm_judge_tests.rs",
+      "bytes": 11407,
+      "sha256": "8611027715451b6c11c213344081ccf482363ae5b11008e2bbe396b5e31dac76"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_llm_lint.rs",
+      "bytes": 6558,
+      "sha256": "e48dcf52ade47ddf49d2b2b84256157990f19cc48049346d7c34c5bc4675ba30"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_llm_lint_tests.rs",
+      "bytes": 9046,
+      "sha256": "4b1928fa7b475ffea2af7409c6631ece53180e8a690962c5f740a9d7a9ac0261"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_llm_recipe.rs",
+      "bytes": 6900,
+      "sha256": "2f95600ad6fc86749d28f7e20134b1ef0d3e524a073dc3e3c34e6fe758230301"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_llm_recipe_tests.rs",
+      "bytes": 6591,
+      "sha256": "2ed1915e1f3fa08f85a879274ea26ba975042e4193cb880dd55496fbf4eac1b4"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_resolve.rs",
+      "bytes": 14035,
+      "sha256": "ae6a2fe4a55972866a1c4474a286a75ad8b7631460ad21ac01a27a029ad88d83"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_resolve_tests.rs",
+      "bytes": 37126,
+      "sha256": "67571e7ba56e9fde856579c2128608614014d9300603716a425cb707d39b878d"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_store.rs",
+      "bytes": 33676,
+      "sha256": "93480b4e33f1b23d6cdf44cb07e0e69699820e42d92bac3ce3e02c6db18c6308"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_store_tests.rs",
+      "bytes": 55647,
+      "sha256": "b537240e322b220627adf69f2a3d9ca59d02538e08263c1d91a97b9bf6ffddd3"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/km_tests.rs",
+      "bytes": 39327,
+      "sha256": "6802adf9ca5e44de34e9ac3b31ad02e45a65e8c118cb1b7237757ca118a6adf3"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lib.rs",
+      "bytes": 4003,
+      "sha256": "48843c12ceaf6a8f8fecf2418e017c55b11f0730e832bdaa23ef3c9e9a1c5bf4"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_admission.rs",
+      "bytes": 7075,
+      "sha256": "4ebfd23db2531efbf74fd5022c5b01c8a1dd59e943e4e1526a0e566c75fb95d9"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_admission_record.rs",
+      "bytes": 3757,
+      "sha256": "a50bc5d60a785c40225980419ca9b5c47daf76a395fa48ea12f488f9bdc5d2bf"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_admission_record_tests.rs",
+      "bytes": 3622,
+      "sha256": "8299082ddaafd20c9ec7e6cc970faaf6ae676cdb52a4b14b8abb552bc63d9500"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_admission_tests.rs",
+      "bytes": 14813,
+      "sha256": "24083f1c97071c4d2808f2aa1e8d651d237fde4f950f8daed327e4e9902a5d86"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_collector.rs",
+      "bytes": 24756,
+      "sha256": "7b7b49503970890e4057ad34b3410956ce04607d50090ac7fdb94cec91be720c"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_collector_tests.rs",
+      "bytes": 23208,
+      "sha256": "507acc6b4f40cd333766113a914f2fd285fddfa456ae55f3fabada4d4f172564"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_compaction_tests.rs",
+      "bytes": 15221,
+      "sha256": "808fe0ae5fcb6738a7951fa80b7a0a233f556fdef0c3dfe279e93eb81249ebfa"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_grounding.rs",
+      "bytes": 11677,
+      "sha256": "ebe9caeb1c6ece47d4102c8350d06889a4c8322252544950b6117e53e7f4be26"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_grounding_tests.rs",
+      "bytes": 12081,
+      "sha256": "e477196862b0e347b4cfe5916a2132f0d0a90bd6593528af10679743cef0e89c"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_km_retrieval.rs",
+      "bytes": 23853,
+      "sha256": "0dd6a416974f41ee43e876deea91b848d259b0e5a4cdb7c1821f173cc578c93b"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_km_retrieval_tests.rs",
+      "bytes": 21193,
+      "sha256": "e4722efcdcdcb23e09fc18ceb0fc5e82e221881d71b1add3b94fcf451ac996a9"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_records.rs",
+      "bytes": 13505,
+      "sha256": "0e2b25cbbd5c8f089c0f7e88a75322104891d037cc78d2686b713b3dfd539732"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_records_tests.rs",
+      "bytes": 10649,
+      "sha256": "df171d910fa027dfd06fdc96da0c41ba46eeca59c0cae48dc15177771c8d907e"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_replay.rs",
+      "bytes": 26013,
+      "sha256": "fd0cda6f9708dee777c6c7080bf4beb0c65ac19e0288987df91889b33b64ae1d"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_replay_tests.rs",
+      "bytes": 19618,
+      "sha256": "0fc677e4d92f972cfba365d0de9a9f8f6cc67ee2f48dae8f6244452f11f124a9"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_routing.rs",
+      "bytes": 18978,
+      "sha256": "9b27fbf8b334bd11c35de2cf8c35050d820a71881efeaddf26ad7205673346ad"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_routing_tests.rs",
+      "bytes": 13525,
+      "sha256": "17cfc49b3b4058c20e7138ffecebb3439fc0633cc12f85498a17782b299cf61a"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_selection.rs",
+      "bytes": 9215,
+      "sha256": "506893a15da3bff7e546354c9ae345fb53bdd85582609472b3f8e229dd1c6a04"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_selection_tests.rs",
+      "bytes": 10300,
+      "sha256": "aea25126041b731d8d9b029bb26ed1de1eec8e13a76752b91a8a2f25dc694f1d"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_session_tests.rs",
+      "bytes": 33221,
+      "sha256": "71970d29ffe529c1b99488c8b1e73f94904179f53230fab06667daecb7228ab2"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_trace_convert.rs",
+      "bytes": 9364,
+      "sha256": "4f6d235027bb794e6d2791ca054244d565ad764d8bca80f51e64767e0daf7b9b"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/lineage_trace_convert_tests.rs",
+      "bytes": 15683,
+      "sha256": "b37c8fde7dff660cfb8748ea386423db2bdd636fa431961fbedf017f9238d44f"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/manage_session.rs",
+      "bytes": 1528,
+      "sha256": "85b7f8b95c644d67f9c98e2292ae405ec44628436d582f6ecac583056df74831"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/manifest.rs",
+      "bytes": 14877,
+      "sha256": "721462eaf819f0264aefdf29c72665933b0fecb681938d3b0a53f10dc68eecc9"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/manifest_tests.rs",
+      "bytes": 16411,
+      "sha256": "d035520cbce45a8c3a4b74da348a0191ce795f277b7800d2df49bd923a398fdf"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/procedural_context_tool.rs",
+      "bytes": 6779,
+      "sha256": "9e93c065e744aa7c35c3e66b36f4af0639fece96c80b9857ef5dae82cab7dfdf"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/procedural_graph.rs",
+      "bytes": 5384,
+      "sha256": "2567c35f2736ace190d9e62046e7a22739d99c5589b5902be7fac59882da3dd1"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/procedural_graph_tests.rs",
+      "bytes": 11969,
+      "sha256": "fdbe9012c0a7ecbb71ee43d94cdeb4b679248e90ead72956cedaf668269e6e32"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/query.rs",
+      "bytes": 19390,
+      "sha256": "99738764228fbcaedf143a315fed7bd7f06e09b0b212a95e2fb363cd36ad2128"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/query_tests.rs",
+      "bytes": 18728,
+      "sha256": "88eba0aed6756907a10d98c0bcd8478002e17b54c16b082ce12374fb10481393"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/resource_facts.rs",
+      "bytes": 8303,
+      "sha256": "2a1dfdda89920fac73018ddfaecc5e1844f753302042d4299ac3fdb2971c1455"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/resource_facts_tests.rs",
+      "bytes": 1456,
+      "sha256": "f4fdd96260aab961dd89efa8c560d27d716f8c0f8ff0c897e82aa250a902d916"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/rust_parser.rs",
+      "bytes": 14884,
+      "sha256": "779b809011660a4daa9c8e55bf72a96b10dd3c6bba659d528e9ceae2a134608f"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/rust_parser_tests.rs",
+      "bytes": 4372,
+      "sha256": "b566b6138e65e15b708b2930bab886b733a71d044cb0dd30c1efea04fd0299b5"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/tests.rs",
+      "bytes": 8825,
+      "sha256": "5afb5541aa91d56998a4e0caf0d978b4dd0572e813855bd8ed327554069cd839"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/tool.rs",
+      "bytes": 103276,
+      "sha256": "563bf376face97c5e109506eb935f9db36b2f00696e2bbf2d23fe85221c30daa"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/tool_discover.rs",
+      "bytes": 13531,
+      "sha256": "28384fdc1060e808fda3cde08151b76bbdc3a98ec4b0ea56f9ffd870b044f362"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/tool_dispatch_tests_01.rs",
+      "bytes": 27153,
+      "sha256": "a52fe73923acbe28f5f851093bba17d3cf2df28f4debfe2d2e0acf543f7e5992"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/tool_dispatch_tests_02.rs",
+      "bytes": 24870,
+      "sha256": "2787d53fada9db9d68635fc1a96f45bdf27b866d28498eff45ffe4f2db5393fc"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/tool_dispatch_tests_03.rs",
+      "bytes": 22769,
+      "sha256": "70227c30397f48181ca237d19af24705d29168864d5995a6dbb68d2909e98e1d"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/tool_docs.rs",
+      "bytes": 9916,
+      "sha256": "122fef0ef55e09b4008ee9a80cdc7e5d686893cfea10d4d80536acc1e5346cd0"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/tool_explain.rs",
+      "bytes": 2610,
+      "sha256": "2b8f9670fd1c29f702265cf10576d4fa58f418cbb44c4e07cbed34632950f294"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/tool_impact.rs",
+      "bytes": 9324,
+      "sha256": "bcfc39dcd2b26b09d5c6542893ba05536485273b4954a0f390146347dfc467b4"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/tool_inspect.rs",
+      "bytes": 9040,
+      "sha256": "21072e75a675d05b039a4a2f6ea81fab0f79600965d162c5ab20bec978b93693"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/tool_km_context.rs",
+      "bytes": 3294,
+      "sha256": "9bb3b68a93f1f5edb0e1a118d77493b89dd73e546e111d20da4f1b4a08dece0b"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/tool_manage.rs",
+      "bytes": 6301,
+      "sha256": "4bf0b7a3ab2a034b348f9c0df9fc2e1f6b7be486fe598b80d40405fafd141493"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/tool_search.rs",
+      "bytes": 7016,
+      "sha256": "5d68c95d55b25845699187d13e0531ca1ba08cc0f9207e1492e74c7d42f60622"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/tool_tests.rs",
+      "bytes": 30914,
+      "sha256": "1ed15bb40c11487dec27ce1d7d8a76fe900d9ce92a47f15442b7059287b0980c"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/tool_types.rs",
+      "bytes": 16575,
+      "sha256": "1387cd94ecb95292d38131332bebcfe40b9c652180eb0c1cb122cb0d09c480a5"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/trace_boundary.rs",
+      "bytes": 6352,
+      "sha256": "083bb99d4893471f8081fc3fd2d18a5beb87b8f2670279bb8ee5225822ea8de6"
+    },
+    {
+      "path": "ontocode-rs/ext/ontograph/src/trace_boundary_tests.rs",
+      "bytes": 3796,
+      "sha256": "87ec784a8bc6ccdd59b145c75594fbc0a00bee90d20bf98b6af4c462f02db706"
+    },
+    {
+      "path": "ontocode-rs/features/Cargo.toml",
+      "bytes": 526,
+      "sha256": "d90b6e77c09226686bad0ff575b43012b8ab6aff056849ed52366546423609be"
+    },
+    {
+      "path": "ontocode-rs/features/src/lib.rs",
+      "bytes": 42805,
+      "sha256": "99e9945718d4e30fb5a82ea2977b3646524f56ed640a5deed587b07ba3668fb5"
+    },
+    {
+      "path": "ontocode-rs/features/src/tests.rs",
+      "bytes": 25090,
+      "sha256": "71660386abbbb8c830b44080ab6e32ef48640ea846859b494366e93482175ef2"
+    },
+    {
+      "path": "ontocode-rs/rust-toolchain.toml",
+      "bytes": 78,
+      "sha256": "570656042681cfd8795403a455baf9a33035331a07db0645e866bbcea89a3d64"
+    },
+    {
+      "path": "ontocode-rs/tui/Cargo.toml",
+      "bytes": 5719,
+      "sha256": "22bc60db8b98239e135de356d4130e37cc79a834f31b233350b8210cbfa5f08d"
+    },
+    {
+      "path": "ontocode-rs/tui/src/chatwidget.rs",
+      "bytes": 84403,
+      "sha256": "2b608a77b4a2f54b82d7395d7c87a8f08d9c7477dc0de8fcccf3f077ce6a22b0"
+    },
+    {
+      "path": "ontocode-rs/tui/src/chatwidget/ontograph_command.rs",
+      "bytes": 6692,
+      "sha256": "51e384e1329a7c46b1ebf4edf2df57980ca6f6282596194a866b950fd8e6aa46"
+    },
+    {
+      "path": "ontocode-rs/tui/src/chatwidget/slash_dispatch.rs",
+      "bytes": 57097,
+      "sha256": "0cea5e3af44c6354bb8f4ee436afc5f1e55565ba23972a21cf42423737005d30"
+    },
+    {
+      "path": "ontocode-rs/tui/src/chatwidget/tests/slash_commands.rs",
+      "bytes": 106729,
+      "sha256": "c9c41e650bd9aa5c450769271828a279f16cd1f06e004454684a400ada2bd975"
+    },
+    {
+      "path": "ontocode-rs/tui/src/slash_command.rs",
+      "bytes": 14002,
+      "sha256": "510e54a5517b1f7513860a1d1e5f0477e3d3f4d5de5482ef56cb2c07b30649bc"
+    }
+  ]
+}

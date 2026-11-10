@@ -1,0 +1,14 @@
+load("//:defs.bzl", "codex_rust_crate")
+
+codex_rust_crate(
+    name = "ontograph",
+    crate_name = "ontocode_ontograph_extension",
+    compile_data = [
+        "//:.ontocode/ontograph/km/cgraph-donor-patterns/examples/README.md",
+        "//:.ontocode/ontograph/km/cgraph-donor-patterns/facts.jsonl",
+        "//:.ontocode/ontograph/km/cgraph-donor-patterns/km.toml",
+        "//:.ontocode/ontograph/km/cgraph-donor-patterns/tests/README.md",
+        "src/fixtures/lineage_rollout/corpus.json",
+        "src/fixtures/lineage_rollout/mock_records.jsonl",
+    ],
+)

@@ -1,0 +1,23 @@
+{
+  "corpora": [
+    {
+      "name": "ontoindex",
+      "url": "https://github.com/ontograph/ontoindex",
+      "commit": "d535fe888a88694c524636bed8a7c409594184cb",
+      "licence": "AGPL-3.0-or-later",
+      "local_path": "../../ontoindex",
+      "markdown_files": 325,
+      "note": "Local evaluation only; not redistributed."
+    },
+    {
+      "name": "rust-book",
+      "url": "https://github.com/rust-lang/book",
+      "commit": "2771df165f092a4fbb9f46b5b2e7450f19010adb",
+      "licence": "MIT OR Apache-2.0",
+      "local_path": "../../rust-book",
+      "markdown_files": 112,
+      "note": "Markdown counted under src/."
+    }
+  ],
+  "local_path_base": "eval/"
+}

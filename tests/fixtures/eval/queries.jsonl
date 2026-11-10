@@ -1,0 +1,15 @@
+{"id":"a01","text":"install with cargo","stratum":"lookup","corpus":"a"}
+{"id":"a02","text":"rust version requirement","stratum":"lookup","corpus":"a"}
+{"id":"a03","text":"where are settings stored","stratum":"lookup","corpus":"a"}
+{"id":"a04","text":"which files are skipped by ignore rules","stratum":"lookup","corpus":"a"}
+{"id":"a05","text":"how are generations published and pruned","stratum":"conceptual","corpus":"a"}
+{"id":"a06","text":"configure ignore files for indexing","stratum":"multi-hop","corpus":"a"}
+{"id":"a07","text":"weather forecast for tomorrow","stratum":"off-topic","corpus":"a"}
+{"id":"a08","text":"chocolate cake recipe","stratum":"off-topic","corpus":"a"}
+{"id":"b01","text":"bm25 lexical search","stratum":"lookup","corpus":"b"}
+{"id":"b02","text":"pagerank graph mode","stratum":"lookup","corpus":"b"}
+{"id":"b03","text":"when does search abstain","stratum":"lookup","corpus":"b"}
+{"id":"b04","text":"citation byte span hash","stratum":"lookup","corpus":"b"}
+{"id":"b05","text":"how does verification report states","stratum":"conceptual","corpus":"b","model_drafted":true}
+{"id":"b06","text":"graph links to citation verification","stratum":"multi-hop","corpus":"b"}
+{"id":"b07","text":"football league results","stratum":"off-topic","corpus":"b"}
