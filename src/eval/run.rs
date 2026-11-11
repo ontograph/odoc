@@ -2051,9 +2051,12 @@ fn verify_completed(
     Ok(())
 }
 
-fn held_out_preflight(bench: &Bench) -> Result<super::sweep::FrozenConfig, EvalError> {
+/// Full frozen check for a freeze already verified by [`check_held_out_code`].
+fn held_out_preflight(
+    bench: &Bench,
+    frozen: super::sweep::FrozenConfig,
+) -> Result<super::sweep::FrozenConfig, EvalError> {
     use super::sweep::{CodeIdentity, check_frozen};
-    let frozen = check_held_out_code(bench)?;
     let custody = Custody::resolve(Path::new("."))?;
     check_frozen(&frozen, bench, &CodeIdentity::current(&custody.root)?)?;
     Ok(frozen)
@@ -2271,8 +2274,12 @@ fn run_reserved(
     attempt: Option<(Custody, AttemptStarted)>,
 ) -> Result<Report, EvalError> {
     let result = (|| {
+        let registered = if split == SplitName::Test {
+            Some(check_held_out_code(bench)?)
+        } else {
+            None
+        };
         if split == SplitName::Test {
-            check_held_out_code(bench)?;
             let custody = Custody::resolve(Path::new("."))?;
             let data = fs::canonicalize(&bench.dir).map_err(io_err(&bench.dir))?;
             if data.starts_with(&custody.root) {
@@ -2285,11 +2292,9 @@ fn run_reserved(
         }
         bench.require_prepared_capture(split)?;
         preflight(bench)?;
-        let frozen = if split == SplitName::Test {
-            Some(held_out_preflight(bench)?)
-        } else {
-            None
-        };
+        let frozen = registered
+            .map(|f| held_out_preflight(bench, f))
+            .transpose()?;
         let (splits, splits_sha256) = bench.splits()?;
         let (_, qrels_sha256) = bench.qrels()?;
         let indexes = bench.indexes()?;
@@ -2736,12 +2741,14 @@ pub fn score(bench: &Bench, run_dir: &Path, confirm_test: bool) -> Result<Report
         return Err(EvalError::TestSplitRefused);
     }
     check_score_split(meta.split, confirm_test)?;
-    if meta.split == SplitName::Test {
-        check_held_out_code(bench)?;
-    }
+    let registered = if meta.split == SplitName::Test {
+        Some(check_held_out_code(bench)?)
+    } else {
+        None
+    };
     preflight(bench)?;
-    if meta.split == SplitName::Test {
-        let frozen = held_out_preflight(bench)?;
+    if let Some(registered) = registered {
+        let frozen = held_out_preflight(bench, registered)?;
         if meta.git_commit.as_deref() != Some(&frozen.git_commit)
             || meta.binary_sha256.as_deref() != Some(&frozen.binary_sha256)
             || meta.git_dirty != Some(false)

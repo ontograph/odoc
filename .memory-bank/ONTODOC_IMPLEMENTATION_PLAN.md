@@ -1914,6 +1914,41 @@ tasks:
         authorization_ref: 'User 2026-11-11: review/challenge/consolidate and proceed; audit_session-2026-11-11-review-round3.md'
         validation_summary: 'Local run exit0: cargo test --lib cli:: 7 passed; cli 8, mcp 12 passed; cargo test --all-targets 256 passed 1 ignored; fmt --check ok; clippy --all-targets -D warnings ok. capped_iter takes at most MAX_LIST_ITEMS+1 lazily (clone after take) for related neighbours and status skipped/link_diagnostics; truncated semantics and responses at or below the cap unchanged. New test list_caps_take_at_most_one_extra_item_and_flag_truncation. Synthetic only.'
     dod_status: pass
+  SIMPL-2:
+    title: Given a held-out run or score, the registered freeze is read and verified once and passed to the later frozen check, with unchanged refusals
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - FIX-4
+    type: code
+    validation_tier: integration
+    impact_risk: low
+    owner_files:
+    - src/eval/run.rs
+    allowed_write_set:
+    - src/eval/run.rs
+    non_goals:
+    - Removing any identity, code, custody or power check; reordering checks before payload reads; changing CLI check-frozen.
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval:: && CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run --test cli'
+    - cargo fmt --check
+    expected_evidence:
+    - run_reserved and score call check_held_out_code once; held_out_preflight takes the verified FrozenConfig; all existing refusal tests pass unchanged.
+    rollback:
+    - Revert this task's src/eval/run.rs changes.
+    stop_conditions:
+    - Any refusal test changes outcome or a check moves after a payload read.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: proceed after stated default (baseline commit plus re-check consolidation); audit_session-2026-11-11-review-round3.md'
+        validation_summary: 'Local run exit0: cargo test --lib eval:: 48 passed; eval_gates 20, eval_run 13, cli 8 passed; fmt --check ok; clippy --all-targets -D warnings ok. run_reserved and score read/verify the registered freeze once (check_held_out_code) and pass it to held_out_preflight, which now only runs check_frozen; check order unchanged, no check removed; CLI check-frozen unchanged. Synthetic only.'
+    dod_status: pass
   PERF-1:
     title: Given concurrent MCP clients, requests snapshot the shared immutable index under a short lock and run with bounded configurable permits owned by the actual work
     status: DONE
@@ -1997,6 +2032,7 @@ tasks:
 | REQ-038 | Deferred review item: frozen TOML round-trips arbitrary corpus names | implementation | FIX-2 | escaped-name round-trip regression |
 | REQ-039 | 2026-11-11 round-3 review: verified eval output-budget, miss-attribution and dead-plumbing defects | implementation | FIX-3 | pre-reservation budget and attribution regressions |
 | REQ-040 | 2026-11-11 round-3 review: bounded related/status collection | implementation | FIX-4 | unchanged-response regression |
+| REQ-041 | 2026-11-11 round-3 deferred simplification: single held-out freeze verification per command | implementation | SIMPL-2 | unchanged refusal tests |
 
 ## Decisions And Non-Goals
 

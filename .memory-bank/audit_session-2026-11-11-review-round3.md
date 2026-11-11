@@ -107,3 +107,21 @@ D2 is kept rejected, in line with round 2 (`audit_session-2026-11-11-review-simp
   `project_pending-tasks.md` and `project_architecture.md`.
 - **Manager:** blocked. Every remaining task is gated on the owner or on human
   annotators: HTTP-0, then HTTP-2; EVAL-2.0, then EVAL-2.1/3.x and OD-4.x.
+
+## Follow-Up: Baseline Commit And SIMPL-2
+
+- After three plain "proceed" messages, the default I had announced was
+  applied. That default was the baseline commit plus the deferred
+  re-check consolidation.
+- **Baseline commit `441296e`:** the green tree at that point. All gitignored
+  artefacts were excluded and no secrets were found.
+- **SIMPL-2 DONE** (strict complete-local, revision `d7f431ba…80b2`).
+  - Before: a held-out run and a held-out score each read and verified the
+    registered freeze twice.
+  - Now: each does so once, and `held_out_preflight` receives the
+    `FrozenConfig` that was already verified.
+  - Check order and refusals are unchanged.
+  - Validation, exit 0: `cargo test --lib eval::` 48, `eval_gates` 20,
+    `eval_run` 13, `cli` 8; fmt and clippy ok. Plan validation passes with
+    47 tasks.
+- The manager is blocked again on owner gates: HTTP-0 and EVAL-2.0.

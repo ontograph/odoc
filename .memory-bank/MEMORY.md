@@ -14,7 +14,7 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
 
 ## Active Plans
 
-- [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - 37/46 done (FIX-3/FIX-4 closed 2026-11-11); blocked on owner gates: HTTP-0 exposure, EVAL-2.0 corpora/query approval/human annotators.
+- [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - 38/47 done (FIX-3/4, SIMPL-2 closed 2026-11-11); blocked on owner gates: HTTP-0 exposure, EVAL-2.0 corpora/query approval/human annotators.
 
 ## Recent Evidence
 

@@ -9,7 +9,7 @@ Updated: 2026-11-11
 
 | Canonical plan | State | Active task | Counts |
 | --- | --- | --- | --- |
-| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | none (owner gates: HTTP-0, EVAL-2.0) | 37 DONE, 7 OPEN, 2 BLOCKED; 46 total (FIX-3/FIX-4 DONE) |
+| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | none (owner gates: HTTP-0, EVAL-2.0) | 38 DONE, 7 OPEN, 2 BLOCKED; 47 total (SIMPL-2 DONE) |
 
 - 2026-11-11 review round 3 ([audit](audit_session-2026-11-11-review-round3.md)):
   FIX-3 (all run files sized against one 16-MiB scoring payload from pinned
