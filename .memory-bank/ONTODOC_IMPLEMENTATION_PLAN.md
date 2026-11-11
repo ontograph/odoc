@@ -2,7 +2,7 @@
 
 Date: 2026-11-10
 Status: HTTP delivery done; EVAL-2.0 parked by owner (2026-11-11) pending human inputs; see manager_loop
-Authority: `ADR_ONTODOC_SERVICE.md` (Accepted, revision 10); user requirement of
+Authority: `ADR_ONTODOC_SERVICE.md` (Accepted, revision 13); user requirement of
 2026-11-08: new Rust MCP service for documentation in this repository, with
 scientifically provable improvements. Reviews: `audit_session-2026-11-08-prior-attempt-review.md`,
 `audit_session-2026-11-08-donor-ideas-review.md`, `audit_session-2026-11-08-plan-challenge.md`.
@@ -2333,6 +2333,50 @@ tasks:
         authorization_ref: 'User 2026-11-11: "approved" (round-7 option 2, table-aware first sentence); ADR revision 12'
         validation_summary: 'Local run exit0: cargo test --all-targets (lib 214 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4, mcp 12, ranking_sanity 1); fmt --check ok; clippy --all-targets -D warnings ok; git diff --check ok. All section/chunk-id fixture tests unchanged and green. No dev or held-out data exists or was read.'
     dod_status: pass
+  FIX-13:
+    title: Given owner approval, relative `.html` links resolve to an existing sibling `.md` source (schema 4) and a corpus rooted in a checkout subdirectory excludes only its own store from the pin dirty check
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - FIX-12
+    type: code
+    validation_tier: unit-fast
+    impact_risk: high
+    owner_files:
+    - src/graph.rs
+    - src/store.rs
+    - src/eval/gates.rs
+    - tests/cli.rs
+    allowed_write_set:
+    - src/graph.rs
+    - src/store.rs
+    - src/eval/gates.rs
+    - tests/cli.rs
+    non_goals:
+    - Section or chunk identity changes, ranking parameter changes, tuning, migration of old stores, absolute-URL link resolution.
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib graph:: store:: eval::gates::'
+    - CARGO_BUILD_JOBS=4 cargo test --all-targets
+    - cargo fmt --check
+    expected_evidence:
+    - '`x.html`/`x.htm` (any case, optional anchor) links to an existing `x.md` become LINKS_TO edges; a missing `x.md` stays ignored without diagnostics; a missing anchor on a resolved page is a MissingAnchor diagnostic.'
+    - SCHEMA_VERSION 4; schema 3 and 5 artifacts refuse as unsupported; CLI status reports 4.
+    - git_state on a `src/` root ignores `src/.ontodoc` but not other untracked files; code identity is unchanged.
+    rollback:
+    - Revert this task's listed changes; schema-4 stores then need a reindex.
+    stop_conditions:
+    - Section or chunk ids change on any existing fixture.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: "1 b ... 2 i 3 ok" (html link mapping, rust-book/src root, model-judged exploratory track); ADR revision 13'
+        validation_summary: 'Local run exit0: cargo test --all-targets (lib 216 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4, mcp 12, ranking_sanity 1); fmt --check ok; clippy --all-targets -D warnings ok. Pinned rust-book/src reindexed: 112 docs, 276 LINKS_TO (was 0 from reference .html links), 17 MissingAnchor diagnostics. Synthetic tests only; no dev or held-out data.'
+    dod_status: pass
   PERF-1:
     title: Given concurrent MCP clients, requests snapshot the shared immutable index under a short lock and run with bounded configurable permits owned by the actual work
     status: DONE
@@ -2426,6 +2470,7 @@ tasks:
 | REQ-048 | Round-6 review: hand-computed scorer edge tests; dev hash-crate optimization | implementation | FIX-10 | search:: numeric tests |
 | REQ-049 | Round-7 review: interrupted prune recovery via temp namespace; discriminating fusion ties; bounded HTTP test reads | implementation | FIX-11 | store prune regression |
 | REQ-050 | Owner-approved table-aware first sentence; schema 3 | implementation | FIX-12 | tiers first_sentence regression |
+| REQ-051 | Owner-approved `.html`→`.md` link resolution (schema 4); subdirectory corpus-root pin exclusion | implementation | FIX-13 | graph html-link and gates subdirectory-root regressions |
 
 ## Decisions And Non-Goals
 

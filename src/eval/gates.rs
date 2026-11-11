@@ -949,7 +949,9 @@ fn git_state_impl(dir: &Path, exclude_index: bool) -> Option<(String, bool)> {
             .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
     };
     let head = git(&["rev-parse", "HEAD"])?;
-    // `.ontodoc/` holds generated indexes and is not part of the pin.
+    // The corpus root's `.ontodoc/` holds generated indexes and is not part of
+    // the pin. The pathspec is relative to `dir`, so a corpus rooted in a
+    // checkout subdirectory (e.g. `book/src`) excludes its own store.
     let mut status_args = vec![
         "status",
         "--porcelain",
@@ -959,7 +961,7 @@ fn git_state_impl(dir: &Path, exclude_index: bool) -> Option<(String, bool)> {
         ":/",
     ];
     if exclude_index {
-        status_args.push(":(top,exclude).ontodoc");
+        status_args.push(":(exclude).ontodoc");
     }
     let status = git(&status_args)?;
     Some((head, !status.is_empty()))
@@ -1164,6 +1166,37 @@ pub fn check_benchmark(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn subdirectory_corpus_root_excludes_only_its_own_store() {
+        let dir = tempfile::tempdir().unwrap();
+        let git = |args: &[&str]| {
+            let ok = std::process::Command::new("git")
+                .arg("-C")
+                .arg(dir.path())
+                .args(["-c", "user.name=t", "-c", "user.email=t@example.invalid"])
+                .args(["-c", "commit.gpgsign=false"])
+                .args(args)
+                .status()
+                .unwrap()
+                .success();
+            assert!(ok, "git {args:?}");
+        };
+        let src = dir.path().join("src");
+        std::fs::create_dir(&src).unwrap();
+        std::fs::write(src.join("a.md"), "# A\n").unwrap();
+        git(&["init", "-q"]);
+        git(&["add", "."]);
+        git(&["commit", "-qm", "fixture"]);
+        // The corpus root `src/` owns `src/.ontodoc`; it is not a pin change.
+        std::fs::create_dir(src.join(".ontodoc")).unwrap();
+        std::fs::write(src.join(".ontodoc/CURRENT"), "x").unwrap();
+        assert_eq!(git_state(&src).map(|s| s.1), Some(false));
+        // Code identity still sees it, and any other untracked file is dirty.
+        assert_eq!(code_git_state(&src).map(|s| s.1), Some(true));
+        std::fs::write(dir.path().join("stray.md"), "x").unwrap();
+        assert_eq!(git_state(&src).map(|s| s.1), Some(true));
+    }
 
     #[test]
     fn jaccard_on_normalised_tokens() {

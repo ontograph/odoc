@@ -6,6 +6,9 @@
 //! - `NEXT`: chunk → following chunk of the same document.
 //! - `LINKS_TO`: chunk holding a relative Markdown link → first chunk of the
 //!   target section (`x.md#anchor`, `#anchor`) or document (`x.md`).
+//!   A relative `x.html` / `x.htm` link resolves to the sibling `x.md` when
+//!   that document exists (rendered-book links, ADR revision 13); otherwise it
+//!   is a non-Markdown link and ignored.
 //!   Self-loops are dropped.
 //! - `MENTIONS`: chunk → `code:<text>` for each inline code span; unresolved.
 //!
@@ -165,15 +168,29 @@ fn resolve<'a>(
     } else {
         let path = percent_decode(path);
         let lower = path.to_ascii_lowercase();
-        if !(lower.ends_with(".md") || lower.ends_with(".markdown")) {
-            return Resolved::Ignored;
-        }
-        let Some(rel) = join(doc.rel_path, &path) else {
-            return Resolved::Problem(LinkProblem::OutsideRoot);
-        };
-        match by_path.get(rel.as_str()) {
-            Some(target) => target,
-            None => return Resolved::Problem(LinkProblem::MissingTarget),
+        if lower.ends_with(".md") || lower.ends_with(".markdown") {
+            let Some(rel) = join(doc.rel_path, &path) else {
+                return Resolved::Problem(LinkProblem::OutsideRoot);
+            };
+            match by_path.get(rel.as_str()) {
+                Some(target) => target,
+                None => return Resolved::Problem(LinkProblem::MissingTarget),
+            }
+        } else {
+            // A rendered-page link counts only when its `.md` source exists;
+            // anything else stays an ignored non-Markdown link.
+            let stem_len = if lower.ends_with(".html") {
+                path.len() - 5
+            } else if lower.ends_with(".htm") {
+                path.len() - 4
+            } else {
+                return Resolved::Ignored;
+            };
+            let md = format!("{}.md", &path[..stem_len]);
+            match join(doc.rel_path, &md).and_then(|rel| by_path.get(rel.as_str()).copied()) {
+                Some(target) => target,
+                None => return Resolved::Ignored,
+            }
         }
     };
     let section_id = if fragment.is_empty() {
@@ -315,19 +332,7 @@ mod tests {
         assert_eq!(fixture_graph(), fixture_graph());
     }
 
-    #[test]
-    fn canonical_empty_components_do_not_become_markdown_anchors() {
-        let sources = [
-            (
-                "a.md",
-                "# Links\n\n[first](b.md#) [normal](b.md#normal) [duplicate](b.md#normal-1) [child](b.md#child) [empty](c.md#) [not an anchor](b.md#@empty)\n",
-            ),
-            (
-                "b.md",
-                "intro\n\n# Normal\n\nbody\n\n# Normal\n\nsecond\n\n# Parent\n\np\n\n## !!!\n\npunct\n\n### Child\n\nx\n",
-            ),
-            ("c.md", "# !!!\n\nbody\n"),
-        ];
+    fn inline_graph(sources: &[(&str, &str)]) -> Graph {
         let parsed: Vec<_> = sources
             .iter()
             .map(|(path, text)| {
@@ -346,15 +351,59 @@ mod tests {
                 chunks,
             })
             .collect();
-        let graph = build(&docs);
-        let targets: Vec<_> = graph
+        build(&docs)
+    }
+
+    fn link_targets(graph: &Graph) -> Vec<(&str, &str)> {
+        graph
             .edges
             .iter()
             .filter(|e| e.kind == EdgeKind::LinksTo)
             .map(|e| (e.from.as_str(), e.to.as_str()))
-            .collect();
+            .collect()
+    }
+
+    #[test]
+    fn html_links_resolve_to_existing_markdown_sources_only() {
+        // Reference-style links as in rendered books: `.html` maps to the
+        // sibling `.md` only when it exists; otherwise ignored, never a
+        // diagnostic. Non-page extensions stay ignored.
+        let graph = inline_graph(&[
+            (
+                "src/ch01.md",
+                "# One\n\nSee [two] and [deep] and [gone] and [pic] and [web].\n\n[two]: ch02.html\n[deep]: ch02.HTM#second-part\n[gone]: ch99.html#x\n[pic]: diagram.png\n[web]: https://example.com/ch02.html\n",
+            ),
+            ("src/ch02.md", "# Two\n\nbody\n\n## Second Part\n\nmore\n"),
+        ]);
         assert_eq!(
-            targets,
+            link_targets(&graph),
+            vec![
+                ("src/ch01.md#one~0", "src/ch02.md#two/second-part~0"),
+                ("src/ch01.md#one~0", "src/ch02.md#two~0"),
+            ]
+        );
+        assert!(graph.diagnostics.is_empty(), "{:?}", graph.diagnostics);
+        // A resolved page with a missing anchor is a real broken link.
+        let broken = inline_graph(&[("a.md", "# A\n\n[b](b.html#nope)\n"), ("b.md", "# B\n")]);
+        assert_eq!(broken.diagnostics.len(), 1);
+        assert_eq!(broken.diagnostics[0].problem, LinkProblem::MissingAnchor);
+    }
+
+    #[test]
+    fn canonical_empty_components_do_not_become_markdown_anchors() {
+        let graph = inline_graph(&[
+            (
+                "a.md",
+                "# Links\n\n[first](b.md#) [normal](b.md#normal) [duplicate](b.md#normal-1) [child](b.md#child) [empty](c.md#) [not an anchor](b.md#@empty)\n",
+            ),
+            (
+                "b.md",
+                "intro\n\n# Normal\n\nbody\n\n# Normal\n\nsecond\n\n# Parent\n\np\n\n## !!!\n\npunct\n\n### Child\n\nx\n",
+            ),
+            ("c.md", "# !!!\n\nbody\n"),
+        ]);
+        assert_eq!(
+            link_targets(&graph),
             vec![
                 ("a.md#links~0", "b.md#normal-1~0"),
                 ("a.md#links~0", "b.md#normal~0"),

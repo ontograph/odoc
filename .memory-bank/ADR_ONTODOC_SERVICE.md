@@ -1,7 +1,7 @@
 # ADR: OntoDoc — Measurable Documentation Graph-RAG MCP Service
 
 Date: 2026-11-08
-Revision: 12 (2026-11-11). Revision 2 added donor ideas
+Revision: 13 (2026-11-11). Revision 2 added donor ideas
 (`audit_session-2026-11-08-donor-ideas-review.md`); revision 3 applies the plan
 challenge (`audit_session-2026-11-08-plan-challenge.md`): section-level
 evaluation unit, frozen chunk budget, raw-score abstention, specified PPR, power
@@ -35,6 +35,11 @@ Revision 12 (2026-11-11, owner-approved) makes the first-sentence rule parse
 with the same GFM extensions as sectioning, so a table is never a first
 sentence; stored schema becomes 3 and older stores need a trusted reindex. No
 dev or held-out measurement exists, so no evaluation result is affected.
+Revision 13 (2026-11-11, owner-approved) resolves a relative `x.html`/`x.htm`
+link to the sibling `x.md` when that document exists (rendered-book
+reference links), schema 4; makes the corpus pin's dirty check exclude the
+store of a corpus rooted in a checkout subdirectory (`rust-book/src`); and adds
+the model-judged exploratory track below. No measurement exists.
 Owner: OntoDoc maintainers
 
 ## Status
@@ -832,6 +837,8 @@ the default until the separately scoped promotion task validates that change.
   - A model-drafted label must be marked as such and reviewed by a human.
     Model output never counts as a human annotator. EVAL-2.1 retains its two
     human annotators, blinding and agreement requirements.
+    The separate model-judged exploratory track (revision 13) never feeds
+    human qrels or confirmatory decisions.
 - **Integrity gates** (each must pass before any run):
   - Every judged section id exists in the pinned generation, and its stored
     span hash matches.
@@ -924,6 +931,32 @@ weighted kappa on pre-adjudication overlapping pairs, grade prevalence and a
 fewer than two overlap queries or point kappa below 0.6 refuses preparation;
 revise guidelines and relabel before any run. Never fabricate a CI from final
 adjudicated labels. These checks do not authenticate the human by themselves.
+
+### Model-Judged Exploratory Track (Revision 13)
+
+Owner decision 2026-11-11: no human annotators are available. Labels may come
+from two independent model judges, GPT-6-Astra and claude-opus-5-5 (high
+reasoning). This track is exploratory only and does not relax the human
+companion above; human qrels remain the only route to a confirmatory claim.
+
+- Each judge grades every pooled pair 0–2 from the guideline, the query and
+  the source section only, blinded to system identity, scores, rank and the
+  other judge. A judge session never drafts, reviews or revises queries.
+- Annotation records use `kind=model` with the exact model id; preparation
+  admits them only when the run declares `label_provenance=model-judged`, and
+  every report, preparation manifest and audit carries that value.
+- Agreement: quadratic-weighted kappa over all pairs with the seeded
+  query-cluster bootstrap CI; point kappa below 0.6 refuses preparation.
+  Final grade is `floor((a + b) / 2)`, fixed before any grading.
+- All hypotheses report effects and CIs with `role=exploratory`, no Holm
+  decision and no pass/negative label. The text must say "model-judged
+  labels"; never "qrels by annotators" or equivalence to human judgement.
+  Known limits: the drafting model is also a judge, and model judges share
+  biases with model-drafted queries and possibly with the evaluated lexical
+  signals.
+- A model-judged test-split run follows the same freeze and once-only custody.
+  Its outcome burns that test split for any later human-label confirmatory
+  claim, which then needs freshly drafted test queries.
 
 ### Exact-Byte Preparation Handoff
 
