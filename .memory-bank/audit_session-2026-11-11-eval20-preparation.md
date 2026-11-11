@@ -1,0 +1,62 @@
+# Audit Session 2026-11-11: EVAL-2.0 Label-Free Preparation And FIX-13
+
+## Owner Decisions (2026-11-11)
+
+1. Corpora stay pinned: ontoindex `d535fe888a88…`, rust-book `2771df165f09…`.
+2. Fix `local_path` in `eval/corpora.json` (pending; operator clones live in
+   gitignored `tmp/corpora/`).
+3. The user is the trusted operator.
+4. Claude (claude-opus-5-5) drafts queries; GPT-6-Astra reviews them before
+   any pooling; the user spot-checks a sample.
+5. No human annotators. Option (b) approved: model-judged exploratory track
+   with two judges, GPT-6-Astra and claude-opus-5-5 high (ADR revision 13).
+   It never yields human qrels or confirmatory decisions.
+6. With no annotators, evaluation stays parked for confirmatory claims.
+7. Label-free preparation proceeds and stops before pooling.
+8. Link option (i): `.html` → sibling `.md` (FIX-13, schema 4).
+9. rust-book corpus root is `src/` (older editions excluded).
+
+## FIX-13 (commit d07e17f)
+
+- `src/graph.rs::resolve`: a relative `x.html`/`x.htm` link resolves to an
+  existing sibling `x.md`; missing `.md` stays ignored (no diagnostic).
+- `src/eval/gates.rs::git_state_impl`: pin exclusion `:(exclude).ontodoc` is
+  relative to the corpus root, so `rust-book/src/.ontodoc` is not dirt. Code
+  identity still counts it; other untracked files stay dirty.
+- `SCHEMA_VERSION` 4; stores need a trusted reindex.
+- Validation (this session): `CARGO_BUILD_JOBS=4 cargo test` all targets
+  exit 0 (lib 216 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4,
+  mcp 12, ranking_sanity 1); `cargo fmt --check` and `cargo clippy
+  --all-targets -- -D warnings` exit 0. Synthetic fixtures only.
+- Reindex of pinned `rust-book/src`: 112 docs, 547 sections, 1,370 chunks,
+  276 LINKS_TO edges (0 before for reference `.html` links), 17 MissingAnchor
+  diagnostics. ontoindex: 44 LINKS_TO, 10 diagnostics.
+
+## Query Round 1 (No Retrieval Used)
+
+310 model-drafted queries; four independent GPT-6-Astra reviews by direct
+corpus reading. Accepted/rejected:
+
+| Corpus | lookup | conceptual | multi-hop | off-topic |
+| --- | --- | --- | --- | --- |
+| ontoindex | 52/3 | 31/14 | 11/19 | 13/12 |
+| rust-book | 51/4 | 34/11 | 6/24 | 19/6 |
+
+Main rejects: multi-hop answerable from one section; conceptual answerable
+from one section; off-topic partly answered; false premises. Accepted totals
+(185 answerable, 32 off-topic) are below the floors (~225 / ~45 overall).
+
+## Round 2 (In Progress)
+
+Fresh claude-opus-5-5 (high) drafters revise all 93 rejects (same id and
+stratum, or drop) and add 42 multi-hop and 36 off-topic queries; no access to
+reviews' acceptances or any ranking. Each result returns to a new GPT-6-Astra
+review. Revision history is kept for `query-review.jsonl`.
+
+## Open
+
+- Model-judged label admission is not implemented: gates require
+  `PartyKind::Human` (gates.rs annotation checks). It needs its own task before
+  EVAL-2.1 labelling.
+- Pooling needs the operator's `eval/audit_session-query-approval.md` and the
+  query-review digest.

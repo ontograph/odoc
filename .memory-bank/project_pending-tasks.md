@@ -13,8 +13,9 @@ this file routes blockers, not a second queue.
 
 - Service work is complete: HTTP-2 loopback listener, FIX-7, SIMPL-3, FIX-8 and
   FIX-9 (round 5), FIX-10 (round 6) FIX-11 (round 7) and FIX-12 (schema 3) DONE ([owner decisions](audit_session-2026-11-11-owner-decisions.md)).
-- EVAL-2.0 (BLOCKED) is parked by the owner pending pinned corpora, a trusted
-  operator and two human annotators; EVAL-2.1 → EVAL-3.x → OD-4.1 → OD-4.0
+- EVAL-2.0 (BLOCKED): label-free preparation in progress per owner decisions
+  ([audit](audit_session-2026-11-11-eval20-preparation.md)); pooling needs the
+  operator's query-approval audit; labels need a model-judged admission task; EVAL-2.1 → EVAL-3.x → OD-4.1 → OD-4.0
   follow it. Delivery item outside code: the operator's authenticated TLS
   ingress in front of `serve-http`.
 - Rounds 6-7 owner items resolved ([audit](audit_session-2026-11-11-review-round6.md)):

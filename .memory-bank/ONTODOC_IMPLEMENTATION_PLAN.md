@@ -751,7 +751,7 @@ tasks:
     - No permissively licensed second corpus is available.
     - Queries cannot be written without copying target text.
     known_blockers:
-    - 'Parked by owner 2026-11-11 pending corpora, a trusted operator and two human annotators (audit_session-2026-11-11-owner-decisions.md). EVAL-1.3 DONE 2026-11-11. Remaining owner gate: real benchmark assembly needs the trusted operator (human) to select pinned permissive corpora, supply the manager-owned query-approval audit and digest before the first pool run, and commit human annotators for EVAL-2.1. GPT-6-Astra review is authorized for queries only and never counts as human annotation; generic proceed does not resolve this gate.'
+    - 'Owner decisions 2026-11-11 (audit_session-2026-11-11-eval20-preparation.md): corpora pinned (ontoindex d535fe8 root, rust-book 2771df1 root src/); user is the trusted operator; Claude drafts, GPT-6-Astra reviews before pooling, user spot-checks; FIX-13 (schema 4) landed. Label-free preparation in progress: round-1 review accepted 185 answerable / 32 off-topic, below floors; round-2 drafts under review. Remaining gate: operator-supplied eval/audit_session-query-approval.md and query-review digest before the first pool run. Labels follow ADR rev 13 model-judged exploratory track (needs its own admission task before EVAL-2.1 labelling); generic proceed does not supply operator approval.'
   EVAL-2.1:
     title: Given approved pools, when two humans independently label every pair for the predeclared overlap of at least 30% of answerable queries, then qrels and provenance pass qrels-stage preparation with raw-grade agreement and trusted approval
     status: OPEN
