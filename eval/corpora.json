@@ -5,18 +5,20 @@
       "url": "https://github.com/ontograph/ontoindex",
       "commit": "d535fe888a88694c524636bed8a7c409594184cb",
       "licence": "AGPL-3.0-or-later",
-      "local_path": "../../ontoindex",
+      "local_path": "../tmp/corpora/ontoindex",
       "markdown_files": 325,
-      "note": "Local evaluation only; not redistributed."
+      "note": "Local evaluation only; not redistributed.",
+      "corpus_root": "."
     },
     {
       "name": "rust-book",
       "url": "https://github.com/rust-lang/book",
       "commit": "2771df165f092a4fbb9f46b5b2e7450f19010adb",
       "licence": "MIT OR Apache-2.0",
-      "local_path": "../../rust-book",
+      "local_path": "../tmp/corpora/rust-book",
       "markdown_files": 112,
-      "note": "Markdown counted under src/."
+      "note": "Corpus root src/ only (older editions excluded, owner 2026-11-11); 112 Markdown files.",
+      "corpus_root": "src"
     }
   ],
   "local_path_base": "eval/"

@@ -1,0 +1,46 @@
+{
+  "corpora": [
+    {
+      "name": "ontoindex",
+      "root": "../tmp/corpora/ontoindex"
+    },
+    {
+      "name": "rust-book",
+      "root": "../tmp/corpora/rust-book/src"
+    }
+  ],
+  "queries": "queries.jsonl",
+  "qrels": "qrels.jsonl",
+  "splits": "splits.json",
+  "partitions": {
+    "dev": {
+      "queries": "dev-queries.jsonl",
+      "qrels": "dev-qrels.jsonl"
+    },
+    "test": {
+      "queries": "test-queries.jsonl",
+      "qrels": "test-qrels.jsonl"
+    }
+  },
+  "seed": 20261111,
+  "resamples": 10000,
+  "alpha_grid": [
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5
+  ],
+  "beta_grid": [
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5
+  ],
+  "alpha": 0.0,
+  "beta": 0.0,
+  "threshold": 0.0
+}

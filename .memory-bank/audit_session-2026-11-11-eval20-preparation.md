@@ -46,17 +46,51 @@ Main rejects: multi-hop answerable from one section; conceptual answerable
 from one section; off-topic partly answered; false premises. Accepted totals
 (185 answerable, 32 off-topic) are below the floors (~225 / ~45 overall).
 
-## Round 2 (In Progress)
+## Round 2 (Done, No Retrieval Used)
 
-Fresh claude-opus-5-5 (high) drafters revise all 93 rejects (same id and
-stratum, or drop) and add 42 multi-hop and 36 off-topic queries; no access to
-reviews' acceptances or any ranking. Each result returns to a new GPT-6-Astra
-review. Revision history is kept for `query-review.jsonl`.
+Fresh claude-opus-5-5 (high) drafters revised the 93 rejects and added new
+multi-hop/off-topic queries. A first ontoindex drafter was closed by root
+before writing output (operator error) and was replaced by a fresh drafter.
+Root dropped five drafter-flagged duplicates/overlaps (oi-mh-031/032/047,
+oi-ot-034/047) without rewording. New GPT-6-Astra reviews:
+
+| Corpus | lookup | conceptual | multi-hop | off-topic |
+| --- | --- | --- | --- | --- |
+| ontoindex r2 | 3/0 | 14/0 | 12/26 | 30/2 |
+| rust-book r2 | 4/0 | 8/1 | 33/11 | 20/0 |
+
+Final accepted set: 341 queries (all model-drafted, GPT-6-Astra reviewed):
+ontoindex 55/45/23/43, rust-book 55/42/39/39 (lookup/conceptual/multi-hop/
+off-topic). ontoindex has few resolvable links (44 LINKS_TO), so its
+multi-hop stratum is the thinnest.
+
+## Assembled `eval/` (Label-Free)
+
+- `queries.jsonl` 341; `query-review.jsonl` version-1 records with chained
+  round history (drafter and reviewer model parties, distinct evidence),
+  SHA-256 `94aaeff00a1be76fbb64d3cf86529df97aaa7327dea01e175c98c261c1e44e3e`.
+- `splits.json` via `ontodoc eval split --seed 20261111`: dev 113, test 228,
+  byte-reproducible (cmp). Test: 173 answerable (lookup 74, conceptual 58,
+  multi-hop 41), 55 off-topic; floors 150/30/15 met.
+- `dev-queries.jsonl`, `test-queries.jsonl`; `config.json` (grid
+  `{0,0.1,...,0.5}`, seed 20261111, 10,000 resamples; alpha/beta/threshold are
+  placeholders until the dev sweep freezes them); `gates.json` (floors, pins,
+  `pools/pool.jsonl`); `corpora.json` local paths under gitignored
+  `tmp/corpora/`, rust-book root `src`.
+- Gate run (release build, this session): `ontodoc eval check-benchmark
+  eval/config.json --stage pools --gates <gates without pool> --query-review
+  eval/query-review.jsonl --query-review-sha256 94aaeff0…` reported only
+  `pool_missing` (exit 1, expected): query review, floors, dev/test leakage and
+  both corpus pins passed. No pool, ranking or preparation was produced.
+- Operator spot-check sample: `tmp/eval-draft/spot-check-sample.md` (seeded).
 
 ## Open
 
 - Model-judged label admission is not implemented: gates require
   `PartyKind::Human` (gates.rs annotation checks). It needs its own task before
   EVAL-2.1 labelling.
-- Pooling needs the operator's `eval/audit_session-query-approval.md` and the
-  query-review digest.
+- Pooling needs the operator's `eval/audit_session-query-approval.md`
+  (spot-check result, approval of review digest `94aaeff0…`) before
+  `ontodoc eval pool`.
+- Limitation: drafter and one judge are the same model family
+  (claude-opus-5-5); queries are model-authored and model-reviewed.

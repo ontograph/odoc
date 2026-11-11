@@ -9,12 +9,12 @@ Updated: 2026-11-11
 
 | Canonical plan | State | Active task | Counts |
 | --- | --- | --- | --- |
-| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | none (EVAL-2.0 label-free preparation; stops before pooling) | 50 DONE, 6 OPEN, 1 BLOCKED; 57 total |
+| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | none (EVAL-2.0 waits for operator query approval before pooling) | 50 DONE, 6 OPEN, 1 BLOCKED; 57 total |
 
 - 2026-11-11 EVAL-2.0 preparation ([audit](audit_session-2026-11-11-eval20-preparation.md)):
   owner decisions; FIX-13 DONE (`.html` links, `src/` corpus root, schema 4,
-  ADR rev 13 model-judged exploratory track). Query round 1 reviewed; round 2
-  drafting. Pooling waits for the operator's query-approval audit.
+  ADR rev 13 model-judged exploratory track). 341 queries assembled; label-free
+  gates pass. Pooling waits for the operator's query-approval audit.
 
 - 2026-11-11 review round 7 ([audit](audit_session-2026-11-11-review-round6.md#round-7-same-day-challenge-of-round-6)):
   FIX-11 DONE: prune moves to `tmp-<id>` before deleting (ADR rev 11), so an

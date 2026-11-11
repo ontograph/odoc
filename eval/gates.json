@@ -1,0 +1,18 @@
+{
+  "floors": {
+    "min_answerable_test": 150,
+    "min_off_topic_test": 30,
+    "min_per_stratum_test": 15
+  },
+  "pins": [
+    {
+      "name": "ontoindex",
+      "commit": "d535fe888a88694c524636bed8a7c409594184cb"
+    },
+    {
+      "name": "rust-book",
+      "commit": "2771df165f092a4fbb9f46b5b2e7450f19010adb"
+    }
+  ],
+  "pool": "pools/pool.jsonl"
+}
