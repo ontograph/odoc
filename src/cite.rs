@@ -13,7 +13,6 @@ use std::path::{Component, Path};
 use serde::{Deserialize, Serialize};
 
 use crate::corpus::{CorpusError, RootedCorpus, sha256_hex};
-use crate::parse::LineIndex;
 use crate::store::{Generation, SectionRecord, SpanRecord};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -265,15 +264,16 @@ fn verify_bytes_with<E>(
     }
     Ok(match found {
         Some(start) => {
-            let text = String::from_utf8_lossy(bytes);
-            // `start` came from the bounded candidate range, so this sum fits.
-            let span = LineIndex::new(&text).span(start..start + len);
+            // Lines are counted on raw bytes: a lossy UTF-8 decode would shift
+            // offsets after any invalid sequence. `start + len` fits (bounded).
+            let line = |at: usize| 1 + bytes[..at].iter().filter(|&&b| b == b'\n').count();
+            let end = start + len;
             CitationState::Moved {
                 span: SpanRecord {
-                    byte_start: span.byte_start,
-                    byte_end: span.byte_end,
-                    line_start: span.line_start,
-                    line_end: span.line_end,
+                    byte_start: start,
+                    byte_end: end,
+                    line_start: line(start),
+                    line_end: line(end - 1),
                 },
             }
         }
@@ -497,6 +497,30 @@ mod tests {
                 ..citation
             }
         ));
+    }
+
+    #[test]
+    fn moved_lines_count_raw_bytes_after_invalid_utf8() {
+        let (_, _, cite) = setup();
+        // Cited bytes span original lines 5-7 (asserted in four_citation_states).
+        let original = b"# A\n\nFirst.\n\n## B\n\nTarget text.\n";
+        let text = &original[cite.byte_start..cite.byte_end];
+        // Prefix "\xff\xfe\n\n" is 4 bytes and 2 lines, so the span starts at
+        // byte 4 on line 3 and ends on line 3 + (7 - 5) = 5. A lossy decode
+        // would turn the 2 invalid bytes into 6 bytes and misplace the offsets.
+        let mut bytes = b"\xff\xfe\n\n".to_vec();
+        bytes.extend_from_slice(text);
+        assert_eq!(
+            verify_bytes(&bytes, &cite),
+            CitationState::Moved {
+                span: SpanRecord {
+                    byte_start: 4,
+                    byte_end: 4 + text.len(),
+                    line_start: 3,
+                    line_end: 5,
+                }
+            }
+        );
     }
 
     #[test]

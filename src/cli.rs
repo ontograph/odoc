@@ -81,6 +81,12 @@ pub enum EvalCommand {
         config: PathBuf,
         #[arg(long)]
         out: PathBuf,
+        /// Version-1 query-review records for every final query.
+        #[arg(long)]
+        query_review: PathBuf,
+        /// Operator-audited SHA-256 of the query-review bytes.
+        #[arg(long)]
+        query_review_sha256: String,
     },
     /// Run all systems on one split and write runs plus report.
     Run {
@@ -92,6 +98,12 @@ pub enum EvalCommand {
         /// Required for the held-out test split.
         #[arg(long)]
         confirm_test_split: bool,
+        /// Operator-approved `preparation.json` admitting this execution.
+        #[arg(long, requires = "preparation_sha256")]
+        preparation: Option<PathBuf>,
+        /// Out-of-band audit pin: SHA-256 of the exact manifest bytes.
+        #[arg(long, requires = "preparation")]
+        preparation_sha256: Option<String>,
     },
     /// Re-score a saved run directory.
     Score {
@@ -99,6 +111,12 @@ pub enum EvalCommand {
         run_dir: PathBuf,
         #[arg(long)]
         confirm_test_split: bool,
+        /// Operator-approved `preparation.json` admitting this execution.
+        #[arg(long, requires = "preparation_sha256")]
+        preparation: Option<PathBuf>,
+        /// Out-of-band audit pin: SHA-256 of the exact manifest bytes.
+        #[arg(long, requires = "preparation")]
+        preparation_sha256: Option<String>,
     },
     /// Run the integrity gates that apply at a stage; exits non-zero on failure.
     CheckBenchmark {
@@ -111,6 +129,28 @@ pub enum EvalCommand {
         /// Run directory whose report is checked at stage `run`.
         #[arg(long)]
         run: Option<PathBuf>,
+        /// Version-1 query-review records; absent approval fails the gates.
+        #[arg(long, requires = "query_review_sha256")]
+        query_review: Option<PathBuf>,
+        /// Operator-audited SHA-256 of the query-review bytes.
+        #[arg(long, requires = "query_review")]
+        query_review_sha256: Option<String>,
+        /// Version-1 human annotation records; required at stage `qrels`.
+        #[arg(long, requires = "annotation_notes")]
+        annotation: Option<PathBuf>,
+        /// `annotation.md` with one fenced `annotation-notes` JSON block.
+        #[arg(long, requires = "annotation")]
+        annotation_notes: Option<PathBuf>,
+        /// Publish version-1 `preparation.json` (create-new) after every
+        /// qrels-stage gate passes; prints its SHA-256 for the operator audit.
+        #[arg(long, requires_all = ["query_review", "annotation", "operator", "operator_evidence"])]
+        preparation_out: Option<PathBuf>,
+        /// Approving operator recorded in the preparation manifest.
+        #[arg(long, requires = "preparation_out")]
+        operator: Option<String>,
+        /// Operator evidence reference recorded in the preparation manifest.
+        #[arg(long, requires = "preparation_out")]
+        operator_evidence: Option<String>,
     },
     /// Dev-only grid sweep with per-arm sd of differences and required n.
     Sweep {
@@ -119,6 +159,12 @@ pub enum EvalCommand {
         split: crate::eval::run::SplitName,
         #[arg(long)]
         out: PathBuf,
+        /// Operator-approved `preparation.json` admitting this execution.
+        #[arg(long, requires = "preparation_sha256")]
+        preparation: Option<PathBuf>,
+        /// Out-of-band audit pin: SHA-256 of the exact manifest bytes.
+        #[arg(long, requires = "preparation")]
+        preparation_sha256: Option<String>,
     },
     /// Write `frozen-config.toml` from a dev sweep and the clean code identity.
     Freeze {
@@ -131,6 +177,12 @@ pub enum EvalCommand {
         repo: PathBuf,
         #[arg(long)]
         out: PathBuf,
+        /// Operator-approved `preparation.json` admitting this execution.
+        #[arg(long, requires = "preparation_sha256")]
+        preparation: Option<PathBuf>,
+        /// Out-of-band audit pin: SHA-256 of the exact manifest bytes.
+        #[arg(long, requires = "preparation")]
+        preparation_sha256: Option<String>,
     },
     /// Check a frozen config against the current code and benchmark.
     CheckFrozen {
@@ -138,9 +190,24 @@ pub enum EvalCommand {
         frozen: PathBuf,
         #[arg(long, default_value = ".")]
         repo: PathBuf,
+        /// Operator-approved `preparation.json` admitting this execution.
+        #[arg(long, requires = "preparation_sha256")]
+        preparation: Option<PathBuf>,
+        /// Out-of-band audit pin: SHA-256 of the exact manifest bytes.
+        #[arg(long, requires = "preparation")]
+        preparation_sha256: Option<String>,
     },
-    /// Attribute every judged-relevant miss of a run to one pipeline stage.
-    Misses { config: PathBuf, run_dir: PathBuf },
+    /// Attribute every judged-relevant miss of a dev run to one pipeline stage.
+    Misses {
+        config: PathBuf,
+        run_dir: PathBuf,
+        /// Operator-approved `preparation.json` admitting this execution.
+        #[arg(long, requires = "preparation_sha256")]
+        preparation: Option<PathBuf>,
+        /// Out-of-band audit pin: SHA-256 of the exact manifest bytes.
+        #[arg(long, requires = "preparation")]
+        preparation_sha256: Option<String>,
+    },
 }
 
 #[derive(
@@ -645,6 +712,12 @@ fn capped<T>(mut items: Vec<T>, truncated: &mut bool) -> Vec<T> {
     items
 }
 
+/// Like [`capped`], but takes or clones at most `MAX_LIST_ITEMS + 1` items,
+/// so large graphs or diagnostic lists are never collected in full.
+fn capped_iter<T>(items: impl Iterator<Item = T>, truncated: &mut bool) -> Vec<T> {
+    capped(items.take(MAX_LIST_ITEMS + 1).collect(), truncated)
+}
+
 /// One corpus root and its generation store.
 pub struct App {
     pub root: PathBuf,
@@ -822,26 +895,26 @@ impl App {
         if !g.chunks.iter().any(|c| c.id == chunk_id) {
             return Err(AppError::NotFound(chunk_id.to_string()));
         }
-        let neighbours: Vec<Neighbour> = g
-            .edges
-            .iter()
-            .filter_map(|e| {
-                if e.from == chunk_id {
-                    Some((e, "out", &e.to))
-                } else if e.to == chunk_id {
-                    Some((e, "in", &e.from))
-                } else {
-                    None
-                }
-            })
-            .map(|(e, direction, id)| Neighbour {
-                kind: e.kind.clone(),
-                direction,
-                id: id.clone(),
-            })
-            .collect();
         let mut truncated = false;
-        let neighbours = capped(neighbours, &mut truncated);
+        let neighbours = capped_iter(
+            g.edges
+                .iter()
+                .filter_map(|e| {
+                    if e.from == chunk_id {
+                        Some((e, "out", &e.to))
+                    } else if e.to == chunk_id {
+                        Some((e, "in", &e.from))
+                    } else {
+                        None
+                    }
+                })
+                .map(|(e, direction, id)| Neighbour {
+                    kind: e.kind.clone(),
+                    direction,
+                    id: id.clone(),
+                }),
+            &mut truncated,
+        );
         bound(RelatedResponse {
             generation_id: g.generation_id.clone(),
             fresh: self.freshness(g)?.is_fresh(),
@@ -902,9 +975,9 @@ impl App {
             removed: capped(f.removed, &mut truncated),
             modified: capped(f.modified, &mut truncated),
             skipped_count: g.skipped.len(),
-            skipped: capped(g.skipped.clone(), &mut truncated),
+            skipped: capped_iter(g.skipped.iter().cloned(), &mut truncated),
             link_diagnostic_count: g.link_diagnostics.len(),
-            link_diagnostics: capped(g.link_diagnostics.clone(), &mut truncated),
+            link_diagnostics: capped_iter(g.link_diagnostics.iter().cloned(), &mut truncated),
             truncated,
         })
     }
@@ -1010,7 +1083,7 @@ fn run_eval(cmd: EvalCommand) -> Result<String, AppError> {
     // Reject unavailable operations before Bench::load opens combined inputs
     // or a saved run exposes held-out observations.
     use crate::eval::gates::Stage;
-    use crate::eval::run::{SplitName, ensure_measurement_ready};
+    use crate::eval::run::{SplitName, admission_error};
     match &cmd {
         EvalCommand::Run {
             split: SplitName::Test,
@@ -1026,18 +1099,36 @@ fn run_eval(cmd: EvalCommand) -> Result<String, AppError> {
             )
             .into());
         }
-        EvalCommand::Run { .. }
-        | EvalCommand::Score { .. }
-        | EvalCommand::Sweep { .. }
-        | EvalCommand::Freeze { .. }
-        | EvalCommand::CheckFrozen { .. }
-        | EvalCommand::Misses { .. } => ensure_measurement_ready()?,
+        EvalCommand::Run {
+            preparation: None, ..
+        }
+        | EvalCommand::Score {
+            preparation: None, ..
+        }
+        | EvalCommand::Sweep {
+            preparation: None, ..
+        }
+        | EvalCommand::Freeze {
+            preparation: None, ..
+        }
+        | EvalCommand::CheckFrozen {
+            preparation: None, ..
+        }
+        | EvalCommand::Misses {
+            preparation: None, ..
+        } => return Err(admission_error().into()),
+        // Saved-run gates belong to admitted `score`, which checks judged@10.
         EvalCommand::CheckBenchmark { stage, run, .. } if *stage == Stage::Run || run.is_some() => {
-            ensure_measurement_ready()?;
+            return Err(admission_error().into());
         }
         _ => {}
     }
     use crate::eval::run::{self as er, Bench};
+    // Presence of both is enforced above and by clap `requires`.
+    let pinned = |config: &Path, p: Option<PathBuf>, pin: Option<String>| match (p, pin) {
+        (Some(p), Some(pin)) => Ok(Bench::load_dev_pinned(config, &p, &pin)?),
+        _ => Err(AppError::from(admission_error())),
+    };
     fn pretty<T: Serialize>(v: &T) -> Result<String, AppError> {
         Ok(serde_json::to_string_pretty(v)?)
     }
@@ -1055,52 +1146,175 @@ fn run_eval(cmd: EvalCommand) -> Result<String, AppError> {
             })
             .to_string()
         }
-        EvalCommand::Pool { config, out } => pretty(&er::pool(&Bench::load(&config)?, &out)?)?,
+        EvalCommand::Pool {
+            config,
+            out,
+            query_review,
+            query_review_sha256,
+        } => {
+            let bench = Bench::load(&config)?;
+            let approval = crate::eval::gates::check_query_review(
+                bench.queries(),
+                &er::read(&query_review)?,
+                &query_review_sha256,
+            )?;
+            pretty(&er::pool(&bench, &out, &approval)?)?
+        }
+        EvalCommand::Run {
+            config,
+            split: SplitName::Test,
+            out,
+            confirm_test_split,
+            preparation: Some(preparation),
+            preparation_sha256: Some(pin),
+        } => pretty(&er::run_held_out(
+            &config,
+            &preparation,
+            &pin,
+            confirm_test_split,
+            &out,
+        )?)?,
         EvalCommand::Run {
             config,
             split,
             out,
             confirm_test_split,
-        } => pretty(&er::run(
-            &Bench::load(&config)?,
-            split,
-            confirm_test_split,
-            &out,
+            preparation,
+            preparation_sha256,
+        } => {
+            let bench = pinned(&config, preparation, preparation_sha256)?;
+            pretty(&er::run(&bench, split, confirm_test_split, &out)?)?
+        }
+        EvalCommand::Score {
+            config,
+            run_dir,
+            confirm_test_split: true,
+            preparation: Some(preparation),
+            preparation_sha256: Some(pin),
+        } => pretty(&er::score_held_out(
+            &config,
+            &preparation,
+            &pin,
+            true,
+            &run_dir,
         )?)?,
         EvalCommand::Score {
             config,
             run_dir,
-            confirm_test_split,
-        } => pretty(&er::score(
-            &Bench::load(&config)?,
-            &run_dir,
-            confirm_test_split,
-        )?)?,
+            preparation,
+            preparation_sha256,
+            ..
+        } => {
+            let bench = pinned(&config, preparation, preparation_sha256)?;
+            pretty(&er::score(&bench, &run_dir, false)?)?
+        }
         EvalCommand::CheckBenchmark {
             config,
             stage,
             gates,
             run,
+            query_review,
+            query_review_sha256,
+            annotation,
+            annotation_notes,
+            preparation_out: Some(out),
+            operator: Some(operator),
+            operator_evidence: Some(operator_evidence),
+            ..
         } => {
-            use crate::eval::gates::{GateConfig, check_benchmark};
+            if stage != Stage::Qrels || gates.is_some() || run.is_some() {
+                return Err(crate::eval::run::EvalError::Invalid(
+                    "--preparation-out needs stage qrels and the captured gates.json".into(),
+                )
+                .into());
+            }
+            let (Some(query_review), Some(pin), Some(annotation), Some(notes)) = (
+                query_review,
+                query_review_sha256,
+                annotation,
+                annotation_notes,
+            ) else {
+                return Err(crate::eval::run::EvalError::Invalid(
+                    "preparation requires query review and annotation".into(),
+                )
+                .into());
+            };
+            let preparation = Bench::prepare(
+                &config,
+                &er::TrustedInputs {
+                    query_review: &query_review,
+                    query_review_sha256: &pin,
+                    annotation: &annotation,
+                    annotation_notes: &notes,
+                    operator: &operator,
+                    operator_evidence: &operator_evidence,
+                },
+            )?;
+            let sha256 = preparation.publish(&out)?;
+            pretty(&serde_json::json!({
+                "preparation": out.display().to_string(),
+                "preparation_sha256": sha256,
+                "partition_commitment": preparation.partition_commitment(),
+            }))?
+        }
+        EvalCommand::CheckBenchmark {
+            config,
+            stage,
+            gates,
+            query_review,
+            query_review_sha256,
+            annotation,
+            annotation_notes,
+            ..
+        } => {
+            use crate::eval::gates::{
+                AnnotationInput, GateConfig, Provenance, check_benchmark, check_query_review,
+            };
             let bench = Bench::load(&config)?;
+            let approval = match (query_review, query_review_sha256) {
+                (Some(path), Some(pin)) => Some(check_query_review(
+                    bench.queries(),
+                    &er::read(&path)?,
+                    &pin,
+                )?),
+                _ => None,
+            };
+            let annotation_bytes = match (annotation, annotation_notes) {
+                (Some(records), Some(notes)) => Some((er::read(&records)?, er::read(&notes)?)),
+                _ => None,
+            };
+            let provenance = Provenance {
+                approval: approval.as_ref(),
+                annotation: annotation_bytes
+                    .as_ref()
+                    .map(|(records, notes)| AnnotationInput {
+                        records,
+                        notes,
+                        budget: crate::eval::run::MAX_RECORDS,
+                    }),
+            };
             let gate_config: GateConfig = match gates {
                 Some(path) => serde_json::from_slice(&read_file(&path)?)?,
                 None => GateConfig::default(),
             };
-            let report = match run {
-                Some(dir) => Some(er::score(&bench, &dir, true)?),
-                None => None,
-            };
-            let result = check_benchmark(&bench, &gate_config, stage, report.as_ref(), &bench.dir)?;
+            // `--run` and stage `run` were refused above; saved-run gates
+            // belong to admitted `score`.
+            let result = check_benchmark(&bench, &gate_config, stage, None, &provenance)?;
             let json = pretty(&result)?;
             if !result.passed {
                 return Err(AppError::GatesFailed(json));
             }
             json
         }
-        EvalCommand::Sweep { config, split, out } => {
-            let report = crate::eval::sweep::sweep(&Bench::load(&config)?, split)?;
+        EvalCommand::Sweep {
+            config,
+            split,
+            out,
+            preparation,
+            preparation_sha256,
+        } => {
+            let bench = pinned(&config, preparation, preparation_sha256)?;
+            let report = crate::eval::sweep::sweep(&bench, split)?;
             let json = pretty(&report)?;
             write_file(&out, json.as_bytes())?;
             json
@@ -1110,12 +1324,13 @@ fn run_eval(cmd: EvalCommand) -> Result<String, AppError> {
             threshold,
             repo,
             out,
+            preparation,
+            preparation_sha256,
         } => {
-            use crate::eval::sweep::{CodeIdentity, freeze, sweep};
-            let bench = Bench::load(&config)?;
+            use crate::eval::sweep::{CodeIdentity, freeze};
+            let bench = pinned(&config, preparation, preparation_sha256)?;
             let code = CodeIdentity::current(&repo)?;
-            let report = sweep(&bench, er::SplitName::Dev)?;
-            let frozen = freeze(&bench, &report, threshold, &code)?;
+            let frozen = freeze(&bench, threshold, &code)?;
             er::register_freeze(&repo, &bench, &frozen.to_toml(), &out)?;
             pretty(&frozen)?
         }
@@ -1123,16 +1338,24 @@ fn run_eval(cmd: EvalCommand) -> Result<String, AppError> {
             config,
             frozen,
             repo,
+            preparation,
+            preparation_sha256,
         } => {
             use crate::eval::sweep::{CodeIdentity, check_frozen};
+            let bench = pinned(&config, preparation, preparation_sha256)?;
             let bytes = er::read(&frozen)?;
-            let bench = Bench::load(&config)?;
             let frozen = er::check_registered_export(&repo, &bench, &bytes)?;
             check_frozen(&frozen, &bench, &CodeIdentity::current(&repo)?)?;
             serde_json::json!({ "frozen": "ok" }).to_string()
         }
-        EvalCommand::Misses { config, run_dir } => {
-            pretty(&misses(&Bench::load(&config)?, &run_dir)?)?
+        EvalCommand::Misses {
+            config,
+            run_dir,
+            preparation,
+            preparation_sha256,
+        } => {
+            let bench = pinned(&config, preparation, preparation_sha256)?;
+            pretty(&misses(&bench, &run_dir)?)?
         }
     };
     Ok(json)
@@ -1158,7 +1381,7 @@ struct Miss {
 /// Every judged-relevant section absent from a system's top 10 in a run.
 fn misses(bench: &crate::eval::run::Bench, run_dir: &Path) -> Result<Vec<Miss>, AppError> {
     use crate::eval::run::{CUTOFF, System, rank_sections};
-    let report = crate::eval::run::score(bench, run_dir, true)?;
+    let report = crate::eval::run::score(bench, run_dir, false)?;
     let (qrels, _) = bench.qrels()?;
     let indexes = bench.indexes()?;
     let meta = &report.meta;
@@ -1200,6 +1423,32 @@ fn misses(bench: &crate::eval::run::Bench, run_dir: &Path) -> Result<Vec<Miss>, 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn list_caps_take_at_most_one_extra_item_and_flag_truncation() {
+        for (len, kept, flag) in [
+            (0, 0, false),
+            (MAX_LIST_ITEMS, MAX_LIST_ITEMS, false),
+            (MAX_LIST_ITEMS + 1, MAX_LIST_ITEMS, true),
+            (10 * MAX_LIST_ITEMS, MAX_LIST_ITEMS, true),
+        ] {
+            let pulled = std::cell::Cell::new(0);
+            let mut truncated = false;
+            let items = capped_iter(
+                (0..len).inspect(|_| pulled.set(pulled.get() + 1)),
+                &mut truncated,
+            );
+            // Same result as collecting everything first.
+            let mut old = false;
+            assert_eq!(items, capped((0..len).collect(), &mut old));
+            assert_eq!((items.len(), truncated, old), (kept, flag, flag));
+            assert!(
+                pulled.get() <= MAX_LIST_ITEMS + 1,
+                "pulled {}",
+                pulled.get()
+            );
+        }
+    }
 
     #[test]
     fn committed_uncertain_report_retains_success_and_only_finite_warning() {

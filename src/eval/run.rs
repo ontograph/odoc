@@ -189,9 +189,57 @@ pub struct Bench {
 const MAX_INPUT_BYTES: usize = 16 * 1024 * 1024;
 const MAX_INDEX_BYTES: usize = 128 * 1024 * 1024;
 const MAX_CAPTURE_BYTES: usize = 256 * 1024 * 1024;
-const MAX_RECORDS: usize = 100_000;
+pub(crate) const MAX_RECORDS: usize = 100_000;
 const MAX_QUERIES: usize = 2_000;
 const MAX_RANKINGS: usize = 100_000;
+/// Upper bound on one score written as `{:e}` (shortest round-trip mantissa
+/// plus exponent, e.g. `-1.2345678901234567e-308` is 24 bytes).
+const MAX_SCORE_TEXT: usize = 32;
+/// Validated query-id ceiling (see `validate_queries`).
+const MAX_QUERY_ID_BYTES: usize = 256;
+
+/// Worst-case total bytes of all run files (one ranking file per system plus
+/// `abstention.tsv`) for queries with ids `qids`, given the longest section id
+/// of the ranked corpora. Scoring reads the run files as one 16-MiB payload
+/// budget. Computed from split ids and index metadata only, so it can refuse
+/// before a held-out attempt is reserved.
+fn run_file_bound<'a>(
+    qids: impl IntoIterator<Item = &'a String>,
+    indexes: &IndexMap,
+    systems: &[System],
+) -> usize {
+    let section = indexes
+        .values()
+        // The emitted field: rankings write each chunk's `section_id`.
+        .flat_map(|i| i.generation.chunks.iter().map(|c| c.section_id.len()))
+        .max()
+        .unwrap_or(0);
+    // `qid\tQ0\tsection\trank\tscore\tname\n`: 5 tabs, newline, `Q0` and a
+    // rank of at most 2 digits (CUTOFF is 10) add at most 10 bytes.
+    let per_query_fixed: usize = systems
+        .iter()
+        .map(|s| CUTOFF.saturating_mul(section + MAX_SCORE_TEXT + s.name().len() + 10))
+        .fold(0, usize::saturating_add);
+    let ranked_lines = CUTOFF.saturating_mul(systems.len());
+    qids.into_iter()
+        .map(|q| {
+            // Ranking lines plus one abstention line `qid\tscore\n`.
+            let qid = q.len();
+            per_query_fixed
+                .saturating_add(ranked_lines.saturating_mul(qid))
+                .saturating_add(qid + MAX_SCORE_TEXT + 2)
+        })
+        .fold(0, usize::saturating_add)
+}
+
+fn check_run_file_bytes(bytes: usize) -> Result<(), EvalError> {
+    if bytes > MAX_INPUT_BYTES {
+        return Err(EvalError::Invalid(format!(
+            "run files could reach {bytes} bytes, above the {MAX_INPUT_BYTES}-byte payload ceiling"
+        )));
+    }
+    Ok(())
+}
 
 pub(crate) fn read(path: &Path) -> Result<Vec<u8>, EvalError> {
     read_bounded(path, MAX_INPUT_BYTES)
@@ -234,9 +282,22 @@ fn read_jsonl<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<(Vec<T>, Stri
     parse_jsonl(path, &bytes).map(|records| (records, sha256_hex(&bytes)))
 }
 
-fn parse_jsonl<T: for<'de> Deserialize<'de>>(
+pub(crate) fn parse_jsonl<T: for<'de> Deserialize<'de>>(
     path: &Path,
     bytes: &[u8],
+) -> Result<Vec<T>, EvalError> {
+    let mut budget = MAX_RECORDS;
+    parse_jsonl_within(path, bytes, &mut budget, |_| 1)
+}
+
+/// Parses JSONL while charging each record's `weight` (itself plus nested
+/// entries) to a shared record budget. Lines are bounded before parsing, so
+/// exhaustion is refused before allocation grows past one line.
+pub(crate) fn parse_jsonl_within<T: for<'de> Deserialize<'de>>(
+    path: &Path,
+    bytes: &[u8],
+    budget: &mut usize,
+    weight: impl Fn(&T) -> usize,
 ) -> Result<Vec<T>, EvalError> {
     let text = std::str::from_utf8(bytes).map_err(|e| EvalError::Parse {
         path: path.to_path_buf(),
@@ -248,14 +309,20 @@ fn parse_jsonl<T: for<'de> Deserialize<'de>>(
         if line.trim().is_empty() {
             continue;
         }
-        if out.len() == MAX_RECORDS || line.len() > 32 * 1024 {
+        if *budget == 0 || line.len() > 32 * 1024 {
             return Err(EvalError::Invalid("JSONL record limit exceeded".into()));
         }
-        out.push(serde_json::from_str(line).map_err(|e| EvalError::Parse {
+        let record: T = serde_json::from_str(line).map_err(|e| EvalError::Parse {
             path: path.to_path_buf(),
             line: i + 1,
             message: e.to_string(),
-        })?);
+        })?;
+        let w = weight(&record);
+        if w > *budget {
+            return Err(EvalError::Invalid("JSONL record limit exceeded".into()));
+        }
+        *budget -= w;
+        out.push(record);
     }
     Ok(out)
 }
@@ -369,6 +436,9 @@ struct InputIdentity {
     indexes: BTreeMap<String, String>,
 }
 
+/// `[dev, test]` exact (queries, qrels) payload digests.
+type PartitionPairs = [(String, String); 2];
+
 struct CapturedInputs {
     identity: InputIdentity,
     splits: Splits,
@@ -377,24 +447,327 @@ struct CapturedInputs {
     qrels_sha256: String,
     indexes: Arc<BTreeMap<String, SearchIndex>>,
     gates: super::gates::GateConfig,
-    pool: Vec<u8>,
+    /// Full pool bytes; absent on selected execution captures (ADR9: dev
+    /// never opens, stats or hashes the full pool).
+    pool: Option<Vec<u8>>,
     selected: Option<SplitName>,
     preparation_partitions: Option<[(String, String); 2]>,
+    /// SHA-256 of the admitted manifest bytes.
+    preparation_sha256: Option<String>,
+    /// Manifest-approved answerable test count (positive qrels); lets dev
+    /// freeze/check use test power without loading test labels.
+    test_answerable: Option<usize>,
+    meta_hashes: BTreeMap<String, String>,
     freshness_failures: Vec<super::gates::GateFailure>,
     pin_failures: Vec<super::gates::GateFailure>,
 }
 
-/// In-process mechanical prevalidation only. Not serializable, constructible by
-/// callers, or evidence of query review, human annotation or durable custody.
-pub struct MechanicalEvidence {
-    identity: InputIdentity,
-    partitions: [(String, String); 2],
+/// Trusted-operator preparation inputs; the review pin comes from the audit.
+#[derive(Debug, Clone, Copy)]
+pub struct TrustedInputs<'a> {
+    pub query_review: &'a Path,
+    pub query_review_sha256: &'a str,
+    pub annotation: &'a Path,
+    pub annotation_notes: &'a Path,
+    /// Operator identity and evidence reference recorded in the manifest.
+    pub operator: &'a str,
+    pub operator_evidence: &'a str,
+}
+
+pub const PREPARATION_VERSION: u32 = 1;
+pub const PROMOTION_POLICY: &str = "h5-then-h2-v1";
+/// Version 2 binds the preparation hash; version 1 is refused.
+pub const RUN_META_VERSION: u32 = 2;
+const REGISTRATION_VERSION: u32 = 2;
+const MAX_PREPARATION_BYTES: usize = 1024 * 1024;
+const PARTITION_DOMAIN: &str = "ontodoc-partition-commitment-v1";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PreparationApproval {
+    operator: String,
+    evidence: String,
+}
+
+/// Exact raw-byte SHA-256 of every preparation input.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PreparedInputs {
+    config: String,
+    gates: String,
+    splits: String,
+    queries: String,
+    qrels: String,
+    pool: String,
+    query_review: String,
+    annotation: String,
+    annotation_notes: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PreparedCorpus {
+    name: String,
+    commit: String,
+    generation_id: String,
+    index_sha256: String,
+    meta_sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PreparedPartition {
+    queries: String,
+    qrels: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PreparedPartitions {
+    dev: PreparedPartition,
+    test: PreparedPartition,
+    /// Domain-tagged commitment to the ordered (dev, test) partition hashes.
+    commitment: String,
+}
+
+/// Split -> corpus -> stratum -> query count.
+type StratumCounts = BTreeMap<String, BTreeMap<String, BTreeMap<String, usize>>>;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PreparedCounts {
+    queries: StratumCounts,
+    /// Per split: answerable queries with at least one grade >= 1.
+    answerable_positive: BTreeMap<String, usize>,
+    pool_pairs: usize,
+    reviewed: usize,
+    model_drafted: usize,
+    agreement: super::gates::Agreement,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PreparedPolicy {
+    promotion_policy: String,
+    seed: u64,
+    alpha_grid: Vec<f64>,
+    beta_grid: Vec<f64>,
+    gate_report_sha256: String,
+}
+
+/// Version-1 qrels-stage `preparation.json` (ADR9 "Exact-Byte Preparation
+/// Handoff"). Minted by [`Bench::prepare`] after every full-data gate passes;
+/// across processes it is admitted only by [`Preparation::verify`] against an
+/// out-of-band operator pin. A trusted handoff, not tamper-proof storage.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Preparation {
+    version: u32,
+    stage: super::gates::Stage,
+    approval: PreparationApproval,
+    inputs: PreparedInputs,
+    corpora: Vec<PreparedCorpus>,
+    partitions: PreparedPartitions,
+    counts: PreparedCounts,
+    policy: PreparedPolicy,
+    /// SHA-256 of the exact admitted (or about-to-be-published) bytes. Not
+    /// serialized: floats need not reserialize byte-identically, so the
+    /// digest is kept rather than recomputed.
+    #[serde(skip)]
+    sha256: String,
+}
+
+fn partition_commitment(dev: &PreparedPartition, test: &PreparedPartition) -> String {
+    sha256_hex(
+        format!(
+            "{PARTITION_DOMAIN}\n{}\n{}\n{}\n{}\n",
+            dev.queries, dev.qrels, test.queries, test.qrels
+        )
+        .as_bytes(),
+    )
+}
+
+fn lower_hex64(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
+fn preparation_error(detail: &str) -> EvalError {
+    EvalError::Invalid(format!("preparation refused: {detail}"))
+}
+
+impl Preparation {
+    /// Canonical manifest bytes; the operator pins their SHA-256.
+    pub fn to_bytes(&self) -> Result<Vec<u8>, EvalError> {
+        let mut bytes = serde_json::to_vec_pretty(self)?;
+        bytes.push(b'\n');
+        if bytes.len() > MAX_PREPARATION_BYTES {
+            return Err(preparation_error("manifest exceeds 1 MiB"));
+        }
+        Ok(bytes)
+    }
+
+    /// Publishes the manifest once (`create_new`, fsync); returns its SHA-256.
+    pub fn publish(&self, out: &Path) -> Result<String, EvalError> {
+        let bytes = self.to_bytes()?;
+        write_new(out, &bytes)?;
+        Ok(sha256_hex(&bytes))
+    }
+
+    /// Admits manifest bytes only when they match the operator pin exactly
+    /// and are a well-formed version-1 qrels-stage manifest.
+    pub fn verify(bytes: &[u8], pin: &str) -> Result<Self, EvalError> {
+        if !lower_hex64(pin) {
+            return Err(preparation_error("pin must be 64 lowercase hex digits"));
+        }
+        if bytes.len() > MAX_PREPARATION_BYTES {
+            return Err(preparation_error("manifest exceeds 1 MiB"));
+        }
+        if sha256_hex(bytes) != pin {
+            return Err(preparation_error("bytes differ from the pinned hash"));
+        }
+        let mut p: Self = serde_json::from_slice(bytes)
+            .map_err(|_| preparation_error("unknown or malformed manifest"))?;
+        p.sha256 = pin.into();
+        let i = &p.inputs;
+        let hashes = [
+            &i.config,
+            &i.gates,
+            &i.splits,
+            &i.queries,
+            &i.qrels,
+            &i.pool,
+            &i.query_review,
+            &i.annotation,
+            &i.annotation_notes,
+            &p.partitions.dev.queries,
+            &p.partitions.dev.qrels,
+            &p.partitions.test.queries,
+            &p.partitions.test.qrels,
+            &p.policy.gate_report_sha256,
+        ];
+        let corpora_sorted = p.corpora.windows(2).all(|w| w[0].name < w[1].name);
+        if p.version != PREPARATION_VERSION
+            || p.stage != super::gates::Stage::Qrels
+            || p.policy.promotion_policy != PROMOTION_POLICY
+            || !hashes.iter().all(|h| lower_hex64(h))
+            || p.corpora.is_empty()
+            || !corpora_sorted
+            || p.corpora.iter().any(|c| {
+                !lower_hex64(&c.index_sha256)
+                    || !lower_hex64(&c.meta_sha256)
+                    || !lower_hex64(&c.generation_id)
+                    || c.commit.len() != 40
+            })
+            || p.partitions.commitment
+                != partition_commitment(&p.partitions.dev, &p.partitions.test)
+        {
+            return Err(preparation_error("unsupported version, stage or identity"));
+        }
+        Ok(p)
+    }
+
+    /// Reads at most 1 MiB without following a final symlink, then verifies.
+    pub fn load(path: &Path, pin: &str) -> Result<Self, EvalError> {
+        // A malformed pin refuses before the manifest is opened.
+        if !lower_hex64(pin) {
+            return Err(preparation_error("pin must be 64 lowercase hex digits"));
+        }
+        Self::verify(&read_bounded(path, MAX_PREPARATION_BYTES)?, pin)
+    }
+
+    /// SHA-256 of the manifest bytes: the operator pin once verified, or
+    /// the digest of [`Preparation::to_bytes`] for a fresh preparation.
+    pub fn sha256(&self) -> &str {
+        &self.sha256
+    }
+
+    pub fn partition_commitment(&self) -> &str {
+        &self.partitions.commitment
+    }
+
+    fn partition_pairs(&self) -> [(String, String); 2] {
+        let pair = |p: &PreparedPartition| (p.queries.clone(), p.qrels.clone());
+        [pair(&self.partitions.dev), pair(&self.partitions.test)]
+    }
+}
+
+/// Exact parsed records as a duplicate-free canonical set.
+fn record_set<T: Serialize>(records: &[T]) -> Result<Option<BTreeSet<String>>, EvalError> {
+    let mut set = BTreeSet::new();
+    for r in records {
+        if !set.insert(serde_json::to_string(r)?) {
+            return Ok(None);
+        }
+    }
+    Ok(Some(set))
 }
 
 fn captured_read(path: &Path, cap: usize, budget: &mut usize) -> Result<Vec<u8>, EvalError> {
     let bytes = read_bounded(path, cap.min(*budget))?;
     *budget -= bytes.len();
     Ok(bytes)
+}
+
+/// Refuses a benchmark directory, or any benchmark payload's parent
+/// directory, inside a corpus root or its git checkout: corpus freshness
+/// walks and `git status` there could otherwise stat benchmark (including
+/// held-out) files. An undeterminable checkout extent refuses. Runs before
+/// payload reads; parents are canonicalized so symlinked ancestors resolve.
+fn check_layout<P: AsRef<Path>>(
+    dir: &Path,
+    config: &EvalConfig,
+    payloads: &[P],
+) -> Result<(), EvalError> {
+    let base = if dir.as_os_str().is_empty() {
+        Path::new(".")
+    } else {
+        dir
+    };
+    let mut placed = vec![fs::canonicalize(base).map_err(io_err(base))?];
+    for p in payloads {
+        // Absolute (trusted operator) paths replace `base` when joined.
+        let parent = base.join(p);
+        let parent = parent.parent().unwrap_or(base);
+        placed.push(fs::canonicalize(parent).map_err(io_err(parent))?);
+    }
+    for c in &config.corpora {
+        let root = base.join(&c.root);
+        let root = fs::canonicalize(&root).map_err(io_err(&root))?;
+        let top = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&root)
+            .args(["rev-parse", "--path-format=absolute", "--show-toplevel"])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .and_then(|t| fs::canonicalize(t.trim_end_matches('\n')).ok())
+            .ok_or_else(|| {
+                EvalError::Invalid(format!("cannot determine checkout of corpus {}", c.name))
+            })?;
+        if placed
+            .iter()
+            .any(|b| b.starts_with(&root) || b.starts_with(&top))
+        {
+            return Err(EvalError::Invalid(format!(
+                "benchmark directory must be outside corpus {} and its checkout",
+                c.name
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Non-empty relative path of only normal components (no `..`, root or `.`).
+fn relative_file(p: &str) -> bool {
+    !p.is_empty()
+        && p.len() <= 4096
+        && Path::new(p)
+            .components()
+            .all(|c| matches!(c, std::path::Component::Normal(_)))
 }
 
 fn validate_config(config: &EvalConfig) -> Result<(), EvalError> {
@@ -406,6 +779,7 @@ fn validate_config(config: &EvalConfig) -> Result<(), EvalError> {
             .corpora
             .iter()
             .any(|c| c.name.is_empty() || c.name.len() > 256 || c.root.len() > 4096)
+        || !(1..=super::sweep::REQUIRED_RESAMPLES).contains(&config.resamples)
         || [&config.alpha_grid, &config.beta_grid].iter().any(|grid| {
             grid.is_empty()
                 || grid.len() > 32
@@ -415,7 +789,7 @@ fn validate_config(config: &EvalConfig) -> Result<(), EvalError> {
         })
     {
         return Err(EvalError::Invalid(
-            "invalid or oversized corpus/grid configuration".into(),
+            "invalid or oversized corpus/grid/resamples configuration".into(),
         ));
     }
     Ok(())
@@ -428,7 +802,7 @@ fn validate_queries(queries: &[Query], config: &EvalConfig) -> Result<(), EvalEr
     }
     for q in queries {
         if q.id.is_empty()
-            || q.id.len() > 256
+            || q.id.len() > MAX_QUERY_ID_BYTES
             || q.text.len() > 4096
             || !ids.insert(&q.id)
             || !config.corpora.iter().any(|c| c.name == q.corpus)
@@ -445,11 +819,15 @@ fn validate_queries(queries: &[Query], config: &EvalConfig) -> Result<(), EvalEr
 }
 
 type IndexMap = BTreeMap<String, SearchIndex>;
+/// Bench, raw partition digests and remaining `(bytes, records)` budget.
+type Captured = (Bench, [(String, String); 2], (usize, usize));
+/// Per corpus: `(index.json sha256, meta.json sha256)`.
+type IndexHashes = BTreeMap<String, (String, String)>;
 fn capture_indexes(
     dir: &Path,
     config: &EvalConfig,
     budget: &mut usize,
-) -> Result<(IndexMap, BTreeMap<String, String>), EvalError> {
+) -> Result<(IndexMap, IndexHashes), EvalError> {
     validate_config(config)?;
     let mut indexes = BTreeMap::new();
     let mut hashes = BTreeMap::new();
@@ -482,7 +860,7 @@ fn capture_indexes(
                 "evaluation index work limit exceeded".into(),
             ));
         }
-        hashes.insert(c.name.clone(), sha256_hex(&bytes));
+        hashes.insert(c.name.clone(), (sha256_hex(&bytes), sha256_hex(&meta)));
         indexes.insert(c.name.clone(), SearchIndex::new(generation));
     }
     Ok((indexes, hashes))
@@ -491,18 +869,78 @@ fn capture_indexes(
 impl Bench {
     /// Full preparation may inspect both partitions. Only a passing full gate
     /// check can mint evidence; a JSON GateReport cannot be admitted here.
-    pub fn prepare(config_path: &Path) -> Result<MechanicalEvidence, EvalError> {
-        let (bench, partitions) = Self::capture(config_path, None)?;
+    /// `query_review_sha256` is the operator-audited pin, not a hash of
+    /// whatever file currently exists.
+    pub fn prepare(
+        config_path: &Path,
+        trusted: &TrustedInputs<'_>,
+    ) -> Result<Preparation, EvalError> {
+        if trusted.operator.trim().is_empty()
+            || trusted.operator.len() > 128
+            || trusted.operator_evidence.trim().is_empty()
+            || trusted.operator_evidence.len() > 4096
+        {
+            return Err(preparation_error("operator identity and evidence required"));
+        }
+        let (bench, partitions, (mut bytes, mut records)) =
+            Self::capture(config_path, None, None, Some(trusted))?;
         let c = bench
             .captured
             .as_ref()
             .ok_or_else(|| EvalError::Invalid("missing capture".into()))?;
+        // Combined authoring files equal the exact union of both partitions.
+        let dir = &bench.dir;
+        let combined_q = captured_read(
+            &dir.join(&bench.config.queries),
+            MAX_INPUT_BYTES,
+            &mut bytes,
+        )?;
+        let combined_j =
+            captured_read(&dir.join(&bench.config.qrels), MAX_INPUT_BYTES, &mut bytes)?;
+        let qs: Vec<Query> = parse_jsonl_within(
+            &dir.join(&bench.config.queries),
+            &combined_q,
+            &mut records,
+            |_| 1,
+        )?;
+        let js: Vec<Judgement> = parse_jsonl_within(
+            &dir.join(&bench.config.qrels),
+            &combined_j,
+            &mut records,
+            |_| 1,
+        )?;
+        let union_q = record_set(&bench.queries)?;
+        let union_j = record_set(&c.judgements)?;
+        if record_set(&qs)?.is_none_or(|s| Some(s) != union_q)
+            || record_set(&js)?.is_none_or(|s| Some(s) != union_j)
+        {
+            return Err(preparation_error(
+                "combined authoring files differ from the partition union",
+            ));
+        }
+        let review = captured_read(trusted.query_review, MAX_INPUT_BYTES, &mut bytes)?;
+        let approval = super::gates::check_query_review_within(
+            &bench.queries,
+            &review,
+            trusted.query_review_sha256,
+            &mut records,
+        )?;
+        let annotation = captured_read(trusted.annotation, MAX_INPUT_BYTES, &mut bytes)?;
+        let notes = captured_read(trusted.annotation_notes, MAX_INPUT_BYTES, &mut bytes)?;
+        let provenance = super::gates::Provenance {
+            approval: Some(&approval),
+            annotation: Some(super::gates::AnnotationInput {
+                records: &annotation,
+                notes: &notes,
+                budget: records,
+            }),
+        };
         let report = super::gates::check_benchmark(
             &bench,
             &c.gates,
             super::gates::Stage::Qrels,
             None,
-            &bench.dir,
+            &provenance,
         )?;
         if !report.passed {
             return Err(EvalError::Invalid(format!(
@@ -510,22 +948,217 @@ impl Bench {
                 serde_json::to_string(&report.failures)?
             )));
         }
-        Ok(MechanicalEvidence {
-            identity: c.identity.clone(),
-            partitions,
-        })
+        let agreement = report
+            .agreement
+            .clone()
+            .ok_or_else(|| preparation_error("agreement missing from passing gates"))?;
+        let (splits, _) = bench.splits()?;
+        let mut queries: StratumCounts = BTreeMap::new();
+        let mut answerable_positive = BTreeMap::new();
+        for (name, ids) in [("dev", &splits.dev), ("test", &splits.test)] {
+            let ids: BTreeSet<&str> = ids.iter().map(String::as_str).collect();
+            let mut positive = 0;
+            for q in bench.queries.iter().filter(|q| ids.contains(q.id.as_str())) {
+                *queries
+                    .entry(name.into())
+                    .or_default()
+                    .entry(q.corpus.clone())
+                    .or_default()
+                    .entry(q.stratum.name().into())
+                    .or_default() += 1;
+                positive += usize::from(
+                    q.stratum != Stratum::OffTopic
+                        && c.qrels
+                            .get(&q.id)
+                            .is_some_and(|r| r.values().any(|&g| g >= 1)),
+                );
+            }
+            answerable_positive.insert(name.to_string(), positive);
+        }
+        let pins: BTreeMap<&str, &str> = c
+            .gates
+            .pins
+            .iter()
+            .map(|p| (p.name.as_str(), p.commit.as_str()))
+            .collect();
+        let mut corpora = Vec::new();
+        for (name, index) in c.indexes.iter() {
+            let pinned = |m: &BTreeMap<String, String>| m.get(name).cloned();
+            corpora.push(PreparedCorpus {
+                name: name.clone(),
+                commit: pins
+                    .get(name.as_str())
+                    .map(|c| c.to_ascii_lowercase())
+                    .ok_or_else(|| preparation_error("corpus pin missing"))?,
+                generation_id: index.generation.generation_id.clone(),
+                index_sha256: pinned(&c.identity.indexes)
+                    .ok_or_else(|| preparation_error("index hash missing"))?,
+                meta_sha256: pinned(&c.meta_hashes)
+                    .ok_or_else(|| preparation_error("meta hash missing"))?,
+            });
+        }
+        let [dev, test] = partitions.map(|(queries, qrels)| PreparedPartition { queries, qrels });
+        let commitment = partition_commitment(&dev, &test);
+        let pool_pairs = c
+            .pool
+            .as_deref()
+            .ok_or_else(|| preparation_error("full capture required"))?
+            .split(|&b| b == b'\n')
+            .filter(|l| !l.trim_ascii().is_empty())
+            .count();
+        let mut preparation = Preparation {
+            version: PREPARATION_VERSION,
+            stage: super::gates::Stage::Qrels,
+            approval: PreparationApproval {
+                operator: trusted.operator.into(),
+                evidence: trusted.operator_evidence.into(),
+            },
+            inputs: PreparedInputs {
+                config: c.identity.config.clone(),
+                gates: c.identity.gates.clone(),
+                splits: c.identity.splits.clone(),
+                queries: sha256_hex(&combined_q),
+                qrels: sha256_hex(&combined_j),
+                pool: c.identity.pool.clone(),
+                query_review: approval.sha256().into(),
+                annotation: sha256_hex(&annotation),
+                annotation_notes: sha256_hex(&notes),
+            },
+            corpora,
+            partitions: PreparedPartitions {
+                dev,
+                test,
+                commitment,
+            },
+            counts: PreparedCounts {
+                queries,
+                answerable_positive,
+                pool_pairs,
+                reviewed: approval.reviewed(),
+                model_drafted: approval.model_drafted(),
+                agreement,
+            },
+            policy: PreparedPolicy {
+                promotion_policy: PROMOTION_POLICY.into(),
+                seed: bench.config.seed,
+                alpha_grid: bench.config.alpha_grid.clone(),
+                beta_grid: bench.config.beta_grid.clone(),
+                gate_report_sha256: sha256_hex(&serde_json::to_vec(&report)?),
+            },
+            sha256: String::new(),
+        };
+        preparation.sha256 = sha256_hex(&preparation.to_bytes()?);
+        Ok(preparation)
+    }
+
+    /// [`Bench::load_dev`] after verifying manifest bytes against the
+    /// operator's out-of-band pin; the cross-process admission path.
+    pub fn load_dev_pinned(
+        config_path: &Path,
+        preparation: &Path,
+        pin: &str,
+    ) -> Result<Self, EvalError> {
+        Self::load_dev(config_path, &Preparation::load(preparation, pin)?)
     }
 
     /// Select paths before any payload read. No combined or held-out fallback.
-    pub fn load_dev(config_path: &Path, evidence: &MechanicalEvidence) -> Result<Self, EvalError> {
-        let (mut bench, partitions) = Self::capture(config_path, Some(SplitName::Dev))?;
+    /// Crate-private: a deserialized [`Preparation`] is not approval. External
+    /// callers must use [`Bench::load_dev_pinned`], which verifies the exact
+    /// manifest bytes against the operator pin.
+    pub(crate) fn load_dev(config_path: &Path, evidence: &Preparation) -> Result<Self, EvalError> {
+        Self::load_selected(config_path, evidence, SplitName::Dev)
+    }
+
+    /// Reserves the sole held-out attempt (create-new + fsync) before any
+    /// test payload is opened. The registration must already bind this
+    /// manifest's partitions; that check reads no held-out data and does not
+    /// consume the attempt. A capture failure after reservation records a
+    /// failed, consumed attempt.
+    fn load_test_reserved(
+        config_path: &Path,
+        evidence: &Preparation,
+        custody: &Custody,
+        out: &Path,
+    ) -> Result<(Self, AttemptStarted), EvalError> {
+        let (registration, _) = custody.registration()?;
+        // Metadata-only identity checks before reservation: no payload reads.
+        let r = &registration.identity;
+        let i = &evidence.inputs;
+        let indexes: BTreeMap<String, String> = evidence
+            .corpora
+            .iter()
+            .map(|c| (c.name.clone(), c.index_sha256.clone()))
+            .collect();
+        if registration.preparation_partitions != evidence.partition_pairs()
+            || registration.preparation_sha256 != evidence.sha256()
+            || (&r.config, &r.gates, &r.splits, &r.pool, &r.indexes)
+                != (&i.config, &i.gates, &i.splits, &i.pool, &indexes)
+        {
+            return Err(EvalError::Invalid(
+                "registration does not bind this preparation".into(),
+            ));
+        }
+        let started = start_attempt(custody, out)?;
+        match Self::load_selected(config_path, evidence, SplitName::Test) {
+            Ok(bench) => Ok((bench, started)),
+            Err(error) => {
+                finish_attempt(custody, &started, None)?;
+                Err(error)
+            }
+        }
+    }
+
+    fn load_selected(
+        config_path: &Path,
+        evidence: &Preparation,
+        split: SplitName,
+    ) -> Result<Self, EvalError> {
+        let (mut bench, partitions, _) =
+            Self::capture(config_path, Some(split), Some(&evidence.inputs), None)?;
         let c = bench
             .captured
             .as_ref()
             .ok_or_else(|| EvalError::Invalid("missing capture".into()))?;
-        if c.identity != evidence.identity || partitions[0] != evidence.partitions[0] {
+        let i = &evidence.inputs;
+        let corpora: Vec<_> = c
+            .indexes
+            .iter()
+            .map(|(name, index)| {
+                (
+                    name.as_str(),
+                    index.generation.generation_id.as_str(),
+                    c.identity.indexes.get(name).map(String::as_str),
+                    c.meta_hashes.get(name).map(String::as_str),
+                    c.gates
+                        .pins
+                        .iter()
+                        .find(|p| &p.name == name)
+                        .map(|p| p.commit.to_ascii_lowercase()),
+                )
+            })
+            .collect();
+        let expected: Vec<_> = evidence
+            .corpora
+            .iter()
+            .map(|p| {
+                (
+                    p.name.as_str(),
+                    p.generation_id.as_str(),
+                    Some(p.index_sha256.as_str()),
+                    Some(p.meta_sha256.as_str()),
+                    Some(p.commit.clone()),
+                )
+            })
+            .collect();
+        let k = usize::from(split == SplitName::Test);
+        let approved = &evidence.partition_pairs()[k];
+        if (&c.identity.config, &c.identity.gates, &c.identity.splits)
+            != (&i.config, &i.gates, &i.splits)
+            || corpora != expected
+            || partitions[k] != *approved
+        {
             return Err(EvalError::Invalid(
-                "captured dev identity differs from prevalidation".into(),
+                "captured selected identity differs from prevalidation".into(),
             ));
         }
         if !c.freshness_failures.is_empty() || !c.pin_failures.is_empty() {
@@ -534,7 +1167,10 @@ impl Bench {
             ));
         }
         if let Some(c) = &mut bench.captured {
-            c.preparation_partitions = Some(evidence.partitions.clone());
+            c.preparation_partitions = Some(evidence.partition_pairs());
+            c.preparation_sha256 = Some(evidence.sha256().into());
+            c.test_answerable = evidence.counts.answerable_positive.get("test").copied();
+            c.identity.pool = i.pool.clone();
         }
         Ok(bench)
     }
@@ -543,19 +1179,34 @@ impl Bench {
         &self.queries
     }
 
-    pub(crate) fn require_dev_capture(&self) -> Result<(), EvalError> {
-        if !self.captured.as_ref().is_some_and(|c| {
-            c.selected == Some(SplitName::Dev) && c.preparation_partitions.is_some()
-        }) {
-            return Err(EvalError::Invalid(
-                "split-isolated dev capture required".into(),
-            ));
+    /// Requires a split-isolated capture of `split` admitted by a manifest.
+    pub(crate) fn require_prepared_capture(&self, split: SplitName) -> Result<(), EvalError> {
+        if self
+            .preparation_binding()
+            .is_none_or(|(s, _, _)| s != split)
+        {
+            return Err(EvalError::Invalid(format!(
+                "measurement requires an admitted preparation capture of the {split:?} split"
+            )));
         }
         Ok(())
     }
 
-    pub(crate) fn captured_gates(&self) -> Option<&super::gates::GateConfig> {
-        self.captured.as_ref().map(|c| &c.gates)
+    /// Manifest-approved answerable test count of an admitted capture.
+    pub(crate) fn prepared_test_answerable(&self) -> Option<usize> {
+        self.preparation_binding()?;
+        self.captured.as_ref()?.test_answerable
+    }
+
+    /// Selected split, manifest hash and `[dev, test]` (queries, qrels)
+    /// digests of a manifest-admitted capture; `None` for any other bench.
+    pub(crate) fn preparation_binding(&self) -> Option<(SplitName, &str, &PartitionPairs)> {
+        let c = self.captured.as_ref()?;
+        Some((
+            c.selected?,
+            c.preparation_sha256.as_deref()?,
+            c.preparation_partitions.as_ref()?,
+        ))
     }
 
     pub(crate) fn freshness_failures(&self) -> Result<Vec<super::gates::GateFailure>, EvalError> {
@@ -591,18 +1242,35 @@ impl Bench {
                     .as_ref()
                     .is_some_and(|p| self.dir.join(p) == path) =>
             {
-                Ok(c.pool.clone())
+                c.pool
+                    .clone()
+                    .ok_or_else(|| EvalError::Invalid("selected capture holds no pool".into()))
             }
             Some(_) => Err(EvalError::Invalid("pool path differs from capture".into())),
             None => read(path),
         }
     }
 
+    /// Returns the bench, raw partition digests and the remaining shared
+    /// `(bytes, records)` capture budget for trusted provenance inputs.
+    /// `expected` (selected captures) binds config, splits and gates bytes to
+    /// the admitted manifest before any partition payload is read.
+    /// `trusted` (full preparation) adds operator input paths to the layout
+    /// check, which precedes all freshness/git corpus inspection.
     fn capture(
         config_path: &Path,
         selected: Option<SplitName>,
-    ) -> Result<(Self, [(String, String); 2]), EvalError> {
+        expected: Option<&PreparedInputs>,
+        trusted: Option<&TrustedInputs<'_>>,
+    ) -> Result<Captured, EvalError> {
+        let bound = |actual: &[u8], want: Option<&String>| match want {
+            Some(w) if sha256_hex(actual) != *w => Err(EvalError::Invalid(
+                "captured selected identity differs from prevalidation".into(),
+            )),
+            _ => Ok(()),
+        };
         let mut budget = MAX_CAPTURE_BYTES;
+        let mut records = MAX_RECORDS;
         let dir = config_path.parent().unwrap_or(Path::new(".")).to_path_buf();
         let config_bytes = captured_read(config_path, MAX_INPUT_BYTES, &mut budget)?;
         let config: EvalConfig = serde_json::from_slice(&config_bytes)?;
@@ -622,11 +1290,7 @@ impl Bench {
         let mut unique = BTreeSet::new();
         for p in paths {
             let path = Path::new(p);
-            if path
-                .components()
-                .any(|c| !matches!(c, std::path::Component::Normal(_)))
-                || p.is_empty()
-                || p.len() > 4096
+            if !relative_file(p)
                 || !unique.insert(path.to_path_buf())
                 || *p == config.queries
                 || *p == config.qrels
@@ -636,7 +1300,26 @@ impl Bench {
                 ));
             }
         }
+        if !relative_file(&config.splits) {
+            return Err(EvalError::Invalid(
+                "splits path must be a relative file beneath the benchmark".into(),
+            ));
+        }
+        check_layout(
+            &dir,
+            &config,
+            &[
+                &files.dev.queries,
+                &files.dev.qrels,
+                &files.test.queries,
+                &files.test.qrels,
+                &config.splits,
+                "gates.json",
+            ],
+        )?;
+        bound(&config_bytes, expected.map(|e| &e.config))?;
         let split_bytes = captured_read(&dir.join(&config.splits), MAX_INPUT_BYTES, &mut budget)?;
+        bound(&split_bytes, expected.map(|e| &e.splits))?;
         let splits: Splits = serde_json::from_slice(&split_bytes)?;
         if splits.dev.len() + splits.test.len() > MAX_QUERIES {
             return Err(EvalError::Invalid("split work limit exceeded".into()));
@@ -652,13 +1335,35 @@ impl Bench {
             return Err(EvalError::Invalid("invalid split assignment".into()));
         }
         let gates_bytes = captured_read(&dir.join("gates.json"), MAX_INPUT_BYTES, &mut budget)?;
+        bound(&gates_bytes, expected.map(|e| &e.gates))?;
         let gates: super::gates::GateConfig = serde_json::from_slice(&gates_bytes)?;
         let pool_path = gates
             .pool
             .as_ref()
-            .filter(|p| !p.is_empty())
-            .ok_or_else(|| EvalError::Invalid("pool required".into()))?;
-        let pool = captured_read(&dir.join(pool_path), MAX_INPUT_BYTES, &mut budget)?;
+            .filter(|p| relative_file(p))
+            .ok_or_else(|| EvalError::Invalid("pool required as a relative file".into()))?;
+        if selected.is_none() {
+            // Combined authoring files and caller-relative trusted paths.
+            let mut placed = vec![
+                PathBuf::from(pool_path),
+                PathBuf::from(&config.queries),
+                PathBuf::from(&config.qrels),
+            ];
+            if let Some(t) = trusted {
+                for p in [t.query_review, t.annotation, t.annotation_notes] {
+                    placed.push(std::path::absolute(p).map_err(io_err(p))?);
+                }
+            }
+            check_layout(&dir, &config, &placed)?;
+        }
+        let pool = match selected {
+            None => Some(captured_read(
+                &dir.join(pool_path),
+                MAX_INPUT_BYTES,
+                &mut budget,
+            )?),
+            Some(_) => None,
+        };
         let mut queries = Vec::new();
         let mut judgements = Vec::new();
         let mut digests = [
@@ -674,8 +1379,10 @@ impl Bench {
             }
             let qb = captured_read(&dir.join(&files.queries), MAX_INPUT_BYTES, &mut budget)?;
             let jb = captured_read(&dir.join(&files.qrels), MAX_INPUT_BYTES, &mut budget)?;
-            let qs: Vec<Query> = parse_jsonl(&dir.join(&files.queries), &qb)?;
-            let js: Vec<Judgement> = parse_jsonl(&dir.join(&files.qrels), &jb)?;
+            let qs: Vec<Query> =
+                parse_jsonl_within(&dir.join(&files.queries), &qb, &mut records, |_| 1)?;
+            let js: Vec<Judgement> =
+                parse_jsonl_within(&dir.join(&files.qrels), &jb, &mut records, |_| 1)?;
             validate_queries(&qs, &config)?;
             let actual: BTreeSet<_> = qs.iter().map(|q| &q.id).collect();
             if actual != ids.iter().collect() || js.iter().any(|j| !actual.contains(&j.query_id)) {
@@ -690,25 +1397,30 @@ impl Bench {
         validate_queries(&queries, &config)?;
         let qrels = validate_judgements(&judgements)?;
         let (indexes, hashes) = capture_indexes(&dir, &config, &mut budget)?;
+        let meta_hashes = hashes
+            .iter()
+            .map(|(name, (_, meta))| (name.clone(), meta.clone()))
+            .collect();
         let freshness_failures = check_current_corpora(&dir, &config, &indexes, &mut budget)?;
         let identity = InputIdentity {
             config: sha256_hex(&config_bytes),
             gates: sha256_hex(&gates_bytes),
             splits: sha256_hex(&split_bytes),
-            pool: sha256_hex(&pool),
-            indexes: hashes,
+            // Selected captures adopt the verified manifest's committed hash.
+            pool: pool.as_deref().map(sha256_hex).unwrap_or_default(),
+            indexes: hashes
+                .into_iter()
+                .map(|(name, (index, _))| (name, index))
+                .collect(),
         };
         // Combined identity is only for full preparation; execution keeps the
         // exact selected payload digest, not a digest of reserialized records.
-        let queries_sha256 = if selected == Some(SplitName::Dev) {
-            digests[0].0.clone()
-        } else {
-            sha256_hex(&serde_json::to_vec(&digests)?)
-        };
-        let qrels_sha256 = if selected == Some(SplitName::Dev) {
-            digests[0].1.clone()
-        } else {
-            sha256_hex(&serde_json::to_vec(&digests)?)
+        let (queries_sha256, qrels_sha256) = match selected {
+            Some(split) => digests[usize::from(split == SplitName::Test)].clone(),
+            None => {
+                let combined = sha256_hex(&serde_json::to_vec(&digests)?);
+                (combined.clone(), combined)
+            }
         };
         let captured = CapturedInputs {
             identity,
@@ -721,6 +1433,9 @@ impl Bench {
             pool,
             selected,
             preparation_partitions: None,
+            preparation_sha256: None,
+            test_answerable: None,
+            meta_hashes,
             freshness_failures,
             pin_failures: Vec::new(),
         };
@@ -737,7 +1452,7 @@ impl Bench {
             pin_failures,
             ..captured
         });
-        Ok((bench, digests))
+        Ok((bench, digests, (budget, records)))
     }
 }
 
@@ -835,9 +1550,19 @@ pub struct PoolSummary {
 
 /// Writes the judgement pool: the top-10 sections of every system at every
 /// grid point for every non-off-topic query, deduplicated and sorted.
-pub fn pool(bench: &Bench, out: &Path) -> Result<PoolSummary, EvalError> {
+/// Refuses before ranking unless every final query has an accepted review.
+pub fn pool(
+    bench: &Bench,
+    out: &Path,
+    approval: &super::gates::QueryApproval,
+) -> Result<PoolSummary, EvalError> {
+    if !approval.covers(&bench.queries) {
+        return Err(EvalError::Invalid(
+            "query review refused: approved queries differ from the final queries".into(),
+        ));
+    }
     let indexes = bench.indexes()?;
-    let (text, queries, pairs) = pool_captured(bench, &indexes)?;
+    let (text, queries, pairs) = pool_captured(bench, &indexes, approval)?;
     write(out, &text)?;
     Ok(PoolSummary {
         queries,
@@ -849,9 +1574,15 @@ pub fn pool(bench: &Bench, out: &Path) -> Result<PoolSummary, EvalError> {
 pub(crate) fn pool_captured(
     bench: &Bench,
     indexes: &IndexMap,
+    approval: &super::gates::QueryApproval,
 ) -> Result<(Vec<u8>, usize, usize), EvalError> {
     validate_config(&bench.config)?;
     validate_queries(&bench.queries, &bench.config)?;
+    if !approval.covers(&bench.queries) {
+        return Err(EvalError::Invalid(
+            "query review does not cover pool".into(),
+        ));
+    }
     let mut systems = vec![System::B0, System::B1];
     systems.extend(bench.config.alpha_grid.iter().map(|&a| System::B2(a)));
     systems.extend(bench.config.beta_grid.iter().map(|&b| System::B3(b)));
@@ -897,8 +1628,13 @@ pub struct CorpusIdentity {
 
 /// Identity of one run; copied verbatim into its report.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RunMeta {
+    /// [`RUN_META_VERSION`]; older metadata is refused, never migrated.
+    pub version: u32,
     pub split: SplitName,
+    /// SHA-256 of the preparation manifest that admitted the run's capture.
+    pub preparation_sha256: String,
     pub seed: u64,
     pub resamples: usize,
     pub alpha: f64,
@@ -938,29 +1674,38 @@ fn check_tsv_field(value: &str) -> Result<&str, EvalError> {
     Ok(value)
 }
 
-/// Apply the complete benchmark preflight before computing or exposing scores.
+/// Execution preflight on a manifest-admitted capture. Full-data floors,
+/// leakage, pool reproducibility and provenance were enforced by the approved
+/// preparation (ADR9); capture already refused changed identity, freshness or
+/// pins. Recheck the selected qrels against the captured generations.
 pub(crate) fn preflight(bench: &Bench) -> Result<(), EvalError> {
-    use super::gates::{GateConfig, Stage, check_benchmark};
-    let path = bench.dir.join("gates.json");
-    let gates: GateConfig = match bench.captured_gates() {
-        Some(g) => g.clone(),
-        None => serde_json::from_slice(&read(&path)?)?,
-    };
-    let result = check_benchmark(bench, &gates, Stage::Qrels, None, &bench.dir)?;
-    if result.passed {
+    let (split, _, _) = bench.preparation_binding().ok_or_else(admission_error)?;
+    bench.require_prepared_capture(split)?;
+    let failures = super::gates::check_qrels(bench)?;
+    if failures.is_empty() {
         Ok(())
     } else {
         Err(EvalError::Invalid(format!(
             "benchmark integrity gates failed: {}",
-            serde_json::to_string(&result.failures)?
+            serde_json::to_string(&failures)?
         )))
     }
+}
+
+/// Refusal for measurement without a pinned, admitted preparation.
+pub(crate) fn admission_error() -> EvalError {
+    EvalError::Invalid(
+        "measurement requires an admitted preparation (--preparation and --preparation-sha256)"
+            .into(),
+    )
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Registration {
     version: u32,
+    /// SHA-256 of the whole admitted preparation manifest.
+    preparation_sha256: String,
     frozen: String,
     identity: InputIdentity,
     preparation_partitions: [(String, String); 2],
@@ -1020,7 +1765,7 @@ impl Custody {
         self.check_dir()?;
         let bytes = read(&self.dir.join("registration.json"))?;
         let registration: Registration = serde_json::from_slice(&bytes)?;
-        if registration.version != 1 {
+        if registration.version != REGISTRATION_VERSION {
             return Err(EvalError::Invalid(
                 "unsupported evaluation registration version".into(),
             ));
@@ -1083,19 +1828,19 @@ fn check_registration(
     let capture = bench.captured.as_ref().ok_or_else(|| {
         EvalError::Invalid("registration requires admitted captured inputs".into())
     })?;
-    if registration.version != 1
+    if registration.version != REGISTRATION_VERSION
         || registration.frozen.as_bytes() != bytes
         || registration.identity != capture.identity
         || Some(&registration.preparation_partitions) != capture.preparation_partitions.as_ref()
+        || Some(&registration.preparation_sha256) != capture.preparation_sha256.as_ref()
     {
         return Err(EvalError::Invalid(
             "registered freeze or captured inputs differ".into(),
         ));
     }
     let frozen = super::sweep::FrozenConfig::from_toml(&registration.frozen)?;
-    if frozen.config_sha256 != bench.config_sha256
-        || frozen.queries_sha256 != bench.queries_sha256
-        || frozen.qrels_sha256 != bench.qrels()?.1
+    if !frozen.preparation_problems(bench)?.is_empty()
+        || frozen.config_sha256 != bench.config_sha256
         || frozen.splits_sha256 != bench.splits()?.1
         || frozen.generation_ids
             != bench
@@ -1151,13 +1896,16 @@ pub(crate) fn register_freeze(
     }
     let custody = Custody::resolve(repo)?;
     let out = external_path(&custody.root, out)?;
-    bench.require_dev_capture()?;
+    bench.require_prepared_capture(SplitName::Dev)?;
     let capture = bench
         .captured
         .as_ref()
         .ok_or_else(|| EvalError::Invalid("registration requires captured inputs".into()))?;
     let registration = Registration {
-        version: 1,
+        version: REGISTRATION_VERSION,
+        preparation_sha256: capture.preparation_sha256.clone().ok_or_else(|| {
+            EvalError::Invalid("registration requires an admitted preparation".into())
+        })?,
         frozen: text.into(),
         identity: capture.identity.clone(),
         preparation_partitions: capture.preparation_partitions.clone().ok_or_else(|| {
@@ -1279,7 +2027,12 @@ fn verify_completed(
     let result: AttemptResult =
         serde_json::from_slice(&read(&custody.dir.join("attempt-result.json"))?)?;
     let frozen_hash = sha256_hex(registration.frozen.as_bytes());
-    if started.version != 1
+    let voided = !matches!(
+        fs::symlink_metadata(custody.dir.join(VOID_RECORD)),
+        Err(ref e) if e.kind() == std::io::ErrorKind::NotFound
+    );
+    if voided
+        || started.version != 1
         || result.version != 1
         || result.state != "completed"
         || result.reason.is_some()
@@ -1306,22 +2059,92 @@ fn held_out_preflight(bench: &Bench) -> Result<super::sweep::FrozenConfig, EvalE
     Ok(frozen)
 }
 
-// Local custody does not establish independent audit provenance. EVAL-1.3
-// still owns measurement admission and held-out capture integration.
-pub(crate) fn ensure_measurement_ready() -> Result<(), EvalError> {
-    Err(EvalError::Invalid(
-        "evaluation disabled pending sealed inputs and an independent audit registry".into(),
-    ))
-}
-
 fn check_score_split(split: SplitName, confirm_test: bool) -> Result<(), EvalError> {
-    if split == SplitName::Test {
-        if !confirm_test {
-            return Err(EvalError::TestSplitRefused);
-        }
-        ensure_measurement_ready()?;
+    if split == SplitName::Test && !confirm_test {
+        return Err(EvalError::TestSplitRefused);
     }
     Ok(())
+}
+
+/// Pre-reservation held-out admission from metadata only; opens no test
+/// payload. Registration, export bytes, frozen manifest/partition binding,
+/// power and manifest test count, clean code identity and output path are
+/// all checked before the sole attempt can be consumed.
+fn held_out_admission(
+    config_path: &Path,
+    evidence: &Preparation,
+    custody: &Custody,
+    out: &Path,
+) -> Result<(), EvalError> {
+    let (registration, _) = custody.registration()?;
+    let dir = parent(config_path);
+    let data = fs::canonicalize(dir).map_err(io_err(dir))?;
+    if data.starts_with(&custody.root) {
+        return Err(EvalError::Invalid(
+            "held-out benchmark and attempt receipt must be outside the frozen code checkout"
+                .into(),
+        ));
+    }
+    external_path(&custody.root, out)?;
+    if fs::symlink_metadata(out).is_ok() {
+        return Err(EvalError::Invalid(format!(
+            "refusing to overwrite run directory {}",
+            out.display()
+        )));
+    }
+    let export = read_bounded(&dir.join("frozen-config.toml"), MAX_INPUT_BYTES / 8)?;
+    let frozen = super::sweep::FrozenConfig::from_toml(&registration.frozen)?;
+    let [dev, test] = evidence.partition_pairs();
+    let generations: BTreeMap<String, String> = evidence
+        .corpora
+        .iter()
+        .map(|c| (c.name.clone(), c.generation_id.clone()))
+        .collect();
+    let answerable = evidence
+        .counts
+        .answerable_positive
+        .get("test")
+        .copied()
+        .unwrap_or(0);
+    if export != registration.frozen.as_bytes()
+        || registration.preparation_sha256 != evidence.sha256()
+        || frozen.preparation_sha256 != evidence.sha256()
+        || (&frozen.dev_queries_sha256, &frozen.dev_qrels_sha256) != (&dev.0, &dev.1)
+        || (&frozen.test_queries_sha256, &frozen.test_qrels_sha256) != (&test.0, &test.1)
+        || frozen.config_sha256 != evidence.inputs.config
+        || frozen.splits_sha256 != evidence.inputs.splits
+        || frozen.generation_ids != generations
+        || frozen.resamples != super::sweep::REQUIRED_RESAMPLES
+        || answerable < frozen.power.required_answerable_test
+    {
+        return Err(EvalError::Invalid(
+            "frozen registration does not admit this preparation".into(),
+        ));
+    }
+    super::sweep::validate_power(&frozen.power)?;
+    check_code(&frozen, &custody.root)?;
+    // Every non-held-out identity the test capture will recheck (config,
+    // splits, gates, indexes, corpus pins and freshness) is verified against
+    // the manifest now, through the dev-selected capture, so a stale or
+    // dirty corpus refuses without consuming the attempt.
+    let dev = Bench::load_selected(config_path, evidence, SplitName::Dev)?;
+    // Run files must fit scoring's per-file payload bound; otherwise the
+    // attempt would be consumed by an unscorable run.
+    held_out_run_bound(&dev, &frozen)
+}
+
+/// Run files of the held-out attempt must fit scoring's payload bound. Uses
+/// the test query ids of the manifest-pinned splits (metadata only, no test
+/// payload), so an unscorable run refuses before the attempt is reserved.
+fn held_out_run_bound(dev: &Bench, frozen: &super::sweep::FrozenConfig) -> Result<(), EvalError> {
+    let (splits, _) = dev.splits()?;
+    let systems = [
+        System::B0,
+        System::B1,
+        System::B2(frozen.alpha),
+        System::B3(frozen.beta),
+    ];
+    check_run_file_bytes(run_file_bound(&splits.test, &*dev.indexes()?, &systems))
 }
 
 /// An owned private sibling avoids publishing partial or invalid output.
@@ -1401,17 +2224,52 @@ pub fn run(
     confirm_test: bool,
     out: &Path,
 ) -> Result<Report, EvalError> {
-    if split == SplitName::Test && !confirm_test {
+    if split == SplitName::Test {
+        if !confirm_test {
+            return Err(EvalError::TestSplitRefused);
+        }
+        // A held-out attempt must be reserved before its payload is read.
+        return Err(EvalError::Invalid(
+            "held-out runs reserve their attempt through run_held_out".into(),
+        ));
+    }
+    bench.require_prepared_capture(SplitName::Dev)?;
+    run_reserved(bench, split, confirm_test, out, None)
+}
+
+/// Held-out run from the pinned preparation: confirmation and admission are
+/// checked first, then the sole attempt is reserved before any test payload
+/// is read ([`Bench::load_test_reserved`]); every later failure consumes it.
+pub fn run_held_out(
+    config_path: &Path,
+    preparation: &Path,
+    preparation_sha256: &str,
+    confirm_test: bool,
+    out: &Path,
+) -> Result<Report, EvalError> {
+    if !confirm_test {
         return Err(EvalError::TestSplitRefused);
     }
-    ensure_measurement_ready()?;
-    let attempt = if split == SplitName::Test {
-        let custody = Custody::resolve(Path::new("."))?;
-        let started = start_attempt(&custody, out)?;
-        Some((custody, started))
-    } else {
-        None
-    };
+    let evidence = Preparation::load(preparation, preparation_sha256)?;
+    let custody = Custody::resolve(Path::new("."))?;
+    held_out_admission(config_path, &evidence, &custody, out)?;
+    let (bench, started) = Bench::load_test_reserved(config_path, &evidence, &custody, out)?;
+    run_reserved(
+        &bench,
+        SplitName::Test,
+        confirm_test,
+        out,
+        Some((custody, started)),
+    )
+}
+
+fn run_reserved(
+    bench: &Bench,
+    split: SplitName,
+    confirm_test: bool,
+    out: &Path,
+    attempt: Option<(Custody, AttemptStarted)>,
+) -> Result<Report, EvalError> {
     let result = (|| {
         if split == SplitName::Test {
             check_held_out_code(bench)?;
@@ -1425,9 +2283,7 @@ pub fn run(
             }
             external_path(&custody.root, out)?;
         }
-        // Snapshot plumbing alone does not satisfy provenance or attempt custody.
-        ensure_measurement_ready()?;
-        bench.require_dev_capture()?;
+        bench.require_prepared_capture(split)?;
         preflight(bench)?;
         let frozen = if split == SplitName::Test {
             Some(held_out_preflight(bench)?)
@@ -1458,10 +2314,16 @@ pub fn run(
         ];
 
         // Complete all ranking and scoring privately; publish only a passing report.
+        check_run_file_bytes(run_file_bound(
+            queries.iter().map(|q| &q.id),
+            &indexes,
+            &systems,
+        ))?;
         let stage = StagingDir::create(out)?;
         let code_identity = frozen.map(|f| (f.git_commit, f.binary_sha256));
         let stage_path = stage.path();
         let mut run_sha256 = BTreeMap::new();
+        let mut run_bytes = 0usize;
         for system in systems {
             let name = system.name();
             let mut text = String::new();
@@ -1471,7 +2333,7 @@ pub fn run(
                     .enumerate()
                 {
                     text.push_str(&format!(
-                        "{}\tQ0\t{}\t{}\t{}\t{}\n",
+                        "{}\tQ0\t{}\t{}\t{:e}\t{}\n",
                         check_tsv_field(&q.id)?,
                         check_tsv_field(section)?,
                         rank + 1,
@@ -1480,6 +2342,8 @@ pub fn run(
                     ));
                 }
             }
+            run_bytes = run_bytes.saturating_add(text.len());
+            check_run_file_bytes(run_bytes)?;
             let file = format!("{name}.tsv");
             run_sha256.insert(file.clone(), sha256_hex(text.as_bytes()));
             write(&stage_path.join(file), text.as_bytes())?;
@@ -1487,13 +2351,19 @@ pub fn run(
         let mut abstention = String::new();
         for q in &queries {
             let ranked = indexes[&q.corpus].search(&q.text, &Params::new(Mode::Lexical, 1));
-            abstention.push_str(&format!("{}\t{}\n", q.id, ranked.abstention_score));
+            abstention.push_str(&format!("{}\t{:e}\n", q.id, ranked.abstention_score));
         }
+        check_run_file_bytes(run_bytes.saturating_add(abstention.len()))?;
         write(&stage_path.join("abstention.tsv"), abstention.as_bytes())?;
         run_sha256.insert("abstention.tsv".into(), sha256_hex(abstention.as_bytes()));
 
+        let (_, preparation_sha256, _) = bench
+            .preparation_binding()
+            .ok_or_else(|| EvalError::Invalid("run requires an admitted preparation".into()))?;
         let meta = RunMeta {
+            version: RUN_META_VERSION,
             split,
+            preparation_sha256: preparation_sha256.into(),
             seed: c.seed,
             resamples: c.resamples,
             alpha: c.alpha,
@@ -1544,22 +2414,65 @@ pub fn run(
             ));
         }
         let report_bytes = serde_json::to_vec_pretty(&report)?;
-        write(&stage_path.join("report.json"), &report_bytes)?;
-        stage.publish(out)?;
-        if let Some((custody, started)) = &attempt {
-            finish_attempt(custody, started, Some((&meta_bytes, &report_bytes)))?;
-        }
+        publish_run(stage, out, &meta_bytes, &report_bytes, attempt.as_ref())?;
         Ok(report)
     })();
-    if result.is_err()
-        && let Some((custody, started)) = &attempt
-    {
-        // If terminal publication itself failed its partial file remains
-        // occupied. Never replace it or make the start reusable.
-        finish_attempt(custody, started, None)?;
-    }
-    result
+    consume_on_error(attempt.as_ref(), result)
 }
+
+/// Publishes a fully computed run, rereads the published bytes and only then
+/// records completion. With [`consume_on_error`], a failure leaves output
+/// unpublished, visible without completed custody, or voided — unless the
+/// void marker write also fails (reported; a double filesystem fault).
+fn publish_run(
+    stage: StagingDir,
+    out: &Path,
+    meta: &[u8],
+    report: &[u8],
+    attempt: Option<&(Custody, AttemptStarted)>,
+) -> Result<(), EvalError> {
+    write(&stage.path().join("report.json"), report)?;
+    stage.publish(out)?;
+    if read(&out.join("meta.json"))? != meta || read(&out.join("report.json"))? != report {
+        return Err(EvalError::Invalid(
+            "published run differs from computed bytes".into(),
+        ));
+    }
+    if let Some((custody, started)) = attempt {
+        finish_attempt(custody, started, Some((meta, report)))?;
+    }
+    Ok(())
+}
+
+/// Records a failed, consumed attempt for any held-out error. An occupied
+/// terminal slot is never replaced: it may hold a readable `completed` record
+/// whose fsync failed. A create-new void marker then makes that record
+/// unacceptable; [`verify_completed`] refuses whenever the marker exists.
+fn consume_on_error<T>(
+    attempt: Option<&(Custody, AttemptStarted)>,
+    result: Result<T, EvalError>,
+) -> Result<T, EvalError> {
+    match (result, attempt) {
+        (Err(error), Some((custody, started))) => match finish_attempt(custody, started, None) {
+            Ok(()) => Err(error),
+            Err(record) => {
+                let voided = write_new(
+                    &custody.dir.join(VOID_RECORD),
+                    started.registration_sha256.as_bytes(),
+                )
+                .err()
+                .map_or_else(String::new, |e| format!("; void marker not written: {e}"));
+                Err(EvalError::Invalid(format!(
+                    "{error}; failed-attempt record not written: {record}{voided}"
+                )))
+            }
+        },
+        (result, _) => result,
+    }
+}
+
+/// Presence (in any form) voids a terminal record left by a failed completion.
+const VOID_RECORD: &str = "attempt-voided.json";
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize)]
 pub struct Metrics {
@@ -1668,6 +2581,10 @@ pub struct Report {
     pub model_drafted: usize,
     pub systems: BTreeMap<String, SystemSummary>,
     pub comparisons: Vec<Comparison>,
+    /// Every pre-registered contrast (H1, H2, H5 and E1) recomputed within
+    /// each corpus (ADR: "reported pooled and per corpus"). Exploratory:
+    /// bootstrap CI and raw p only, never in the Holm family, no decision.
+    pub per_corpus_comparisons: Vec<Comparison>,
     pub abstention: AbstentionReport,
     pub per_query: BTreeMap<String, BTreeMap<String, Metrics>>,
 }
@@ -1685,6 +2602,54 @@ struct Spec<'a> {
 
 /// Per-query metric values, keyed by query id.
 pub type PerQuery = BTreeMap<String, f64>;
+
+/// Per-query values of one system's metric, optionally within one stratum.
+type MetricFn<'a> = dyn Fn(&str, fn(&Metrics) -> f64, Option<Stratum>) -> PerQuery + 'a;
+
+/// Exploratory per-corpus copies of `specs`, in sorted corpus then spec
+/// order. Each keeps its stratum filter; none joins Holm or gets a decision.
+fn per_corpus_comparisons(
+    specs: &[Spec<'_>],
+    metric: &MetricFn<'_>,
+    corpus_of: &BTreeMap<String, String>,
+    resamples: usize,
+    seed: u64,
+) -> Vec<Comparison> {
+    let corpora: BTreeSet<&str> = corpus_of.values().map(String::as_str).collect();
+    let mut out = Vec::new();
+    for corpus in corpora {
+        let only = |m: PerQuery| -> PerQuery {
+            m.into_iter()
+                .filter(|(qid, _)| corpus_of.get(qid).is_some_and(|c| c == corpus))
+                .collect()
+        };
+        for sp in specs {
+            let (n, ci, p) = compare(
+                &only(metric(sp.treatment, sp.value, sp.stratum)),
+                &only(metric(sp.baseline, sp.value, sp.stratum)),
+                corpus_of,
+                resamples,
+                seed,
+            );
+            out.push(Comparison {
+                id: format!("{corpus}/{}", sp.id),
+                role: "exploratory".into(),
+                treatment: sp.treatment.clone(),
+                baseline: sp.baseline.clone(),
+                metric: sp.metric.into(),
+                stratum: sp.stratum.map(|s| s.name().to_string()),
+                n,
+                mean: ci.mean,
+                ci_lo: ci.lo,
+                ci_hi: ci.hi,
+                p,
+                holm_p: None,
+                decision: None,
+            });
+        }
+    }
+    out
+}
 
 /// Paired comparison of `treatment - baseline` on queries present in both,
 /// bootstrapped within corpora.
@@ -1748,7 +2713,9 @@ fn parse_run(
 /// Scores a saved run directory. Same inputs give a byte-identical report.
 pub fn score(bench: &Bench, run_dir: &Path, confirm_test: bool) -> Result<Report, EvalError> {
     // Even metadata may expose held-out observations. Refuse before opening it.
-    ensure_measurement_ready()?;
+    if bench.preparation_binding().is_none() {
+        return Err(admission_error());
+    }
     let meta_path = run_dir.join("meta.json");
     let meta_bytes = read(&meta_path)?;
     let held_out = bench
@@ -1805,14 +2772,54 @@ pub fn score(bench: &Bench, run_dir: &Path, confirm_test: bool) -> Result<Report
     Ok(report)
 }
 
+/// Saved held-out scoring: completed custody is verified against the exact
+/// saved metadata/report bytes and the pinned preparation before any test
+/// payload is captured.
+pub fn score_held_out(
+    config_path: &Path,
+    preparation: &Path,
+    preparation_sha256: &str,
+    confirm_test: bool,
+    run_dir: &Path,
+) -> Result<Report, EvalError> {
+    if !confirm_test {
+        return Err(EvalError::TestSplitRefused);
+    }
+    let evidence = Preparation::load(preparation, preparation_sha256)?;
+    let custody = Custody::resolve(Path::new("."))?;
+    let (registration, _) = custody.registration()?;
+    if registration.preparation_sha256 != evidence.sha256() {
+        return Err(EvalError::Invalid(
+            "registration does not bind this preparation".into(),
+        ));
+    }
+    verify_completed(
+        &custody,
+        run_dir,
+        &read(&run_dir.join("meta.json"))?,
+        &read(&run_dir.join("report.json"))?,
+    )?;
+    let bench = Bench::load_selected(config_path, &evidence, SplitName::Test)?;
+    score(&bench, run_dir, true)
+}
+
 fn score_captured(
     bench: &Bench,
     run_dir: &Path,
     confirm_test: bool,
     meta: RunMeta,
 ) -> Result<Report, EvalError> {
-    bench.require_dev_capture()?;
+    bench.require_prepared_capture(meta.split)?;
     check_score_split(meta.split, confirm_test)?;
+    if meta.version != RUN_META_VERSION
+        || bench
+            .preparation_binding()
+            .is_none_or(|(_, sha, _)| sha != meta.preparation_sha256)
+    {
+        return Err(EvalError::Invalid(
+            "run metadata version or preparation differs".into(),
+        ));
+    }
     let (qrels, qrels_sha256) = bench.qrels()?;
     if qrels_sha256 != meta.qrels_sha256 {
         return Err(EvalError::Invalid("qrels changed since the run".into()));
@@ -1872,6 +2879,7 @@ fn score_captured(
         ));
     }
     let mut run_bytes = BTreeMap::new();
+    // All run files together are one bounded payload (checked when written).
     let mut budget = MAX_INPUT_BYTES;
     for name in &expected_files {
         let bytes = captured_read(&run_dir.join(name), MAX_INPUT_BYTES, &mut budget)?;
@@ -2051,6 +3059,8 @@ fn score_captured(
             }
         })
         .collect();
+    let per_corpus_comparisons =
+        per_corpus_comparisons(&specs, &metric, &corpus_of, meta.resamples, meta.seed);
     let holm = stats::holm(&[comparisons[1].p, comparisons[2].p]);
     let h1_passed = comparisons[0].n > 0
         && comparisons[0].mean > 0.0
@@ -2129,6 +3139,7 @@ fn score_captured(
         model_drafted: queries.iter().filter(|q| q.model_drafted).count(),
         systems,
         comparisons,
+        per_corpus_comparisons,
         abstention,
         per_query,
         meta,
@@ -2151,7 +3162,8 @@ mod tests {
         fs::create_dir(&custody.root).unwrap();
         custody.create_dir().unwrap();
         let registration = Registration {
-            version: 1,
+            version: REGISTRATION_VERSION,
+            preparation_sha256: "preparation".into(),
             frozen: "synthetic frozen bytes\n".into(),
             identity: InputIdentity {
                 config: "config".into(),
@@ -2283,6 +3295,189 @@ mod tests {
         assert!(write_new(&registration, b"replacement").is_err());
     }
 
+    /// Two synthetic corpora with different effects. Hand-computed: corpus
+    /// "a" has q1,q2 (multi-hop) with B2-B1 = +0.5, +0.5 so mean 0.5 and a
+    /// degenerate CI [0.5, 0.5]; corpus "b" has q3 (conceptual) with
+    /// B2-B1 = -0.25. Pooled B2-B1 over q1..q3 = 0.75/3 = 0.25.
+    #[test]
+    fn per_corpus_comparisons_do_not_mix_corpora_or_join_family() {
+        let (b1, b2) = ("B1".to_string(), "B2".to_string());
+        let values: BTreeMap<(&str, &str), f64> = BTreeMap::from([
+            (("q1", "B1"), 0.25),
+            (("q1", "B2"), 0.75),
+            (("q2", "B1"), 0.0),
+            (("q2", "B2"), 0.5),
+            (("q3", "B1"), 0.5),
+            (("q3", "B2"), 0.25),
+        ]);
+        let corpus_of: BTreeMap<String, String> = [("q1", "a"), ("q2", "a"), ("q3", "b")]
+            .into_iter()
+            .map(|(q, c)| (q.into(), c.into()))
+            .collect();
+        let stratum_of = |q: &str| {
+            if q == "q3" {
+                Stratum::Conceptual
+            } else {
+                Stratum::MultiHop
+            }
+        };
+        let metric = |system: &str, _: fn(&Metrics) -> f64, stratum: Option<Stratum>| {
+            values
+                .iter()
+                .filter(|((q, s), _)| *s == system && stratum.is_none_or(|x| stratum_of(q) == x))
+                .map(|((q, _), v)| (q.to_string(), *v))
+                .collect::<PerQuery>()
+        };
+        let ndcg: fn(&Metrics) -> f64 = |m| m.ndcg10;
+        let specs = [
+            Spec {
+                id: "H2",
+                role: "confirmatory",
+                treatment: &b2,
+                baseline: &b1,
+                metric: "ndcg10",
+                value: ndcg,
+                stratum: None,
+            },
+            Spec {
+                id: "E1",
+                role: "exploratory",
+                treatment: &b2,
+                baseline: &b1,
+                metric: "recall10",
+                value: ndcg,
+                stratum: Some(Stratum::MultiHop),
+            },
+        ];
+        let out = per_corpus_comparisons(&specs, &metric, &corpus_of, 50, 7);
+        let ids: Vec<&str> = out.iter().map(|c| c.id.as_str()).collect();
+        assert_eq!(ids, ["a/H2", "a/E1", "b/H2", "b/E1"]);
+        assert_eq!(
+            (out[0].n, out[0].mean, out[0].ci_lo, out[0].ci_hi),
+            (2, 0.5, 0.5, 0.5)
+        );
+        assert_eq!((out[2].n, out[2].mean), (1, -0.25));
+        // The stratum filter is kept: corpus b has no multi-hop query.
+        assert_eq!((out[1].n, out[3].n), (2, 0));
+        assert_eq!(out[1].stratum.as_deref(), Some("multi-hop"));
+        assert!(
+            out.iter()
+                .all(|c| c.role == "exploratory" && c.holm_p.is_none() && c.decision.is_none())
+        );
+        // Pooled contrast differs from either corpus: no mixing above.
+        let (n, ci, _) = compare(
+            &metric("B2", ndcg, None),
+            &metric("B1", ndcg, None),
+            &corpus_of,
+            50,
+            7,
+        );
+        assert_eq!((n, ci.mean), (3, 0.25));
+        // Deterministic: identical inputs give identical serialized output.
+        let again = per_corpus_comparisons(&specs, &metric, &corpus_of, 50, 7);
+        assert_eq!(
+            serde_json::to_string(&out).unwrap(),
+            serde_json::to_string(&again).unwrap()
+        );
+    }
+
+    /// Deterministic failure injection through real filesystem states.
+    #[test]
+    fn publication_or_completion_failure_leaves_consumed_unaccepted_attempt() {
+        let (meta, report) = (b"meta bytes\n".as_slice(), b"report bytes\n".as_slice());
+        let staged = |out: &Path| {
+            let stage = StagingDir::create(out).unwrap();
+            fs::write(stage.path().join("meta.json"), meta).unwrap();
+            stage
+        };
+        let failed = |custody: &Custody| {
+            let r: AttemptResult =
+                serde_json::from_slice(&read(&custody.dir.join("attempt-result.json")).unwrap())
+                    .unwrap();
+            (r.state, r.meta_sha256)
+        };
+
+        // Publication failure: the output path appears after staging.
+        let (dir, custody) = custody_fixture();
+        let out = dir.path().join("run");
+        let started = start_attempt(&custody, &out).unwrap();
+        let stage = staged(&out);
+        fs::create_dir(&out).unwrap();
+        let attempt = (custody, started);
+        let result = consume_on_error(
+            Some(&attempt),
+            publish_run(stage, &out, meta, report, Some(&attempt)),
+        );
+        let (custody, _) = &attempt;
+        assert!(result.is_err());
+        assert_eq!(failed(custody), ("failed".into(), None));
+        assert!(!out.join("report.json").exists());
+        assert!(start_attempt(custody, &dir.path().join("retry")).is_err());
+
+        // Completion failure after publication: a partial terminal record
+        // already occupies the slot. Output is visible but never accepted,
+        // and the partial record is not replaced.
+        let (dir, custody) = custody_fixture();
+        let out = dir.path().join("run");
+        let started = start_attempt(&custody, &out).unwrap();
+        let stage = staged(&out);
+        write_new(&custody.dir.join("attempt-result.json"), b"{").unwrap();
+        let attempt = (custody, started);
+        let error = consume_on_error(
+            Some(&attempt),
+            publish_run(stage, &out, meta, report, Some(&attempt)),
+        )
+        .unwrap_err();
+        let (custody, _) = &attempt;
+        assert!(
+            error
+                .to_string()
+                .contains("failed-attempt record not written")
+        );
+        assert_eq!(read(&out.join("report.json")).unwrap(), report);
+        assert_eq!(
+            read(&custody.dir.join("attempt-result.json")).unwrap(),
+            b"{"
+        );
+        assert!(verify_completed(custody, &out, meta, report).is_err());
+        assert!(start_attempt(custody, &dir.path().join("retry")).is_err());
+
+        // Completion bytes written but completion reported an error (e.g.
+        // fsync failed): the readable `completed` record is voided, not
+        // replaced, and is never accepted.
+        let (dir, custody) = custody_fixture();
+        let out = dir.path().join("run");
+        let started = start_attempt(&custody, &out).unwrap();
+        finish_attempt(&custody, &started, Some((meta, report))).unwrap();
+        verify_completed(&custody, &out, meta, report).unwrap();
+        let attempt = (custody, started);
+        let injected: Result<(), _> = Err(EvalError::Invalid("injected sync failure".into()));
+        let error = consume_on_error(Some(&attempt), injected).unwrap_err();
+        let (custody, _) = &attempt;
+        assert!(error.to_string().contains("injected sync failure"));
+        assert_eq!(
+            failed(custody),
+            ("completed".into(), Some(sha256_hex(meta)))
+        );
+        assert!(custody.dir.join(VOID_RECORD).exists());
+        assert!(verify_completed(custody, &out, meta, report).is_err());
+        assert!(start_attempt(custody, &dir.path().join("retry")).is_err());
+
+        // Success binds exactly the reread published bytes.
+        let (dir, custody) = custody_fixture();
+        let out = dir.path().join("run");
+        let started = start_attempt(&custody, &out).unwrap();
+        let attempt = (custody, started);
+        publish_run(staged(&out), &out, meta, report, Some(&attempt)).unwrap();
+        let (custody, _) = &attempt;
+        verify_completed(custody, &out, meta, report).unwrap();
+        assert_eq!(failed(custody).1, Some(sha256_hex(meta)));
+        // A dev run (no attempt) publishes without custody records.
+        let dev = dir.path().join("dev-run");
+        consume_on_error(None, publish_run(staged(&dev), &dev, meta, report, None)).unwrap();
+        assert!(dev.join("report.json").exists());
+    }
+
     #[test]
     fn partial_custody_and_symlinks_are_consumed_or_refused() {
         let (dir, custody) = custody_fixture();
@@ -2308,20 +3503,198 @@ mod tests {
     }
 
     #[test]
+    fn held_out_run_refuses_before_reading_manifest_or_payloads() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("missing");
+        // Unconfirmed: refused before anything is opened.
+        assert!(matches!(
+            run_held_out(&missing, &missing, "x", false, &missing),
+            Err(EvalError::TestSplitRefused)
+        ));
+        // Confirmed but unpinned: refused by manifest verification first.
+        let err = run_held_out(&missing, &missing, "x", true, &missing).unwrap_err();
+        assert!(err.to_string().contains("preparation refused"), "{err}");
+    }
+
+    /// Custody whose registration binds `preparation` (or not).
+    /// `bind` false: partitions match but the registered config identity differs.
+    fn bound_custody(base: &Path, preparation: &Preparation, bind: bool) -> Custody {
+        let custody = Custody {
+            root: base.join("code"),
+            dir: base.join("custody"),
+        };
+        fs::create_dir(&custody.root).unwrap();
+        custody.create_dir().unwrap();
+        let partitions = preparation.partition_pairs();
+        let registration = Registration {
+            version: REGISTRATION_VERSION,
+            preparation_sha256: preparation.sha256().into(),
+            frozen: "synthetic frozen bytes\n".into(),
+            identity: InputIdentity {
+                config: if bind {
+                    preparation.inputs.config.clone()
+                } else {
+                    "0".repeat(64)
+                },
+                gates: preparation.inputs.gates.clone(),
+                splits: preparation.inputs.splits.clone(),
+                pool: preparation.inputs.pool.clone(),
+                indexes: preparation
+                    .corpora
+                    .iter()
+                    .map(|c| (c.name.clone(), c.index_sha256.clone()))
+                    .collect(),
+            },
+            preparation_partitions: partitions,
+        };
+        write_new(
+            &custody.dir.join("registration.json"),
+            &serde_json::to_vec(&registration).unwrap(),
+        )
+        .unwrap();
+        custody
+    }
+
+    #[test]
+    fn test_capture_reserves_attempt_before_any_test_payload_read() {
+        let dir = fixture();
+        let path = dir.path().join("config.json");
+        let preparation = prepare(&path).unwrap();
+        let out = dir.path().join("run");
+        let base = fs::canonicalize(dir.path()).unwrap();
+        // Dev, combined, pool and provenance payloads are never needed.
+        for name in [
+            "dev-queries.jsonl",
+            "dev-qrels.jsonl",
+            "queries.jsonl",
+            "qrels.jsonl",
+            "pool.jsonl",
+            "query-review.jsonl",
+            "annotation.jsonl",
+            "annotation.md",
+        ] {
+            fs::remove_file(dir.path().join(name)).unwrap();
+            fs::create_dir(dir.path().join(name)).unwrap();
+        }
+        // Matching partitions/pool but a different registered config
+        // identity: refused before reservation; nothing consumed.
+        let unbound = bound_custody(
+            &base.join("u"),
+            &{
+                fs::create_dir(base.join("u")).unwrap();
+                preparation.clone()
+            },
+            false,
+        );
+        assert!(Bench::load_test_reserved(&path, &preparation, &unbound, &out).is_err());
+        assert!(!unbound.dir.join("attempt-started.json").exists());
+        // Test payload unreadable: the attempt is reserved first, then failed
+        // and consumed; it cannot be retried.
+        fs::create_dir(base.join("f")).unwrap();
+        let failing = bound_custody(&base.join("f"), &preparation, true);
+        let qrels = dir.path().join("test-qrels.jsonl");
+        let saved = fs::read(&qrels).unwrap();
+        fs::remove_file(&qrels).unwrap();
+        fs::create_dir(&qrels).unwrap();
+        assert!(Bench::load_test_reserved(&path, &preparation, &failing, &out).is_err());
+        let result: AttemptResult =
+            serde_json::from_slice(&fs::read(failing.dir.join("attempt-result.json")).unwrap())
+                .unwrap();
+        assert_eq!(result.state, "failed");
+        fs::remove_dir(&qrels).unwrap();
+        fs::write(&qrels, &saved).unwrap();
+        assert!(Bench::load_test_reserved(&path, &preparation, &failing, &out).is_err());
+        // Bound and readable: exactly the test partition is captured.
+        fs::create_dir(base.join("ok")).unwrap();
+        let custody = bound_custody(&base.join("ok"), &preparation, true);
+        let (bench, started) =
+            Bench::load_test_reserved(&path, &preparation, &custody, &out).unwrap();
+        assert!(custody.dir.join("attempt-started.json").exists());
+        assert!(!custody.dir.join("attempt-result.json").exists());
+        assert_eq!(started.registration_sha256.len(), 64);
+        let c = bench.captured.as_ref().unwrap();
+        assert_eq!(c.selected, Some(SplitName::Test));
+        assert_eq!(bench.queries_sha256, preparation.partitions.test.queries);
+        assert_eq!(c.qrels_sha256, preparation.partitions.test.qrels);
+        assert_eq!(bench.queries().len(), 180);
+        // A second reservation for the same registration is refused.
+        assert!(Bench::load_test_reserved(&path, &preparation, &custody, &out).is_err());
+
+        // Per-split binding: freeze digests taken from the manifest match a
+        // test capture (not the dev digests); any partition change differs.
+        let [dev, test] = preparation.partition_pairs();
+        let mut frozen = super::super::sweep::FrozenConfig {
+            version: super::super::sweep::FROZEN_VERSION,
+            preparation_sha256: preparation.sha256().into(),
+            dev_queries_sha256: dev.0,
+            dev_qrels_sha256: dev.1,
+            test_queries_sha256: test.0,
+            test_qrels_sha256: test.1,
+            alpha: 0.0,
+            beta: 0.0,
+            threshold: 0.0,
+            seed: 0,
+            resamples: 0,
+            config_sha256: String::new(),
+            splits_sha256: String::new(),
+            git_commit: String::new(),
+            cargo_lock_sha256: String::new(),
+            binary_sha256: String::new(),
+            generation_ids: BTreeMap::new(),
+            power: super::super::sweep::PowerInputs {
+                alpha: 0.025,
+                power: 0.8,
+                min_effect: 0.05,
+                sd_diff_h2: 0.0,
+                sd_diff_h5: 0.0,
+                n_h2: 0,
+                n_h5: 0,
+                required_answerable_test: 150,
+            },
+        };
+        assert!(frozen.preparation_problems(&bench).unwrap().is_empty());
+        bench.require_prepared_capture(SplitName::Test).unwrap();
+        assert!(bench.require_prepared_capture(SplitName::Dev).is_err());
+        frozen.test_qrels_sha256.push('x');
+        assert_eq!(frozen.preparation_problems(&bench).unwrap().len(), 1);
+        frozen.test_qrels_sha256.pop();
+        frozen.preparation_sha256 = "0".repeat(64);
+        assert_eq!(frozen.preparation_problems(&bench).unwrap().len(), 1);
+
+        // A registration binding a different whole manifest (same partitions
+        // and inputs) is refused before reservation.
+        fs::create_dir(base.join("m")).unwrap();
+        let other = bound_custody(&base.join("m"), &preparation, true);
+        let file = other.dir.join("registration.json");
+        let mut registration: Registration =
+            serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+        registration.preparation_sha256 = "0".repeat(64);
+        fs::remove_file(&file).unwrap();
+        write_new(&file, &serde_json::to_vec(&registration).unwrap()).unwrap();
+        assert!(Bench::load_test_reserved(&path, &preparation, &other, &out).is_err());
+        assert!(!other.dir.join("attempt-started.json").exists());
+    }
+
+    #[test]
     fn registration_binds_exact_export_and_admitted_capture() {
         let dir = fixture();
         let config = dir.path().join("config.json");
-        let evidence = Bench::prepare(&config).unwrap();
+        let evidence = prepare(&config).unwrap();
         let mut bench = Bench::load_dev(&config, &evidence).unwrap();
+        let (_, preparation_sha256, [dev, test]) = bench.preparation_binding().unwrap();
         let frozen = super::super::sweep::FrozenConfig {
+            version: super::super::sweep::FROZEN_VERSION,
+            preparation_sha256: preparation_sha256.into(),
+            dev_queries_sha256: dev.0.clone(),
+            dev_qrels_sha256: dev.1.clone(),
+            test_queries_sha256: test.0.clone(),
+            test_qrels_sha256: test.1.clone(),
             alpha: bench.config.alpha,
             beta: bench.config.beta,
             threshold: bench.config.threshold,
             seed: bench.config.seed,
             resamples: bench.config.resamples,
             config_sha256: bench.config_sha256.clone(),
-            queries_sha256: bench.queries_sha256.clone(),
-            qrels_sha256: bench.qrels().unwrap().1,
             splits_sha256: bench.splits().unwrap().1,
             git_commit: "synthetic".into(),
             cargo_lock_sha256: "synthetic".into(),
@@ -2345,7 +3718,8 @@ mod tests {
         };
         let capture = bench.captured.as_ref().unwrap();
         let mut registration = Registration {
-            version: 1,
+            version: REGISTRATION_VERSION,
+            preparation_sha256: capture.preparation_sha256.clone().unwrap(),
             frozen: frozen.to_toml(),
             identity: capture.identity.clone(),
             preparation_partitions: capture.preparation_partitions.clone().unwrap(),
@@ -2392,8 +3766,15 @@ mod tests {
         assert!(check_registration(&registration, &bench, text.as_bytes()).is_err());
         bench.captured.as_mut().unwrap().preparation_partitions =
             Some(registration.preparation_partitions.clone());
-        registration.version = 2;
+        // The whole manifest hash is bound, not only the partitions.
+        bench.captured.as_mut().unwrap().preparation_sha256 = Some("0".repeat(64));
         assert!(check_registration(&registration, &bench, text.as_bytes()).is_err());
+        bench.captured.as_mut().unwrap().preparation_sha256 =
+            Some(registration.preparation_sha256.clone());
+        check_registration(&registration, &bench, text.as_bytes()).unwrap();
+        registration.version = 1;
+        assert!(check_registration(&registration, &bench, text.as_bytes()).is_err());
+        registration.version = REGISTRATION_VERSION;
 
         // Exercise the real registration/export APIs using a clean synthetic
         // code checkout. This is not a public measurement/readiness bypass.
@@ -2459,6 +3840,67 @@ mod tests {
             .collect::<String>();
         fs::write(path, bytes).unwrap();
     }
+
+    /// Synthetic accepted review; GPT-6-Astra independently reviews drafts.
+    fn review_record(q: &Query) -> serde_json::Value {
+        let digest = sha256_hex(q.text.as_bytes());
+        let author = json!({"id":"drafter","kind":"model","model":"drafter","evidence":format!("draft/{}", q.id)});
+        let reviewer = json!({"id":"astra","kind":"model","model":"gpt-6-astra","evidence":format!("review/{}", q.id)});
+        json!({"version":1,"query_id":q.id,"final_text_sha256":digest,"corpus":q.corpus,
+            "stratum":q.stratum,"model_drafted":q.model_drafted,"stratum_evidence":"synthetic",
+            "author":author,"reviewer":reviewer,"decision":"accept","rationale":"synthetic",
+            "history":[{"text_sha256":digest,"predecessor_sha256":null,"author":author,
+                "reviewer":reviewer,"decision":"accept"}]})
+    }
+
+    fn review_pin(dir: &Path) -> String {
+        sha256_hex(&fs::read(dir.join("query-review.jsonl")).unwrap())
+    }
+
+    /// Trusted preparation with the operator-pinned review of `path`'s bench.
+    fn prepare(path: &Path) -> Result<Preparation, EvalError> {
+        let dir = path.parent().unwrap();
+        let pin = review_pin(dir);
+        let (review, annotation, notes) = (
+            dir.join("query-review.jsonl"),
+            dir.join("annotation.jsonl"),
+            dir.join("annotation.md"),
+        );
+        Bench::prepare(
+            path,
+            &TrustedInputs {
+                query_review: &review,
+                query_review_sha256: &pin,
+                annotation: &annotation,
+                annotation_notes: &notes,
+                operator: "op",
+                operator_evidence: "audit/prep",
+            },
+        )
+    }
+
+    /// Synthetic double-labelled annotation matching `judgements`; never a
+    /// substitute for human evidence.
+    fn write_annotation(dir: &Path, judgements: &[Judgement]) {
+        // Raw grades vary (both humans agree) so kappa is defined; the human
+        // adjudicator's final grade is the qrel grade.
+        let records: Vec<_> = judgements
+            .iter()
+            .enumerate()
+            .map(|(i, j)| {
+                let raw = [1, 2, 0][i % 3];
+                json!({"version":1,"query_id":j.query_id,"section_id":j.section_id,
+                    "span_sha256":j.span_sha256,
+                    "grades":[{"annotator":"h1","grade":raw,"evidence":"g1"},
+                        {"annotator":"h2","grade":raw,"evidence":"g2"}],
+                    "final":{"grade":j.grade,"adjudicator":{"id":"adj","kind":"human","evidence":"a"},"evidence":"agreed"}})
+            })
+            .collect();
+        write_lines(&dir.join("annotation.jsonl"), &records);
+        fs::write(dir.join("annotation.md"), ANNOTATION_NOTES).unwrap();
+    }
+
+    const ANNOTATION_NOTES: &str = "```annotation-notes\n{\"version\":1,\"guideline_version\":\"g1\",\"annotators\":[{\"id\":\"h1\",\"kind\":\"human\",\"evidence\":\"e1\"},{\"id\":\"h2\",\"kind\":\"human\",\"evidence\":\"e2\"}],\"assignment_seed\":1,\"overlap\":\"corpus-stratum-ceil30-v1\",\"blinding_evidence\":\"b\",\"adjudication_rule\":\"r\"}\n```\n";
 
     fn fixture() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
@@ -2533,8 +3975,16 @@ mod tests {
         write_json(&dir.path().join("config.json"), &config);
         write_json(&dir.path().join("splits.json"), &splits);
         write_lines(&dir.path().join("queries.jsonl"), &queries);
+        let reviews: Vec<_> = queries.iter().map(review_record).collect();
+        write_lines(&dir.path().join("query-review.jsonl"), &reviews);
         let bench = Bench::load(&dir.path().join("config.json")).unwrap();
-        pool(&bench, &dir.path().join("pool.jsonl")).unwrap();
+        let approval = super::super::gates::check_query_review(
+            &bench.queries,
+            &fs::read(dir.path().join("query-review.jsonl")).unwrap(),
+            &review_pin(dir.path()),
+        )
+        .unwrap();
+        pool(&bench, &dir.path().join("pool.jsonl"), &approval).unwrap();
         let (pairs, _): (Vec<serde_json::Value>, _) =
             read_jsonl(&dir.path().join("pool.jsonl")).unwrap();
         let judgements: Vec<_> = pairs
@@ -2555,6 +4005,7 @@ mod tests {
             })
             .collect();
         write_lines(&dir.path().join("qrels.jsonl"), &judgements);
+        write_annotation(dir.path(), &judgements);
         for (name, ids) in [("dev", &splits.dev), ("test", &splits.test)] {
             write_lines(
                 &dir.path().join(format!("{name}-queries.jsonl")),
@@ -2583,14 +4034,15 @@ mod tests {
     fn dev_capture_computes_without_heldout_or_reopening_captured_inputs() {
         let dir = fixture();
         let path = dir.path().join("config.json");
-        let evidence = Bench::prepare(&path).unwrap();
-        let second = Bench::prepare(&path).unwrap();
-        assert_eq!(evidence.partitions, second.partitions);
+        let evidence = prepare(&path).unwrap();
+        let second = prepare(&path).unwrap();
+        assert_eq!(evidence, second);
         for name in [
             "test-queries.jsonl",
             "test-qrels.jsonl",
             "queries.jsonl",
             "qrels.jsonl",
+            "pool.jsonl",
         ] {
             fs::remove_file(dir.path().join(name)).unwrap();
         }
@@ -2609,33 +4061,28 @@ mod tests {
             "dev-qrels.jsonl",
             "splits.json",
             "gates.json",
-            "pool.jsonl",
         ] {
             fs::remove_file(dir.path().join(name)).unwrap();
         }
         fs::remove_dir_all(dir.path().join("corpus")).unwrap();
         assert_eq!(super::super::sweep::sweep_captured(&dev).unwrap(), report);
         assert!(super::super::gates::check_qrels(&dev).unwrap().is_empty());
-        assert!(sweep_refused(&dev));
-    }
-
-    fn sweep_refused(bench: &Bench) -> bool {
-        super::super::sweep::sweep(bench, SplitName::Dev)
-            .unwrap_err()
-            .to_string()
-            .contains("evaluation disabled")
+        // Public sweep now admits the pinned dev capture with identical output.
+        assert_eq!(
+            super::super::sweep::sweep(&dev, SplitName::Dev).unwrap(),
+            report
+        );
     }
 
     #[test]
     fn dev_admission_rejects_changed_identities_and_stale_corpus() {
         let dir = fixture();
         let path = dir.path().join("config.json");
-        let evidence = Bench::prepare(&path).unwrap();
+        let evidence = prepare(&path).unwrap();
         for name in [
             "config.json",
             "gates.json",
             "splits.json",
-            "pool.jsonl",
             "dev-queries.jsonl",
             "dev-qrels.jsonl",
         ] {
@@ -2656,7 +4103,7 @@ mod tests {
     fn dev_admission_propagates_unsafe_and_oversized_control_refusals() {
         let dir = fixture();
         let path = dir.path().join("config.json");
-        let evidence = Bench::prepare(&path).unwrap();
+        let evidence = prepare(&path).unwrap();
         let control = dir.path().join("corpus/.ontodocignore");
         fs::write(&control, vec![b'a'; 64 * 1024 + 1]).unwrap();
         let err = Bench::load_dev(&path, &evidence).err().unwrap();
@@ -2692,19 +4139,19 @@ mod tests {
         let original = fs::read(&qpath).unwrap();
         js[0].span_sha256 = Some("invalid".into());
         write_lines(&qpath, &js);
-        assert!(Bench::prepare(&path).is_err());
+        assert!(prepare(&path).is_err());
         fs::write(&qpath, &original).unwrap();
         js = read_jsonl::<Judgement>(&qpath).unwrap().0;
         js.push(js[0].clone());
         write_lines(&qpath, &js);
-        assert!(Bench::prepare(&path).is_err());
+        assert!(prepare(&path).is_err());
         fs::write(&qpath, &original).unwrap();
         js = read_jsonl::<Judgement>(&qpath).unwrap().0;
         js[0].query_id = "unknown".into();
         write_lines(&qpath, &js);
-        assert!(Bench::prepare(&path).is_err());
+        assert!(prepare(&path).is_err());
         fs::write(&qpath, &original).unwrap();
-        let evidence = Bench::prepare(&path).unwrap();
+        let evidence = prepare(&path).unwrap();
         fs::remove_file(dir.path().join("dev-queries.jsonl")).unwrap();
         assert!(Bench::load_dev(&path, &evidence).is_err()); // Combined exists; never a fallback.
     }
@@ -2737,7 +4184,7 @@ mod tests {
     fn captured_calculation_refuses_missing_positive_judgements() {
         let dir = fixture();
         let path = dir.path().join("config.json");
-        let evidence = Bench::prepare(&path).unwrap();
+        let evidence = prepare(&path).unwrap();
         let mut dev = Bench::load_dev(&path, &evidence).unwrap();
         let c = dev.captured.as_mut().unwrap();
         c.qrels.clear();
@@ -2750,15 +4197,187 @@ mod tests {
     }
 
     #[test]
+    fn preparation_manifest_binds_inputs_counts_and_pinned_bytes() {
+        let dir = fixture();
+        let path = dir.path().join("config.json");
+        let preparation = prepare(&path).unwrap();
+        let out = dir.path().join("preparation.json");
+        let pin = preparation.publish(&out).unwrap();
+        // Publication is create-new: never overwritten.
+        assert!(preparation.publish(&out).is_err());
+        let bytes = fs::read(&out).unwrap();
+        assert_eq!(sha256_hex(&bytes), pin);
+        assert_eq!(Preparation::verify(&bytes, &pin).unwrap(), preparation);
+        let raw = |name: &str| sha256_hex(&fs::read(dir.path().join(name)).unwrap());
+        let i = &preparation.inputs;
+        assert_eq!(
+            [
+                &i.queries,
+                &i.qrels,
+                &i.annotation,
+                &i.annotation_notes,
+                &i.pool
+            ],
+            [
+                &raw("queries.jsonl"),
+                &raw("qrels.jsonl"),
+                &raw("annotation.jsonl"),
+                &raw("annotation.md"),
+                &raw("pool.jsonl"),
+            ]
+        );
+        let p = &preparation.partitions;
+        assert_eq!(p.dev.queries, raw("dev-queries.jsonl"));
+        assert_eq!(p.test.qrels, raw("test-qrels.jsonl"));
+        // The commitment is distinct from every selected execution digest.
+        assert!(![&p.dev.queries, &p.dev.qrels].contains(&&p.commitment));
+        // 75 per answerable stratum and 45 off-topic, split by seed 7; counts
+        // derive from the captured records.
+        let c = &preparation.counts;
+        let total: usize = c
+            .queries
+            .values()
+            .flat_map(|m| m.values())
+            .flat_map(|m| m.values())
+            .sum();
+        assert_eq!(total, 270);
+        assert_eq!(c.answerable_positive.values().sum::<usize>(), 225);
+        assert_eq!((c.reviewed, c.model_drafted), (270, 270));
+        assert_eq!(c.agreement.answerable_queries, 225);
+        assert_eq!(preparation.policy.promotion_policy, PROMOTION_POLICY);
+        // Wrong pin, uppercase pin, unknown field and version all refuse.
+        assert!(Preparation::verify(&bytes, &"0".repeat(64)).is_err());
+        assert!(Preparation::verify(&bytes, &pin.to_uppercase()).is_err());
+        let mut value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        value["extra"] = json!(1);
+        let tampered = serde_json::to_vec(&value).unwrap();
+        assert!(Preparation::verify(&tampered, &sha256_hex(&tampered)).is_err());
+        // Each refusal is semantic: the typed mutation alone fails verify.
+        assert_eq!(pin, preparation.sha256());
+        let mut value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        value["version"] = json!(2);
+        let tampered = serde_json::to_vec(&value).unwrap();
+        assert!(Preparation::verify(&tampered, &sha256_hex(&tampered)).is_err());
+        let mut value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        value["partitions"]["test"]["qrels"] = json!("0".repeat(64));
+        let tampered = serde_json::to_vec(&value).unwrap();
+        assert!(Preparation::verify(&tampered, &sha256_hex(&tampered)).is_err());
+        let mut minified = serde_json::to_vec(&preparation).unwrap();
+        let admitted = Preparation::verify(&minified, &sha256_hex(&minified)).unwrap();
+        assert_eq!(admitted.sha256(), sha256_hex(&minified)); // Bytes, not reserialization.
+        for (field, mutate) in [
+            (
+                "version",
+                (|p: &mut Preparation| p.version = 2) as fn(&mut Preparation),
+            ),
+            ("commitment", |p| p.partitions.commitment = "0".repeat(64)),
+            ("policy", |p| p.policy.promotion_policy = "other".into()),
+        ] {
+            let mut typed = preparation.clone();
+            mutate(&mut typed);
+            minified = typed.to_bytes().unwrap();
+            assert!(
+                Preparation::verify(&minified, &sha256_hex(&minified)).is_err(),
+                "{field}"
+            );
+        }
+        // Cross-process dev admission uses only the pinned manifest.
+        for name in [
+            "test-queries.jsonl",
+            "test-qrels.jsonl",
+            "queries.jsonl",
+            "qrels.jsonl",
+            "pool.jsonl",
+            "query-review.jsonl",
+            "annotation.jsonl",
+            "annotation.md",
+        ] {
+            fs::remove_file(dir.path().join(name)).unwrap();
+        }
+        let dev = Bench::load_dev_pinned(&path, &out, &pin).unwrap();
+        assert_eq!(
+            dev.queries().len(),
+            preparation.counts.queries["dev"]
+                .values()
+                .flat_map(|m| m.values())
+                .sum::<usize>()
+        );
+        assert!(Bench::load_dev_pinned(&path, &out, &"0".repeat(64)).is_err());
+    }
+
+    #[test]
+    fn preparation_refuses_combined_union_mismatch_and_missing_operator() {
+        let dir = fixture();
+        let path = dir.path().join("config.json");
+        let combined = dir.path().join("queries.jsonl");
+        let original = fs::read(&combined).unwrap();
+        let (mut queries, _): (Vec<Query>, _) = read_jsonl(&combined).unwrap();
+        queries.pop();
+        write_lines(&combined, &queries);
+        let err = prepare(&path).err().unwrap().to_string();
+        assert!(err.contains("partition union"), "{err}");
+        queries.push(queries[0].clone());
+        write_lines(&combined, &queries);
+        assert!(prepare(&path).is_err());
+        fs::write(&combined, original).unwrap();
+        let d = dir.path();
+        let (review, annotation, notes) = (
+            d.join("query-review.jsonl"),
+            d.join("annotation.jsonl"),
+            d.join("annotation.md"),
+        );
+        let pin = review_pin(d);
+        for (operator, evidence) in [("", "e"), ("op", " "), (&*"o".repeat(129), "e")] {
+            let trusted = TrustedInputs {
+                query_review: &review,
+                query_review_sha256: &pin,
+                annotation: &annotation,
+                annotation_notes: &notes,
+                operator,
+                operator_evidence: evidence,
+            };
+            assert!(Bench::prepare(&path, &trusted).is_err());
+        }
+    }
+
+    #[test]
+    fn shared_record_budget_charges_nested_entries() {
+        #[derive(Deserialize)]
+        struct R {
+            n: Vec<u8>,
+        }
+        let bytes = b"{\"n\":[1,2]}\n{\"n\":[3]}\n";
+        // Weights 1+2 and 1+1: exactly 5 fit, 4 refuse at the second record.
+        let mut budget = 5;
+        let parsed: Vec<R> =
+            parse_jsonl_within(Path::new("x"), bytes, &mut budget, |r: &R| 1 + r.n.len()).unwrap();
+        assert_eq!((parsed.len(), budget), (2, 0));
+        let mut budget = 4;
+        assert!(
+            parse_jsonl_within(Path::new("x"), bytes, &mut budget, |r: &R| 1 + r.n.len()).is_err()
+        );
+        let mut budget = 0;
+        assert!(parse_jsonl_within::<R>(Path::new("x"), bytes, &mut budget, |_| 1).is_err());
+    }
+
+    #[test]
     fn dev_capture_retains_complete_preparation_identity() {
         let dir = fixture();
         let path = dir.path().join("config.json");
-        let first = Bench::prepare(&path).unwrap();
+        let first = prepare(&path).unwrap();
         let label_path = dir.path().join("test-qrels.jsonl");
         let (mut labels, _): (Vec<Judgement>, _) = read_jsonl(&label_path).unwrap();
         labels[0].grade = 2;
         write_lines(&label_path, &labels);
-        let second = Bench::prepare(&path).unwrap();
+        // Adjudication changed the final grade; the annotation records it.
+        let (dev_labels, _): (Vec<Judgement>, _) =
+            read_jsonl(&dir.path().join("dev-qrels.jsonl")).unwrap();
+        let mut all: Vec<_> = dev_labels.into_iter().chain(labels).collect();
+        all.sort_by(|a, b| (&a.query_id, &a.section_id).cmp(&(&b.query_id, &b.section_id)));
+        write_annotation(dir.path(), &all);
+        // The combined authoring file is the exact union of both partitions.
+        write_lines(&dir.path().join("qrels.jsonl"), &all);
+        let second = prepare(&path).unwrap();
         let a = Bench::load_dev(&path, &first).unwrap();
         let b = Bench::load_dev(&path, &second).unwrap();
         assert_eq!(a.queries_sha256, b.queries_sha256);
@@ -2769,10 +4388,60 @@ mod tests {
     }
 
     #[test]
+    fn run_file_bound_refuses_unscorable_output_before_writing() {
+        let dir = fixture();
+        let path = dir.path().join("config.json");
+        let evidence = prepare(&path).unwrap();
+        let dev = Bench::load_dev(&path, &evidence).unwrap();
+        let indexes = dev.indexes().unwrap();
+        let section = indexes["synthetic"]
+            .generation
+            .chunks
+            .iter()
+            .map(|c| c.section_id.len())
+            .max()
+            .unwrap();
+        let systems = [System::B0, System::B1, System::B2(0.0), System::B3(0.0)];
+        // Names B0, B1, B2@0, B3@0: 2 + 2 + 4 + 4 = 12 bytes. Per query:
+        // 4 systems x CUTOFF 10 lines x (qid + section + score 32 + 10 fixed)
+        // + name bytes x 10, plus one abstention line (qid + 32 + 2).
+        let ids = ["q1".to_string(), "q22".to_string()];
+        let per = |qid: usize| 40 * (qid + section + MAX_SCORE_TEXT + 10) + 120 + qid + 34;
+        assert_eq!(run_file_bound(&ids, &indexes, &systems), per(2) + per(3));
+        // The held-out bound uses the manifest-pinned test ids (metadata only).
+        let (splits, _) = dev.splits().unwrap();
+        assert!(check_run_file_bytes(run_file_bound(&splits.test, &indexes, &systems)).is_ok());
+        // A section id wide enough that the pinned test split cannot be scored:
+        // refused by the same check admission runs before any reservation.
+        let mut generation = indexes["synthetic"].generation.clone();
+        // Widen only the emitted chunk section id (not `sections[*].id`).
+        generation.chunks[0].section_id = "s".repeat(MAX_INPUT_BYTES / (splits.test.len() * 40));
+        let wide = BTreeMap::from([("synthetic".to_string(), SearchIndex::new(generation))]);
+        assert!(check_run_file_bytes(run_file_bound(&splits.test, &wide, &systems)).is_err());
+        // Every written score is `{:e}`, within MAX_SCORE_TEXT, and parses back.
+        for v in [f64::MAX, -f64::MAX, f64::MIN_POSITIVE / 3.0, 1.0 / 3.0, 0.0] {
+            let text = format!("{v:e}");
+            assert!(text.len() <= MAX_SCORE_TEXT, "{text}");
+            assert_eq!(text.parse::<f64>().unwrap(), v);
+        }
+        // Real dev output stays within the bound computed beforehand.
+        let out = dir.path().join("run-dev");
+        run(&dev, SplitName::Dev, false, &out).unwrap();
+        let bound = run_file_bound(&splits.dev, &indexes, &systems);
+        let total: u64 = fs::read_dir(&out)
+            .unwrap()
+            .map(|e| e.unwrap())
+            .filter(|e| e.path().extension().is_some_and(|x| x == "tsv"))
+            .map(|e| e.metadata().unwrap().len())
+            .sum();
+        assert!(total > 0 && total as usize <= bound, "{total} > {bound}");
+    }
+
+    #[test]
     fn captured_scoring_checks_and_parses_identical_saved_bytes() {
         let dir = fixture();
         let path = dir.path().join("config.json");
-        let evidence = Bench::prepare(&path).unwrap();
+        let evidence = prepare(&path).unwrap();
         let bench = Bench::load_dev(&path, &evidence).unwrap();
         let indexes = bench.indexes().unwrap();
         let run_dir = dir.path().join("run");
@@ -2816,7 +4485,9 @@ mod tests {
         fs::write(run_dir.join("abstention.tsv"), &abstention).unwrap();
         hashes.insert("abstention.tsv".into(), sha256_hex(abstention.as_bytes()));
         let meta = RunMeta {
+            version: RUN_META_VERSION,
             split: SplitName::Dev,
+            preparation_sha256: bench.preparation_binding().unwrap().1.into(),
             seed: 7,
             resamples: 10,
             alpha: 0.0,
@@ -2846,8 +4517,23 @@ mod tests {
         // replacing a staged metadata file must not change scored identities.
         fs::write(run_dir.join("meta.json"), b"replaced metadata").unwrap();
         let report = score_captured(&bench, &run_dir, false, meta.clone()).unwrap();
+        // Old metadata version or another manifest's hash is refused.
+        let mut stale = meta.clone();
+        stale.version = 1;
+        assert!(score_captured(&bench, &run_dir, false, stale).is_err());
+        let mut other = meta.clone();
+        other.preparation_sha256 = "0".repeat(64);
+        assert!(score_captured(&bench, &run_dir, false, other).is_err());
         assert_eq!(report.answerable, 75);
         assert_eq!(report.systems["B1"].mean.ndcg10, 1.0);
+        // Per-corpus copies of all seven specs, exploratory only.
+        assert_eq!(report.per_corpus_comparisons.len(), 7);
+        assert!(
+            report
+                .per_corpus_comparisons
+                .iter()
+                .all(|c| c.role == "exploratory" && c.holm_p.is_none() && c.decision.is_none())
+        );
         assert_eq!(report.abstention.correct_abstention.count, 15);
         let ranking = run_dir.join("B1.tsv");
         let bytes = fs::read(&ranking).unwrap();

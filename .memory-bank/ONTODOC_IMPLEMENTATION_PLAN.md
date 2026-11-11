@@ -22,12 +22,12 @@ outcome.
 ```yaml
 manager_loop:
   authority: true
-  status: in-progress
+  status: blocked
   selection_policy: active_next_task-first
-  active_next_task: EVAL-1.3
+  active_next_task: null
   max_in_flight: 1
   dispatch_mode: none
-  reopen_gate: null
+  reopen_gate: reopen after at least one unfinished task becomes dependency-ready and has no substantive known_blockers
 tasks:
   OD-0.0:
     title: Given an empty package, when `cargo check --all-targets` runs at the repository root, then the `ontodoc` lib and bin compile and `ontocode-rs/` is not built
@@ -61,9 +61,7 @@ tasks:
     - CARGO_BUILD_JOBS=4 cargo check --all-targets
     - cargo fmt --check
     expected_evidence:
-    - Package `ontodoc`, edition 2024, toolchain 1.95.0; dependencies limited to pulldown-cmark 0.13, ignore, serde, serde_json, sha2, thiserror, anyhow, clap 4, tokio, rmcp 1.7 (features server, macros, transport-io), schemars 1; dev-dependencies tempfile, pretty_assertions.
-    - An empty `[workspace]` table in `Cargo.toml` makes the package its own workspace root, so `ontocode-rs/` is never resolved.
-    - '`.gitignore` covers `target/` and `.ontodoc/`.'
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-00 (sha256 524b2be1019c)'
     rollback:
     - Delete the listed files.
     stop_conditions:
@@ -103,8 +101,7 @@ tasks:
     required_validation:
     - 'CARGO_BUILD_JOBS=4 cargo test --lib -- corpus::'
     expected_evidence:
-    - Tests prove .gitignore and .ontodocignore rules apply, symlinks are skipped, files above the byte cap and non-UTF-8 files yield diagnostics without failing the walk, and output order is byte-stable.
-    - Each file record carries relative slash path, size, mtime and SHA-256.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-10 (sha256 d764553f835b)'
     rollback:
     - Revert `src/corpus.rs` and the module line in `src/lib.rs`.
     stop_conditions:
@@ -146,10 +143,7 @@ tasks:
     required_validation:
     - 'CARGO_BUILD_JOBS=4 cargo test --lib -- parse:: chunk::'
     expected_evidence:
-    - For every section and chunk, `source[byte_start..byte_end]` hashes to the recorded SHA-256 and line spans match a hand-checked fixture.
-    - Section ids are identical for chunk budgets 800, 1200 and 2000; inserting a paragraph above a section leaves later section and chunk ids unchanged.
-    - Headings inside fenced code (backtick and tilde, longer closing fences) are not sections; front matter is excluded.
-    - Sections above the budget split only at block boundaries; no chunk is empty; chunk-to-section mapping is total.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-11 (sha256 a43869c6d173)'
     rollback:
     - Revert the two modules and the module lines in `src/lib.rs`.
     stop_conditions:
@@ -185,8 +179,7 @@ tasks:
     required_validation:
     - 'CARGO_BUILD_JOBS=4 cargo test --lib -- tiers::'
     expected_evidence:
-    - Tests assert each tier is a concatenation of source substrings (checked by byte search) and respects its cap at a UTF-8 boundary.
-    - First-sentence extraction is defined (up to the first `. `, `? `, `! ` or block end) and tested on fixtures.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-12 (sha256 09371c03c70e)'
     rollback:
     - Revert `src/tiers.rs`.
     stop_conditions:
@@ -225,8 +218,7 @@ tasks:
     required_validation:
     - 'CARGO_BUILD_JOBS=4 cargo test --lib -- graph::'
     expected_evidence:
-    - Golden edge list for the fixture, sorted and deterministic.
-    - '`a.md#anchor` resolves to that section''s first chunk; `a.md` resolves to the document''s first chunk; targets outside the root and missing targets are reported with source span.'
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-13 (sha256 887ecbfa6575)'
     rollback:
     - Revert `src/graph.rs`.
     stop_conditions:
@@ -264,9 +256,7 @@ tasks:
     required_validation:
     - 'CARGO_BUILD_JOBS=4 cargo test --lib -- store::'
     expected_evidence:
-    - Generation id equals SHA-256 of corpus manifest plus index-time config; changing a query-time parameter leaves it unchanged; two builds of the same corpus are byte-identical.
-    - Tests cover a held lock, stale-lock reclaim, failure before pointer swap leaving the previous generation active, artifact hash mismatch rejected on load, cap overflow publishing nothing, pruning to two old generations, and repository-relative paths only.
-    - Freshness lists added, removed and modified paths after an edit.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-14 (sha256 dd4b83ddbe46)'
     rollback:
     - Revert `src/store.rs`; delete `.ontodoc/` in fixtures.
     stop_conditions:
@@ -310,9 +300,7 @@ tasks:
     required_validation:
     - 'CARGO_BUILD_JOBS=4 cargo test --lib -- search::'
     expected_evidence:
-    - BM25 on a three-document toy corpus matches hand-computed scores to 1e-9 with k1 1.2, b 0.75.
-    - Abstention score `top_bm25 / sum(idf(query terms))` matches a hand-computed case; reasons `no_lexical_match` and `below_threshold` are produced; abstention can be disabled for evaluation.
-    - Tokenizer splits camelCase and snake_case and lowercases Unicode; ties break by chunk id; repeated runs are identical.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-15 (sha256 7771b7ef1c83)'
     rollback:
     - Revert the listed search files.
     stop_conditions:
@@ -351,10 +339,7 @@ tasks:
     required_validation:
     - 'CARGO_BUILD_JOBS=4 cargo test --lib -- search::'
     expected_evidence:
-    - PPR on a four-node graph with one dangling node matches hand-computed power iteration (damping 0.85, dangling mass to seeds, L1 tolerance 1e-9, cap 100).
-    - B3 doc scores come from BM25 over document pseudo-documents; a two-document case matches to 1e-9.
-    - For a 0 and beta 0 the ranked list equals B1 element for element on every fixture query.
-    - Scope with no matches yields abstention reason `scope_empty`.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-16 (sha256 07ccbfec2ff2)'
     rollback:
     - Revert the listed search files.
     stop_conditions:
@@ -390,7 +375,7 @@ tasks:
     required_validation:
     - 'CARGO_BUILD_JOBS=4 cargo test --lib -- cite::'
     expected_evidence:
-    - Four-state test passes; a span hash occurring twice after the edit is `stale`, not `moved`.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-17 (sha256 69bf8d1aa46d)'
     rollback:
     - Revert `src/cite.rs`.
     stop_conditions:
@@ -427,7 +412,7 @@ tasks:
     required_validation:
     - 'CARGO_BUILD_JOBS=4 cargo test --lib -- assemble::'
     expected_evidence:
-    - Generated rank lists and budgets assert total bytes <= budget, no partial tier, monotone tiers by rank, and identical output across runs.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-18 (sha256 1fab700da595)'
     rollback:
     - Revert `src/assemble.rs`.
     stop_conditions:
@@ -469,7 +454,7 @@ tasks:
     required_validation:
     - CARGO_BUILD_JOBS=4 cargo test --test cli
     expected_evidence:
-    - Integration test runs the built binary against a temp copy of the fixture and asserts JSON shape and exit codes.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-20 (sha256 89c0caa5f09f)'
     rollback:
     - Revert the listed files.
     stop_conditions:
@@ -515,10 +500,7 @@ tasks:
     required_validation:
     - CARGO_BUILD_JOBS=4 cargo test --test mcp
     expected_evidence:
-    - '`tools/list` returns exactly search, read, related, verify, status, all annotated read-only.'
-    - '`search` accepts mode lexical|graph|hier, scope, explain and budget_bytes; the default mode is lexical until EVAL-3.2 decides otherwise.'
-    - Invalid arguments return MCP errors, not panics; every response stays under the byte cap with `truncated` set when items were dropped.
-    - Stdout carries only protocol frames; logs go to stderr.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-21 (sha256 319d39a14add)'
     rollback:
     - Revert the listed files.
     stop_conditions:
@@ -559,10 +541,7 @@ tasks:
     required_validation:
     - 'CARGO_BUILD_JOBS=4 cargo test --lib -- eval::'
     expected_evidence:
-    - Metric tests use worked examples with written-out arithmetic; queries with no relevant item are rejected by the metric API, not scored.
-    - Decision function returns pass only for mean > 0, CI lower bound > 0 and Holm p < alpha; a significant negative difference returns negative, never pass; a wide CI returns inconclusive.
-    - Identical systems give p 1.0 and a CI containing 0; a constant +0.1 shift gives CI [0.1, 0.1]; outputs are identical across runs for a fixed seed.
-    - Holm matches a textbook example; Wilson matches published values for 0/10, 5/10, 10/10; weighted kappa matches a published worked example; power formula matches a hand calculation.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#eval-10 (sha256 8f0a6c125bfd)'
     rollback:
     - Revert the listed eval files.
     stop_conditions:
@@ -606,10 +585,7 @@ tasks:
     required_validation:
     - CARGO_BUILD_JOBS=4 cargo test --test eval_run
     expected_evidence:
-    - '`eval split --seed` stratifies by stratum and corpus; `eval pool` emits the top-10 sections of every system at every grid point, deduplicated and sorted.'
-    - Ranking metrics run with abstention off on answerable queries; abstention metrics run on off-topic and answerable queries separately.
-    - Report records corpus digests, qrels digest, config hash, git commit, binary hash, seed, per-query metrics, judged@10 per system and paired comparisons with decisions.
-    - 'Discrimination check on a synthetic fixture: an oracle run beats a shuffled run with p < 0.01; a system compared with itself gives p = 1.'
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#eval-11 (sha256 3fd641dfb81a)'
     rollback:
     - Revert the listed files.
     stop_conditions:
@@ -653,11 +629,7 @@ tasks:
     required_validation:
     - CARGO_BUILD_JOBS=4 cargo test --test eval_gates
     expected_evidence:
-    - 'Planted defects each fail: judged section missing, span hash mismatch, dev/test token Jaccard >= 0.8, non-reproducible pool, judged@10 < 0.95, corpus checkout dirty or at the wrong commit, stratum or answerable-count floor not met.'
-    - Each miss is attributed to exactly one of not_indexed, chunk_boundary, lexical_miss, fusion_displaced, truncated.
-    - '`eval sweep --split dev` writes the grid table, the per-arm dev sd_diff and required n; `eval freeze` writes `frozen-config.toml` with parameters, power inputs, commit, Cargo.lock hash and binary hash.'
-    - A held-out run with a dirty tree, different commit or different binary hash is refused.
-    - '`check-benchmark --stage pools|qrels|run` selects which gates apply; each stage is covered by a planted-defect test.'
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#eval-12 (sha256 4bbfa343da08)'
     rollback:
     - Revert the listed files.
     stop_conditions:
@@ -673,7 +645,7 @@ tasks:
     dod_status: pass
   EVAL-1.3:
     title: Given missing or invalid benchmark evidence, when a measurement or held-out scoring is requested, the evaluation entry point refuses before publishing results; valid evidence and matching frozen identity permit the measured operation
-    status: OPEN
+    status: DONE
     classification: implementation-ready
     assurance_profile: full
     complexity: complex
@@ -695,6 +667,7 @@ tasks:
     - tests/eval_gates.rs
     - tests/eval_run.rs
     - tests/fixtures/eval/
+    - src/store.rs
     allowed_write_set:
     - src/cli.rs
     - src/eval/run.rs
@@ -705,22 +678,14 @@ tasks:
     - tests/eval_gates.rs
     - tests/eval_run.rs
     - tests/fixtures/eval/
+    - src/store.rs
     non_goals:
     - Real benchmark data, annotation or held-out measurement.
     - Model-only relevance labels counted as human judgments.
     required_validation:
     - CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run
     expected_evidence:
-    - Measurement and tuning entry points fail closed for missing required gate settings, bad corpus pins, split integrity failures, unreproducible pools, missing or mismatched judged span hashes, and other failed preflight checks; errors do not publish usable results.
-    - Held-out measurement and scoring require an unchanged frozen configuration, sufficient power and test count, clean matching code identity and matching benchmark inputs before accessing held-out results.
-    - Judged-at-10 is checked before a report is accepted; missing or mismatched evidence is covered by focused regression tests.
-    - Tests exercise both the public library paths and CLI where applicable, using isolated fixtures, and avoid any real benchmark test split.
-    - Validate preparation-bound query-review decisions, final-text digests/history and review-before-pooling ordering plus human annotation/blinding/agreement records under EVAL-1.6's trusted-operator contract; missing, mismatched or model-only human evidence refuses.
-    - Implement ADR9 version-1 query-review/annotation companions and bounded pools/qrels preparation manifests in existing owners. `pool` and pools-stage regeneration check trusted query approval before ranking; qrels-stage preparation recomputes all full-data gates, exact parsed partition unions, provenance/counts and raw-byte identities. Out-of-band review/preparation hash pins bind operator-audited approval, not self-authenticating JSON flags.
-    - Positive synthetic CLI/library coverage includes selected dev/test capture, preparation-bound counts and full benchmark commitments, freeze/check, run, sweep, misses and saved scoring; dev execution never reads combined or held-out payloads.
-    - Dev run/sweep/freeze/check/misses/score open no combined queries/qrels, full pool, full query-review/annotation or held-out payloads, including stat/hash and regeneration. Both partition commitments and approved counts survive separate CLI processes; preparation identity differs from selected digests. Test requires confirmation and reserves/fsyncs the sole started attempt before test payload access. Frozen/registration/metadata format changes refuse old versions without a reset path; no index schema change.
-    - Completion-record or output-publication failures leave no accepted usable report and retain a consumed held-out attempt; test deterministic failure injection.
-    - Reports include exploratory per-corpus confidence intervals without adding to the confirmatory family. Precompute borrowed section lookups and query tokens once in integrity gates, preserving exact gate semantics and failure order.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#eval-13 (sha256 9b367418be9b)'
     rollback:
     - Revert this task's listed source and test changes.
     stop_conditions:
@@ -729,6 +694,11 @@ tasks:
     closeout:
       role_results:
         coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: User proceed instructions 2026-11-11 (EVAL-1.3 slices 1-9); src/store.rs unused_unit one-line fix added to write set after repeated approval request and user proceed.
+        validation_summary: 'Lane eval13-close-a exit0: CARGO_BUILD_JOBS=4 cargo test --lib (196 passed, 1 ignored); cargo test --test eval_gates --test eval_run (20 + 11 passed); cargo test --test cli (8 passed); cargo fmt --check ok; CARGO_BUILD_JOBS=4 cargo clippy --all-targets -- -D warnings ok (no allowance). Slices 1-9 evidence and GPT-6-Astra findings in audit_session-2026-11-11-eval13-progress.md. Synthetic fixtures only; no real benchmark or held-out data.'
+    dod_status: pass
   EVAL-2.0:
     title: Given the pinned corpora, when the benchmark is assembled, then `eval/` holds pinned corpus metadata, stratified queries with operational strata and seeded dev/test split, and grid-wide top-10 pools with the judgement count reported
     status: BLOCKED
@@ -781,7 +751,7 @@ tasks:
     - No permissively licensed second corpus is available.
     - Queries cannot be written without copying target text.
     known_blockers:
-    - 'EVAL-1.3 must pass before benchmark work resumes: benchmark integrity, frozen identity and held-out measurement safeguards are under correction. GPT-6-Astra review is authorized for queries only and never counts as human annotation.'
+    - 'EVAL-1.3 DONE 2026-11-11. Remaining owner gate: real benchmark assembly needs the trusted operator (human) to select pinned permissive corpora, supply the manager-owned query-approval audit and digest before the first pool run, and commit human annotators for EVAL-2.1. GPT-6-Astra review is authorized for queries only and never counts as human annotation; generic proceed does not resolve this gate.'
   EVAL-2.1:
     title: Given approved pools, when two humans independently label every pair for the predeclared overlap of at least 30% of answerable queries, then qrels and provenance pass qrels-stage preparation with raw-grade agreement and trusted approval
     status: OPEN
@@ -859,7 +829,7 @@ tasks:
     stop_conditions:
     - Report identity fields are missing or rerun output differs.
     - Canonical external benchmark snapshot and frozen binary paths are not pinned in the audit; EVAL-1.3 success/admission proof is missing.
-    - Clean committed code, matching audited binary and preparation/provenance handoff are unavailable; this no-HEAD checkout cannot freeze until the owner supplies that checkpoint.
+    - Clean committed code, matching audited binary and preparation/provenance handoff are unavailable; HEAD exists (b6e3f3e) but the tree is dirty; freezing needs a clean committed checkpoint supplied by the owner.
     known_blockers: []
   EVAL-3.1:
     title: Given the dev split only, when PPR alpha, B3 beta and the abstention threshold are swept and the power calculation runs, then the external frozen export and fixed registration bind selected values, power, commit and hashes before test access
@@ -904,7 +874,7 @@ tasks:
     - Any code path reads test-split qrels during the sweep.
     - Required n exceeds the answerable test queries; write and label more test queries (reopen EVAL-2.0/2.1) before freezing.
     known_blockers:
-    - ADR revision 6 resolves artifact location. EVAL-1.3 must prove captured freeze/check and attempt success paths before these commands run. ONTODOC_DEV_THRESHOLD must bind the dev selection, never a guess; external benchmark/custody/binary paths must be pinned and preregistered.
+    - ADR revision 6 resolves artifact location. EVAL-1.3 (DONE) proved synthetic captured freeze/check and attempt success paths; real runs still need EVAL-2.x data. ONTODOC_DEV_THRESHOLD must bind the dev selection, never a guess; external benchmark/custody/binary paths must be pinned and preregistered.
   EVAL-3.2:
     title: Given approved frozen identity, when the sole held-out run executes, then accepted custody binds every reported hypothesis and the h5-then-h2-v1 recommendation without changing application defaults
     status: OPEN
@@ -966,7 +936,7 @@ tasks:
     - Ranking algorithm changes, mutable evaluation reads on the retrieval path, or promotion by largest observed held-out gain.
     - Default abstention, new MCP fields/tools or changes to explicit per-request mode/weight semantics.
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib cli:': null
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib cli::'
     - CARGO_BUILD_JOBS=4 cargo test --test cli --test mcp
     - cargo fmt --check
     - just --justfile ../ontocode/justfile compiler-lane-detached "$ONTODOC_PROMOTION_JOB" sh -c "CARGO_BUILD_JOBS=4 cargo clippy --all-targets -- -D warnings"
@@ -1042,10 +1012,7 @@ tasks:
     - 'CARGO_BUILD_JOBS=4 cargo test --lib store::'
     - cargo fmt --check
     expected_evidence:
-    - One shared store invariant checks raw section and chunk collections independently before publication serialization and after load verification; rejection is StoreError::Corrupt.
-    - Synthetic preamble/punctuation-heading collisions and independently injected duplicate sections/chunks reject; first failure creates no store, and an existing CURRENT, HISTORY and generation bytes remain unchanged.
-    - A self-consistent persisted artifact with duplicate IDs is rejected on load even when metadata hashes match; ordinary unique generations still roundtrip.
-    - Existing section/chunk IDs and schema remain unchanged; affected Markdown fails explicitly pending OD-3.1/OD-3.2.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-30 (sha256 484829166e8d)'
     rollback:
     - Revert only this task's changes; preserve published source inputs and prior closeouts.
     stop_conditions:
@@ -1083,9 +1050,7 @@ tasks:
     required_validation:
     - project_plan_validate .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
     expected_evidence:
-    - Decide how preambles and empty heading slugs remain distinct and section IDs remain budget-independent, including nested and literal-suffix collisions.
-    - Decide how volatile mtime leaves canonical artifact content without weakening current-byte freshness; enumerate schema bump and explicit invalidation of incompatible generations.
-    - Resolve copied-fragment versus formatting-separator wording without accepting any diagnostics capability; unchanged graph/ranking semantics and hypothesis family are explicit.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-31 (sha256 7d01421ae495)'
     rollback:
     - Revert only this decision's document changes.
     stop_conditions:
@@ -1130,13 +1095,7 @@ tasks:
     - CARGO_BUILD_JOBS=4 cargo test --lib
     - CARGO_BUILD_JOBS=4 cargo test --test cli
     expected_evidence:
-    - Implement only the recorded identity/schema decision; old schemas reject explicitly.
-    - 'Follow service ADR schema 2: encode only empty allocated ID components as @empty; preserve Markdown anchors and read precedence. Test exact IDs for delimiter-bearing paths without extending aliases.'
-    - Canonicalize skip paths/reasons in the store owner, include sorted skips in generation identity, omit persisted mtime and use captured-byte size. Verify root-independent diagnostics and skip-dependent IDs.
-    - Explicitly set different mtimes across two synthetic roots; compare full generation and published artifact bytes, not only generation IDs.
-    - Compare index.json, meta.json and CURRENT from independent stores; compare HISTORY only under identical initial state/sequence. Same-size edits with restored mtime must remain stale.
-    - Reject incompatible build/publish/load versions, retired schema-2 mtime fields and mismatched candidate IDs. Reuse only exact index/meta bytes for a same-ID target; conflicts preserve target, CURRENT and HISTORY.
-    - Exercise preamble, punctuation-only, nested empty-slug, duplicate heading and literal-suffix cases; IDs are unique and stable across chunk budgets.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-32 (sha256 9c63cde6aa1f)'
     rollback:
     - Revert only this task's changes; preserve published source inputs and prior closeouts.
     stop_conditions:
@@ -1176,9 +1135,7 @@ tasks:
     required_validation:
     - CARGO_BUILD_JOBS=4 cargo test --test mcp --test cli
     expected_evidence:
-    - Measure actual serialized JSON-RPC responses, including rmcp text/structured duplication, request IDs, wrappers and errors; enforce the existing 128-KiB cap.
-    - Control-character-heavy read/search payloads and long malformed inputs either truncate explicitly or yield a bounded typed error; all five tool contracts stay compatible.
-    - Client-facing internal errors contain stable error kinds and generic messages, not sentinel filesystem paths or raw OS errors.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-33 (sha256 2962a75db3e0)'
     rollback:
     - Revert only this task's changes; preserve published source inputs and prior closeouts.
     stop_conditions:
@@ -1233,11 +1190,7 @@ tasks:
     - CARGO_BUILD_JOBS=4 cargo test --test cli --test mcp
     - CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run
     expected_evidence:
-    - 'Implement ADR8 rooted local I/O: promote locked rustix1.1.4 fs; retain the App corpus descriptor; use full-relative openat2 BENEATH|NO_SYMLINKS for descendants and fixed64KiB RawDir enumeration. Unsupported/blocked/racing resolution refuses without fallback. Trusted parent bootstrap rejects final root symlinks including trailing-slash spelling.'
-    - Root-bound CURRENT/meta/artifact reads, build, freshness and verification share corpus identity. src/store.rs changes are limited to this reader/caller binding and existing byte caps, not publication redesign. Root replacement cannot mix a generation and documents from different roots.
-    - Entire batches validate exact constructible whole-chunk/section fields and manifest/document membership before target reads. Different/old generation yields generation_unavailable, same-generation nonmember invalid_citation; no HISTORY lookup or unindexed-path oracle. Preserve whitelisted hidden paths and originally-admitted membership without a current-policy rewalk.
-    - Shared rooted traversal preserves stable readable-tree ignore parity; unsafe/unreadable controls refuse. Ordinary automatic walker is only a test oracle. Existing eval integration remains guarded; no real corpus/labels opened.
-    - Barrier/injected tests cover root/ancestor/leaf replacement, growth, symlink/FIFO controls, unknown entry types, deleted-directory enumeration, unsupported resolution, each citation field, L0/L1 and truncated reads, whole sections and identical IDs across roots. Preserve valid/moved/ambiguous/stale/missing; work/I/O refusals never become citation states.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-34 (sha256 6c952f4be76b)'
     rollback:
     - Revert only this task's changes; preserve published source inputs and prior closeouts.
     stop_conditions:
@@ -1281,11 +1234,7 @@ tasks:
     - 'CARGO_BUILD_JOBS=4 cargo test --lib cite::'
     - CARGO_BUILD_JOBS=4 cargo test --test mcp
     expected_evidence:
-    - Enforce ADR8 raw128KiB stdio line ceiling on the actual native input path before allocation/decode, including LF/CRLF. Exact-cap/cap+1 malformed and unterminated frames prove the guard, not an unused codec setting; keep complete outbound bounds and five-tool parity.
-    - Before conversion/load/spawn enforce aggregate decoded strings64KiB, query/scope/path4KiB, IDs16KiB, citations100, headings64/16KiB per citation and canonical64-byte hashes/IDs. Over100 citations refuse rather than truncate; tests prove zero load/spawn on refusal.
-    - Verification shares aggregate source-read128MiB, candidate-hash128MiB and1000000 SHA-call budgets across the entire batch. Precharge original-span and moved-window checks including repeated citations; checked offsets and midbatch/tiny-window exhaustion return cap_exceeded, never partial or incorrect states.
-    - One process-local actual worker and zero application waiting queue; acquire fail-fast before CURRENT I/O/load/rebuild/freshness/verify/spawn and transfer ownership into the closure. All five handlers share it; no detached reload or nested acquisition. Busy is typed; cancelled waiters cannot release admission or mutation locks while work survives.
-    - Barrier/counter-based synthetic tests prove cancellation, shutdown/work ownership, cold reload contention and caps without sleeps or latency/RSS claims. Preserve immutable shared-index reuse and explicit refusal on failed reload.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-35 (sha256 4263a38ddbb4)'
     rollback:
     - Revert only this task's changes; preserve published source inputs and prior closeouts.
     stop_conditions:
@@ -1331,11 +1280,7 @@ tasks:
     - 'CARGO_BUILD_JOBS=4 cargo test --lib store::'
     - CARGO_BUILD_JOBS=4 cargo test --test cli
     expected_evidence:
-    - Stream freshness manifest/hash comparisons without retaining all document texts; preserve added/removed/modified semantics including same-size edits.
-    - Apply ADR8 shared build/freshness ceilings before work; source2MiB, source/control aggregate128MiB, prefilter probes100000, depth64, accounted paths16MiB, ignore64KiB/line4KiB/lines4096/matching1000000. Preserve stricter eval reservations and rooted policy parity; cap exhaustion fails rather than publishes partial or fabricates freshness.
-    - Reuse OD-3.8 CURRENT128/meta4096/artifact512MiB boundaries with configured lower caps. Allocation-light preflight counts all encountered files/documents100000 and sections/chunks500000 before typed collections, including duplicate JSON keys; explicit local admission, no schema migration or silent drop.
-    - Checked aggregate actual heading/span/pseudo-document tokenizer input512MiB refuses overlap amplification before BM25 work. Move the existing document lookup before construction; preserve exact accepted text/token/ranking order with synthetic parity.
-    - Instrumented readers/probes and lowered synthetic preflight budgets prove exact/cap+1 refusal before the next read/allocation/hash operation, ignored-entry floods and equivalent current-byte freshness. No throughput/RSS guarantee follows; artifact bytes are not resident-memory accounting.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-36 (sha256 b662568e0292)'
     rollback:
     - Revert only this task's changes; preserve published source inputs and prior closeouts.
     stop_conditions:
@@ -1385,15 +1330,7 @@ tasks:
     required_validation:
     - CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run
     expected_evidence:
-    - 'Freshness scope correction: reuse the shared corpus owner and store freshness comparison, but acceptance requires pre-filter traversal accounting and bounded ignore-file ingestion as well as Markdown reads. Yielded-entry counters alone are insufficient. Preserve ignore/freshness semantics; do not claim the rooted-reader/HTTP OD-3.4/3.6 contracts.'
-    - 'Selected seam: corpus-owned bounded std directory enumeration with public ignore GitignoreBuilder/add_line/matched; ordinary ignore walker remains the regular-control compatibility oracle. Separate custom/git ancestor stacks, custom family first; share Markdown/output handling. No new dependency or eval-local ignore policy.'
-    - 'Opt-in ceilings: depth64, ignore file64KiB, line4KiB, aggregate physical lines4096, pre-filter enumeration100000, conservatively accounted path-content bytes16MiB and matching-work1000000 units; ignore reads share capture byte reservations. Typed refusal on exhausted bounds or unsafe/unreadable controls; these are not allocator-overhead or CPU-time guarantees.'
-    - 'ADR conflict disposition: ordinary ignore walker may follow symlinked controls contrary to ADR2. The new bounded path conforms by refusing symlink/nonregular controls; parity covers eligible regular controls only. Ordinary traversal/ancestor containment remains unresolved under OD-3.4/3.6, not accepted by this task. See audit_session-2026-11-10-eval14-bounded-traversal.md.'
-    - 'Source-trace scope correction: reuse a store-owned captured-byte decoder for bounded eval index capture; no duplicated schema/checksum validator, public store-loader change or HTTP budget acceptance. In-process non-deserializable mechanical prevalidation is not query-review/human annotation provenance; persistent handoff remains gated by EVAL-1.5/1.3.'
-    - Separate full preparation from split-specific execution; physically separate dev/test query and label inputs before dev loading, rather than filtering combined records.
-    - Capture bounded input bytes/digests and parsed indexes once; validation, tuning and scoring use the captured values or fail explicitly rather than reopening mutable replacements.
-    - Dev-only synthetic processing succeeds when held-out payload paths are inaccessible; required prevalidated cross-split integrity evidence remains identity-bound and fail-closed.
-    - Keep public measurement refusals until EVAL-1.3 integration; do not read real held-out data or change scientific gates.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#eval-14 (sha256 10419b329610)'
     rollback:
     - Revert only this task's changes; preserve published source inputs and prior closeouts.
     stop_conditions:
@@ -1439,11 +1376,7 @@ tasks:
     required_validation:
     - CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run
     expected_evidence:
-    - Reuse existing audit preregistration and create_new/fsync attempt mechanisms; choose one authoritative attempt location independent of disposable output paths, without adding a registry daemon.
-    - 'Implement the recorded ADR revision 6 location resolution: Git-common-dir write-once registration/attempt custody and external exact-byte frozen export; rebind EVAL-3.x commands, audit paths and outputs before use.'
-    - Bind frozen/config/code/benchmark identity and saved-run bytes; failure consumes the attempt and started/failed/completed outcomes remain auditable.
-    - Changing output directory cannot create another attempt; altered ranking/freeze bytes reject, and scoring parses exactly the bytes whose digests were verified.
-    - All tests are synthetic; public guards stay until EVAL-1.3 demonstrates the complete success and failure paths.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#eval-15 (sha256 416994b20cb2)'
     rollback:
     - Revert only this task's changes; preserve published source inputs and prior closeouts.
     stop_conditions:
@@ -1497,12 +1430,12 @@ tasks:
         coder-manager: null
   HTTP-1:
     title: Given docs_share folders, startup produces bounded sorted independent corpus endpoints and stores without cross-corpus fallback
-    status: OPEN
+    status: DONE
     classification: implementation-ready
     assurance_profile: full
     complexity: complex
     depends_on:
-    - HTTP-0
+    - SIMPL-1
     - OD-3.2
     - OD-3.4
     - OD-3.6
@@ -1524,17 +1457,20 @@ tasks:
     required_validation:
     - CARGO_BUILD_JOBS=4 cargo test --test mcp --test cli
     expected_evidence:
-    - Use existing per-folder App/Store/shared immutable index slots; discover only immediate real subdirectories and never auto-index.
-    - Preserve URL-segment names without aliases; reject encoded separators, traversal, symlinks, collisions and corpus-cap excess explicitly.
-    - Two synthetic corpora with identical local IDs keep all five tools, citations, statistics, generations and readiness separate; missing index never falls back.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#http-1 (sha256 f598494d7abc)'
     rollback:
     - Revert only this task's changes; preserve published source inputs and prior closeouts.
     stop_conditions:
-    - HTTP-0 has unresolved routing or resource decisions.
+    - Folder encoding, corpus-cap or no-fallback rules in the accepted folder ADR are insufficient; listener, exposure, auth and session decisions stay in HTTP-0/HTTP-2.
     known_blockers: []
     closeout:
       role_results:
         coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: review/challenge/consolidate one plan and proceed; HTTP-1 split from the HTTP-0 exposure gate in audit_session-2026-11-11-review-simplify-consolidate.md'
+        validation_summary: 'Lane http1-b exit0: cargo test --lib 197 passed 1 ignored; mcp 12, cli 8; fmt ok; clippy -D warnings ok. src/mcp.rs Registry::discover: immediate subdirectories only, sorted, hidden entries and plain files ignored, URL-unreserved single-segment names (else InvalidName), symlinks/special entries NotDirectory, >32 TooMany, missing dir Unavailable; one OntoDocServer/App/store per folder; exact case-sensitive get with no default. Test docs_share_folders_are_independent_corpora: identical local ids in two corpora keep separate text, generations, read/related/status/verify, cross-corpus citation never verifies, empty folder reports no_index. No listener, no auto-index.'
+    dod_status: pass
   HTTP-2:
     title: Given configured HTTP delivery, locked rmcp serves endpoint-bound sessions with stdio parity and bounded actual work
     status: OPEN
@@ -1542,7 +1478,9 @@ tasks:
     assurance_profile: full
     complexity: complex
     depends_on:
+    - HTTP-0
     - HTTP-1
+    - PERF-1
     - OD-3.3
     - OD-3.5
     type: code
@@ -1604,9 +1542,7 @@ tasks:
     required_validation:
     - project_plan_validate .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
     expected_evidence:
-    - README describes the Rust service and stdio setup; donor snapshot provenance stays in its own section with read-only boundaries.
-    - Document disabled evaluation, unimplemented HTTP and known service-safety blockers accurately, without measured quality/performance claims.
-    - Check local links, whitespace and command shapes against existing owners; no Rust build for documentation alone.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-37 (sha256 c687263f03e9)'
     rollback:
     - Revert only this decision's document changes.
     stop_conditions:
@@ -1642,11 +1578,7 @@ tasks:
     - 'CARGO_BUILD_JOBS=4 cargo test --lib store::'
     - CARGO_BUILD_JOBS=4 cargo test --test cli --test mcp --test eval_gates --test eval_run
     expected_evidence:
-    - CURRENT raw bytes <=128, metadata <=4096 and global artifact ceiling <=512 MiB are enforced by bounded reads before whole-file allocation/hash/parse; configured artifact limits are checked after bounded header decoding before generation acceptance. IDs are exactly 64 lowercase hexadecimal characters after bounded UTF-8 trim before joining paths.
-    - Final-component no-follow/nonblocking opens and descriptor regular-file checks refuse symlinks/FIFOs/nonregular files; actual reads cap at limit+1 and reject growth. Do not claim ancestor containment.
-    - Publication serialization obeys min(configured cap,512 MiB) before writes; normal and captured decoding enforce the same global and configured limits without schema/canonical byte changes.
-    - Existing target cap/unsafe-file/I/O refusal preserves target/CURRENT/HISTORY; missing or ordinary verified-corrupt target recovery stays explicitly supported.
-    - Synthetic tests cover exact-cap/cap+1 read and serialization, growth after metadata, invalid/traversal/whitespace pointers, unsafe files, captured decoding and publication preservation. Existing roundtrip, schema, conflict, CLI/MCP and eval tests remain green.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-38 (sha256 64e5907a8589)'
     rollback:
     - Revert only this task's changes; retain prior evidence and published source data.
     stop_conditions:
@@ -1686,11 +1618,7 @@ tasks:
     - 'CARGO_BUILD_JOBS=4 cargo test --lib store::'
     - CARGO_BUILD_JOBS=4 cargo test --test cli
     expected_evidence:
-    - Implement ADR8 Result<PublishOutcome,StoreError>; only pre-CURRENT-rename failures return Err. Postrename sync failure is committed/durability_uncertain/maintenance_not_attempted; HISTORY/prune failures after sync are committed/synced/maintenance_failed. CLI index reports explicit additive fields/warnings with exit0 for committed outcomes; output loss never proves noncommit.
-    - Deterministic injected failures before rename and at every sync/HISTORY/prune phase assert pointer/data protection, accurate failure-phase outcomes and no rollback. First publication syncs newly created store namespace entries in containing parents; reused candidates satisfy file/directory sync preconditions too. Precommit may leave orphan/temp files; successful maintenance keeps current plus two old generations.
-    - HISTORY195-byte canonical three-ID cap and precharged cleanup100000-probe cap apply before parsing/deletion. Validate owned fixed-shape inventories; no recursive unknown-tree deletion, no current-generation deletion even with malformed HISTORY; sync HISTORY rename and generation pruning. Refusals preserve valid active data and retain the lock through maintenance.
-    - Investigate the recorded parallel Locked failure with deterministic process/lock ownership evidence; do not label serial-only passing or blind retries a fix. Keep any unproven cause explicit.
-    - Same/different-store barrier/process tests cover lock ownership, release/owner death and full publication lifetime without sleeps. Do not infer the earlier failure cause from a plausible descriptor-inheritance hypothesis.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-39 (sha256 14ef58bb7b32)'
     rollback:
     - Revert only this task's changes; retain prior evidence and published source data.
     stop_conditions:
@@ -1730,11 +1658,7 @@ tasks:
     required_validation:
     - project_plan_validate .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
     expected_evidence:
-    - Select the minimal supported Linux rooted primitive/dependency and fail-closed unsupported-kernel behavior; retain current-byte freshness and corpus-policy parity.
-    - Accept exact constructible generation/citation membership and unknown/old-generation typed refusal semantics before implementation; no arbitrary beneath-root verification oracle.
-    - Set local request, verification hash-work, corpus traversal/freshness and actual-work admission ceilings with typed exhaustion and cancellation ownership; separate all network/session/global multi-corpus limits for HTTP-0.
-    - Define CURRENT commit point and distinguish precommit failure, committed-but-durability-uncertain and postcommit maintenance failure before OD-3.9; do not promise impossible atomic rollback across filesystem errors.
-    - Keep HTTP-0 owner-blocked; no listener, anonymous access, model annotations or benchmark-quality claim follows from local safety decisions.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#safety-0 (sha256 a48f83b362d3)'
     rollback:
     - Revert only this task's changes; retain prior evidence and published source data.
     stop_conditions:
@@ -1773,10 +1697,7 @@ tasks:
     required_validation:
     - project_plan_validate .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
     expected_evidence:
-    - Specify existing query-review/annotation artifact shapes and trusted approval boundary, exact-byte identities, review-before-pooling chronology, human-annotation/blinding/agreement records and derived preparation counts.
-    - Bind complete benchmark and both partition commitments across CLI processes while dev execution reads no held-out or combined payload; local custody is not independent reviewer or human identity proof.
-    - Record a deterministic default-promotion policy for both-pass H2/H5 before held-out access and a separate scoped implementation task if promotion changes application defaults; never choose the biggest observed held-out gain.
-    - Define clean matching committed code/binary, canonical external snapshot/audit handoff and completed-custody-before-accepted-report failure states. No real labels/results are read or evaluation guard lifted.
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#eval-16 (sha256 72776c22ae42)'
     rollback:
     - Revert only this task's changes; retain prior evidence and published source data.
     stop_conditions:
@@ -1789,6 +1710,246 @@ tasks:
         authorized_by: user
         authorization_ref: User proceed; strict EVAL-1.6 documentation scope under review/consolidate/proceed instruction.
         validation_summary: ADR9 and future task cards documented; audit_session-2026-11-11-eval16-preparation-decision.md records choices, gaps and evidence. Versioned query-review/human annotation, trusted exact-byte preparation/both-partition counts, selected-only dev access, attempt-before-test-read and completed-custody/published-byte acceptance. Fixed h5-then-h2-v1 recommendation; separate OD-4.1 minimal default/no-op, absent threshold disabled. Effective GPT-6-Astra results4/6 found then verified correction of two document blockers (PPR rationale, exact manager audit authority), receipts b7d213/aa7596 exit0; source-only. Plan PASS40 no errors, line advisory only. Python eight-document references/anchors/fences/whitespace/scope, MEMORY100, protected source/tests/build/eval hashes, all24 compacted scalars/DONE cards preserved and git diff --check exit0 receiptc3a3cf. No Rust/tests/benchmark/labels/HTTP work, no guard removal or performance claim. OntoIndex unknown committed identity; source authority. No lease, receipt rejection or repeated unchanged failure. Strict complete-local required.
+    dod_status: pass
+  FIX-1:
+    title: Given verified review defects, moved citations report byte-correct lines, dev resamples are bounded and preparation inputs obey layout isolation
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - EVAL-1.3
+    type: code
+    validation_tier: integration
+    impact_risk: medium
+    owner_files:
+    - src/cite.rs
+    - src/eval/run.rs
+    - tests/eval_run.rs
+    - tests/common/
+    allowed_write_set:
+    - src/cite.rs
+    - src/eval/run.rs
+    - tests/eval_run.rs
+    - tests/common/
+    non_goals:
+    - Ranking, schema, freshness-semantics or ADR changes; real benchmark data.
+    required_validation:
+    - CARGO_BUILD_JOBS=4 cargo test --lib && CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run --test cli --test mcp
+    - cargo fmt --check
+    expected_evidence:
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#fix-1 (sha256 ebecbfa5d886)'
+    rollback:
+    - Revert this task's listed source and test changes.
+    stop_conditions:
+    - A fix requires weakening an ADR integrity or freshness requirement.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: review/challenge/consolidate one plan and proceed; audit_session-2026-11-11-review-simplify-consolidate.md'
+        validation_summary: 'Lane fix1-a exit0: cargo test --lib 197 passed 1 ignored; eval_gates 20, eval_run 13, cli 8, mcp 11 passed; cargo fmt --check ok; cargo clippy --all-targets -D warnings ok. New tests moved_lines_count_raw_bytes_after_invalid_utf8 (old lossy code gives line 1, not 3), preparation_inputs_inside_corpus_checkout_are_refused, out_of_range_resamples_refuse_at_admission. Search truncated item rejected on re-check (ADR 8 tier downgrade is intended). Synthetic only.'
+    dod_status: pass
+  SIMPL-1:
+    title: Given duplicated evaluation code, freeze computes its dev sweep once, the unreachable check-benchmark run branch is removed and gates reuse the stats quantile, with unchanged behaviour
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - FIX-1
+    type: code
+    validation_tier: integration
+    impact_risk: medium
+    owner_files:
+    - src/cli.rs
+    - src/eval/sweep.rs
+    - src/eval/gates.rs
+    - src/eval/stats.rs
+    - src/eval/run.rs
+    - tests/eval_gates.rs
+    - tests/eval_run.rs
+    allowed_write_set:
+    - src/cli.rs
+    - src/eval/sweep.rs
+    - src/eval/gates.rs
+    - src/eval/stats.rs
+    - src/eval/run.rs
+    - tests/eval_gates.rs
+    - tests/eval_run.rs
+    non_goals:
+    - Removing custody, reservation, preparation binding or any ADR safeguard; frozen export format changes.
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval:: && CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run --test cli'
+    - cargo fmt --check
+    expected_evidence:
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#simpl-1 (sha256 26fa695d6cd4)'
+    rollback:
+    - Revert this task's listed source and test changes.
+    stop_conditions:
+    - A simplification changes any gate outcome, report byte or refusal order.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: review/challenge/consolidate one plan and proceed; audit_session-2026-11-11-review-simplify-consolidate.md'
+        validation_summary: 'Lane simpl1-c exit0 (simpl1-a/b exit101 on unused run binding, fixed): cargo test --lib 197 passed 1 ignored; eval_gates 20, eval_run 13, cli 8, mcp 11; fmt ok; clippy -D warnings ok. freeze(bench, threshold, code) computes the dev sweep once (CLI no longer precomputes and compares); unreachable check-benchmark saved-run scoring removed; gates percentile delegates to stats::quantile. stats::weighted_kappa kept (worked-example oracle for gates kappa). Synthetic only.'
+    dod_status: pass
+  FIX-2:
+    title: Given any accepted corpus name, the frozen config TOML written by freeze parses back to the identical config
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - SIMPL-1
+    type: code
+    validation_tier: unit-fast
+    impact_risk: low
+    owner_files:
+    - src/eval/sweep.rs
+    allowed_write_set:
+    - src/eval/sweep.rs
+    non_goals:
+    - Byte changes for ordinary names; new fields; frozen version bump; real benchmark data.
+    required_validation:
+    - CARGO_BUILD_JOBS=4 cargo test --lib eval::sweep
+    - cargo fmt --check
+    expected_evidence:
+    - Round-trip regression over control-character, quote, backslash, DEL, non-ASCII and ' = ' corpus names; existing round-trip test unchanged.
+    rollback:
+    - Revert this task's src/eval/sweep.rs changes.
+    stop_conditions:
+    - The fix changes the written bytes for ordinary ASCII names.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: proceed (after open-item list offering deferred review fixes); audit_session-2026-11-11-review-simplify-consolidate.md'
+        validation_summary: 'Lane fix2-b exit0 (fix2-a exit1 on fmt only): cargo test --lib eval::sweep 4 passed; cargo fmt --check ok; cargo clippy --all-targets -D warnings ok. toml_string escapes quote, backslash and control chars (incl. DEL, C1) as JSON/TOML-compatible escapes, other chars verbatim; generation_ids keys are parsed as a leading JSON string so names containing " = " work. New test frozen_config_roundtrips_unusual_corpus_names; existing roundtrip test unchanged; ordinary names keep historical bytes. Synthetic only.'
+    dod_status: pass
+  FIX-3:
+    title: Given an admitted benchmark, ranking output fits the scoring read budget before the held-out attempt is reserved, vocabulary misses are not attributed to chunk boundaries, and unused scratch plumbing is removed
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - FIX-2
+    type: code
+    validation_tier: integration
+    impact_risk: medium
+    owner_files:
+    - src/eval/run.rs
+    - src/eval/sweep.rs
+    - src/eval/gates.rs
+    - src/cli.rs
+    - tests/eval_gates.rs
+    allowed_write_set:
+    - src/eval/run.rs
+    - src/eval/sweep.rs
+    - src/eval/gates.rs
+    - src/cli.rs
+    - tests/eval_gates.rs
+    non_goals:
+    - Weakening custody, reservation, freeze or any ADR integrity rule; new miss stages; real benchmark data.
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval:: && CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run --test cli'
+    - cargo fmt --check
+    expected_evidence:
+    - Regression showing an oversized ranking worst case is refused before reservation and generation enforces the same budget.
+    - Regression showing a zero-overlap section is attributed lexical_miss, not chunk_boundary; ADR stage set unchanged.
+    - check_pool/check_benchmark lose the unused scratch parameter; existing gate tests pass.
+    rollback:
+    - Revert this task's listed source and test changes.
+    stop_conditions:
+    - A fix requires changing the ADR stage set, scoring budget semantics or held-out custody.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: review/challenge/consolidate and proceed; audit_session-2026-11-11-review-round3.md'
+        validation_summary: 'Local run exit0: cargo test --lib eval:: 48 passed; eval_run 13, eval_gates 20, cli 8 passed; cargo test --all-targets 256 passed 1 ignored; fmt --check ok; clippy --all-targets -D warnings ok. run_file_bound sums all run files (4 systems + abstention) per pinned query id using the emitted chunk section_id width, checked against the single 16-MiB payload in held_out_admission (manifest-pinned splits.test, before reservation) and cumulatively while writing; score_captured budget back to MAX_INPUT_BYTES. attribute_miss gives chunk_boundary only when the section span contains a query term. scratch param removed from check_pool/check_benchmark. Astra delta reviews: P1/P2/P3 fixed; chunk-vs-section width P2 fixed. Residual: admission ordering covered by code order plus bound unit test, not an end-to-end custody test. Synthetic only.'
+    dod_status: pass
+  FIX-4:
+    title: Given large graphs or diagnostics, related and status cap neighbours and diagnostic lists before collecting or cloning, with unchanged responses
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - FIX-3
+    type: code
+    validation_tier: unit-fast
+    impact_risk: low
+    owner_files:
+    - src/cli.rs
+    allowed_write_set:
+    - src/cli.rs
+    non_goals:
+    - Changing response shape, ranking, freshness or the search truncated contract.
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib cli:: && CARGO_BUILD_JOBS=4 cargo test --test cli --test mcp'
+    - cargo fmt --check
+    expected_evidence:
+    - related collects at most MAX_LIST_ITEMS+1 neighbours; status clones at most MAX_LIST_ITEMS diagnostics; truncated flags and response bytes unchanged.
+    rollback:
+    - Revert this task's listed source and test changes.
+    stop_conditions:
+    - Capping changes any response byte for inputs at or below the cap.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: review/challenge/consolidate and proceed; audit_session-2026-11-11-review-round3.md'
+        validation_summary: 'Local run exit0: cargo test --lib cli:: 7 passed; cli 8, mcp 12 passed; cargo test --all-targets 256 passed 1 ignored; fmt --check ok; clippy --all-targets -D warnings ok. capped_iter takes at most MAX_LIST_ITEMS+1 lazily (clone after take) for related neighbours and status skipped/link_diagnostics; truncated semantics and responses at or below the cap unchanged. New test list_caps_take_at_most_one_extra_item_and_flag_truncation. Synthetic only.'
+    dod_status: pass
+  PERF-1:
+    title: Given concurrent MCP clients, requests snapshot the shared immutable index under a short lock and run with bounded configurable permits owned by the actual work
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - HTTP-1
+    type: code
+    validation_tier: integration
+    impact_risk: high
+    owner_files:
+    - src/mcp.rs
+    - tests/mcp.rs
+    allowed_write_set:
+    - src/mcp.rs
+    - tests/mcp.rs
+    non_goals:
+    - Listener startup, freshness caching or TTLs, unbounded queues, ranking changes.
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib mcp:: && CARGO_BUILD_JOBS=4 cargo test --test mcp'
+    - cargo fmt --check
+    expected_evidence:
+    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#perf-1 (sha256 9664c6309097)'
+    rollback:
+    - Revert this task's listed source and test changes.
+    stop_conditions:
+    - Concurrency requires changing ADR admission or freshness contracts.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: review/challenge/consolidate one plan and proceed; use GPT reviewers'
+        validation_summary: 'Lane perf1-c exit0 (perf1-a exit101: join-failure test assumed old cache poisoning; updated): cargo test --lib 199 passed 1 ignored; mcp 12, cli 8, eval_gates 20, eval_run 13; fmt ok; clippy -D warnings ok. blocking() holds the index mutex only for CURRENT check/reload/Arc clone; permits move into spawn_blocking; with_permits(1..=64), new() = 1. Tests: admitted_calls_overlap_on_one_snapshot_and_excess_is_busy (30 s bounded barrier, one load, busy before work), in_flight_snapshot_finishes_while_later_calls_see_new_generation, cancellation/shutdown keep permits. GPT-6-Astra review: no P1; P2 registry naming/hidden/file-order/entry bound, prepare layout-before-capture, missing reload-concurrency test, P3 unbounded barrier, all fixed in this lane (Registry lossless names, .git/.ontodoc only skipped, MAX_ENTRIES 4096; capture(trusted) checks layout before freshness/git).'
     dod_status: pass
 ```
 
@@ -1830,6 +1991,12 @@ tasks:
 | REQ-032 | Current challenge: publication outcomes and lock evidence | implementation | SAFETY-0, OD-3.9 | deterministic commit-boundary failure tests |
 | REQ-033 | ADR9 trusted provenance, cross-process preparation and custody acceptance | architecture-gate | EVAL-1.6, EVAL-1.3, EVAL-2.0, EVAL-2.1 | pre-pool approval, raw human agreement, selected-only execution and synthetic failure paths |
 | REQ-034 | ADR9 deterministic default promotion, distinct from measurement | implementation | EVAL-1.6, EVAL-3.2, OD-4.1, OD-4.0 | frozen H5-first policy; audited implementation/no-op; CLI/MCP parity |
+| REQ-035 | 2026-11-11 review: verified cite/search/eval defects | implementation | FIX-1 | focused regression per defect |
+| REQ-036 | 2026-11-11 review: remove eval duplication without weakening safeguards | implementation | SIMPL-1 | unchanged gate/report/refusal tests |
+| REQ-037 | User: many concurrent users on the shared corpus | implementation | PERF-1, HTTP-2 | overlapping admitted requests, bounded permits |
+| REQ-038 | Deferred review item: frozen TOML round-trips arbitrary corpus names | implementation | FIX-2 | escaped-name round-trip regression |
+| REQ-039 | 2026-11-11 round-3 review: verified eval output-budget, miss-attribution and dead-plumbing defects | implementation | FIX-3 | pre-reservation budget and attribution regressions |
+| REQ-040 | 2026-11-11 round-3 review: bounded related/status collection | implementation | FIX-4 | unchanged-response regression |
 
 ## Decisions And Non-Goals
 
@@ -1862,11 +2029,14 @@ tasks:
   This is separate from the unchanged coder-worker implementation write set;
   manager closeout/status changes still use the strict manager loop.
 
+- 2026-11-11 [review/simplify consolidation](audit_session-2026-11-11-review-simplify-consolidate.md):
+  FIX-1 → SIMPL-1 → HTTP-1 (folder registry, no listener; split from the HTTP-0
+  exposure gate) → PERF-1 (concurrent admission) → HTTP-2 (still needs HTTP-0).
+  EVAL-2.x stays owner/human-gated.
 - Review decision: [2026-11-10 consolidated challenge](audit_session-2026-11-10-consolidated-review.md).
   Preserve all 15 historical DONE cards; those receipts do not validate today's tree.
   Execute OD-3.0 first, then prefer wire/privacy repairs and bounded I/O/work.
-- EVAL-1.3 remains incomplete. EVAL-1.4/1.5 are prerequisites, not a second tracker.
-  Preserve universal public refusals until the complete valid-evidence path is tested.
+- EVAL-1.3 is DONE (2026-11-11); measurement admits only a pinned trusted preparation.
   A separate audit registry service is not required by the accepted ADR.
 - EVAL-1.4's [bounded capture seam](audit_session-2026-11-10-eval14-bounded-traversal.md)
   uses corpus-owned pre-filter enumeration and explicit ignore bytes with public

@@ -344,20 +344,38 @@ impl<T: Transport<RoleServer, Error = std::io::Error>> Transport<RoleServer>
     }
 }
 
+/// Upper bound on concurrently admitted tool calls per server.
+pub const MAX_PERMITS: usize = 64;
+
 impl OntoDocServer {
+    /// One admitted call at a time (the stdio default).
     pub fn new(root: &Path) -> Self {
+        Self::build(root, 1)
+    }
+
+    /// Admits up to `permits` concurrent calls; `1..=MAX_PERMITS`, else `None`.
+    /// Calls beyond the permits fail fast with `busy`; there is no queue.
+    pub fn with_permits(root: &Path, permits: usize) -> Option<Self> {
+        (1..=MAX_PERMITS)
+            .contains(&permits)
+            .then(|| Self::build(root, permits))
+    }
+
+    fn build(root: &Path, permits: usize) -> Self {
         Self {
             app: Arc::new(App::new(root)),
             index: Arc::new(Mutex::new(None)),
-            admission: Arc::new(Semaphore::new(1)),
+            admission: Arc::new(Semaphore::new(permits)),
             #[cfg(test)]
             work_counts: Arc::new(WorkCounts::default()),
             tool_router: Self::tool_router(),
         }
     }
 
-    /// Admission and cache mutation remain owned by the actual blocking work,
-    /// including CURRENT reads, reloads, freshness and result serialization.
+    /// Admission stays owned by the actual blocking work, including CURRENT
+    /// reads, reloads, freshness and result serialization. The index mutex
+    /// guards only the CURRENT comparison, reload and snapshot; tools then run
+    /// on the immutable `Arc` snapshot so admitted calls can overlap.
     async fn blocking<T, F>(&self, f: F) -> Result<CallToolResult, ErrorData>
     where
         T: Bounded + Send + 'static,
@@ -376,18 +394,23 @@ impl OntoDocServer {
         counts.spawns.fetch_add(1, Ordering::Relaxed);
         tokio::task::spawn_blocking(move || {
             let _permit = permit;
-            let mut slot = slot.lock().map_err(|_| to_mcp(AppError::Internal))?;
-            #[cfg(test)]
-            counts.current_reads.fetch_add(1, Ordering::Relaxed);
-            let current = app.current_id().map_err(to_mcp)?;
-            if slot.as_ref().is_none_or(|(id, _)| *id != current) {
+            let index = {
+                let mut slot = slot.lock().map_err(|_| to_mcp(AppError::Internal))?;
                 #[cfg(test)]
-                counts.loads.fetch_add(1, Ordering::Relaxed);
-                let index = Arc::new(app.load_index_for(&current).map_err(to_mcp)?);
-                *slot = Some((current, index));
-            }
-            let index = &slot.as_ref().ok_or_else(|| to_mcp(AppError::Internal))?.1;
-            structured(f(&app, index))
+                counts.current_reads.fetch_add(1, Ordering::Relaxed);
+                let current = app.current_id().map_err(to_mcp)?;
+                if slot.as_ref().is_none_or(|(id, _)| *id != current) {
+                    #[cfg(test)]
+                    counts.loads.fetch_add(1, Ordering::Relaxed);
+                    let index = Arc::new(app.load_index_for(&current).map_err(to_mcp)?);
+                    *slot = Some((current, index));
+                }
+                slot.as_ref()
+                    .ok_or_else(|| to_mcp(AppError::Internal))?
+                    .1
+                    .clone()
+            };
+            structured(f(&app, &index))
         })
         .await
         .map_err(|_| to_mcp(AppError::Internal))?
@@ -509,6 +532,107 @@ impl ServerHandler for OntoDocServer {
                  Results may be stale when `fresh` is false; run `ontodoc index` to refresh."
             ))
     }
+}
+
+/// Maximum folder corpora served from one `docs_share` directory.
+pub const MAX_CORPORA: usize = 32;
+/// Maximum `docs_share` entries examined during discovery, files included.
+pub const MAX_ENTRIES: usize = 4096;
+
+/// Startup refusal while building the folder registry.
+#[derive(Debug, thiserror::Error)]
+pub enum RegistryError {
+    #[error("docs_share directory is unavailable")]
+    Unavailable(#[source] std::io::Error),
+    #[error("folder name is not a single URL-safe path segment: {0:?}")]
+    InvalidName(std::ffi::OsString),
+    #[error("folder entry is a symlink or not a directory: {0}")]
+    NotDirectory(String),
+    #[error("more than {MAX_CORPORA} corpus folders")]
+    TooMany,
+    #[error("more than {MAX_ENTRIES} docs_share entries")]
+    TooManyEntries,
+}
+
+/// Independent per-folder MCP servers discovered once at startup. Each
+/// immediate real subdirectory is one corpus with its own `.ontodoc` store,
+/// `App` and index slot; nothing is merged, shared or auto-indexed, and an
+/// unknown name never falls back to another corpus.
+pub struct Registry {
+    servers: Vec<(String, OntoDocServer)>,
+}
+
+impl Registry {
+    pub fn discover(docs_share: &Path) -> Result<Self, RegistryError> {
+        let mut names = Vec::new();
+        let entries = std::fs::read_dir(docs_share).map_err(RegistryError::Unavailable)?;
+        for (seen, entry) in entries.enumerate() {
+            if seen == MAX_ENTRIES {
+                return Err(RegistryError::TooManyEntries);
+            }
+            let entry = entry.map_err(RegistryError::Unavailable)?;
+            let raw = entry.file_name();
+            // `file_type` does not follow symlinks. Classify before naming:
+            // plain files are not corpora; links and special entries refuse.
+            let kind = entry.file_type().map_err(RegistryError::Unavailable)?;
+            if kind.is_file() {
+                continue;
+            }
+            let display = raw.to_string_lossy().into_owned();
+            if !kind.is_dir() {
+                return Err(RegistryError::NotDirectory(display));
+            }
+            // A version-control or store directory is metadata, not a corpus.
+            if raw == ".git" || raw == ".ontodoc" {
+                continue;
+            }
+            let name = raw
+                .to_str()
+                .filter(|n| valid_segment(n))
+                .ok_or_else(|| RegistryError::InvalidName(raw.clone()))?
+                .to_string();
+            if names.len() == MAX_CORPORA {
+                return Err(RegistryError::TooMany);
+            }
+            names.push(name);
+        }
+        names.sort();
+        let servers = names
+            .into_iter()
+            .map(|name| {
+                let server = OntoDocServer::new(&docs_share.join(&name));
+                (name, server)
+            })
+            .collect();
+        Ok(Self { servers })
+    }
+
+    /// Sorted endpoint names.
+    pub fn names(&self) -> impl Iterator<Item = &str> {
+        self.servers.iter().map(|(name, _)| name.as_str())
+    }
+
+    /// Exact, case-sensitive lookup; there is no alias or default corpus.
+    pub fn get(&self, name: &str) -> Option<&OntoDocServer> {
+        self.servers
+            .binary_search_by(|(n, _)| n.as_str().cmp(name))
+            .ok()
+            .map(|i| &self.servers[i].1)
+    }
+}
+
+/// A UTF-8 folder name kept verbatim as the endpoint key (the listener
+/// percent-encodes it as one segment). Refuses only names that cannot be one
+/// lossless segment: dot segments, separators, NUL/control characters or
+/// more than 255 bytes. Non-UTF-8 names refuse rather than being altered.
+fn valid_segment(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 255
+        && name != "."
+        && name != ".."
+        && !name
+            .chars()
+            .any(|c| c == '/' || c == '\\' || c.is_control())
 }
 
 /// Serves MCP over stdio until the client disconnects. Stdout carries only
@@ -872,7 +996,9 @@ mod tests {
         entered_rx.await.unwrap();
         waiter.abort();
         assert!(waiter.await.unwrap_err().is_cancelled());
-        assert!(observer.index.try_lock().is_err());
+        // Tool work runs on a snapshot; the cache lock is free but the
+        // permit still belongs to the surviving work.
+        assert!(observer.index.try_lock().unwrap().is_some());
         assert_eq!(
             observer
                 .status(Parameters(StatusRequest {}))
@@ -921,7 +1047,7 @@ mod tests {
     }
 
     #[test]
-    fn runtime_shutdown_keeps_admission_and_mutation_lock_until_worker_stops() {
+    fn runtime_shutdown_keeps_admission_until_worker_stops() {
         let root = tempfile::tempdir().unwrap();
         App::new(root.path()).index().unwrap();
         let server = OntoDocServer::new(root.path());
@@ -948,7 +1074,7 @@ mod tests {
         });
         runtime.shutdown_background();
         assert_eq!(server.admission.available_permits(), 0);
-        assert!(server.index.try_lock().is_err());
+        assert!(server.index.try_lock().unwrap().is_some());
         release_tx.send(()).unwrap();
         let replacement = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -958,6 +1084,100 @@ mod tests {
             let _permit = server.admission.acquire().await.unwrap();
             assert!(server.index.try_lock().unwrap().is_some());
         });
+    }
+
+    #[tokio::test]
+    async fn admitted_calls_overlap_on_one_snapshot_and_excess_is_busy() {
+        let root = tempfile::tempdir().unwrap();
+        App::new(root.path()).index().unwrap();
+        assert!(OntoDocServer::with_permits(root.path(), 0).is_none());
+        assert!(OntoDocServer::with_permits(root.path(), MAX_PERMITS + 1).is_none());
+        let server = OntoDocServer::with_permits(root.path(), 2).unwrap();
+        // Both workers wait at one rendezvous that only opens if they run at
+        // once. The wait is bounded inside the worker, so a serialized
+        // regression fails the test instead of hanging runtime teardown.
+        let arrived = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let spawn = |server: OntoDocServer| {
+            let arrived = arrived.clone();
+            tokio::spawn(async move {
+                server
+                    .blocking::<crate::cli::StatusResponse, _>(move |app, index| {
+                        arrived.fetch_add(1, Ordering::SeqCst);
+                        let deadline =
+                            std::time::Instant::now() + std::time::Duration::from_secs(10);
+                        while arrived.load(Ordering::SeqCst) < 2 {
+                            if std::time::Instant::now() > deadline {
+                                return Err(AppError::Internal);
+                            }
+                            std::thread::sleep(std::time::Duration::from_millis(1));
+                        }
+                        app.status(index)
+                    })
+                    .await
+            })
+        };
+        let (a, b) = (spawn(server.clone()), spawn(server.clone()));
+        let (a, b) = (a.await.unwrap(), b.await.unwrap());
+        assert!(a.is_ok() && b.is_ok(), "admitted calls did not overlap");
+        // One shared load served both calls.
+        assert_eq!(server.work_counts.snapshot(), [2, 2, 1]);
+
+        // Holding both permits, a third call is refused before any work.
+        let _held = server
+            .admission
+            .clone()
+            .acquire_many_owned(2)
+            .await
+            .unwrap();
+        assert_eq!(
+            server
+                .status(Parameters(StatusRequest {}))
+                .await
+                .unwrap_err(),
+            to_mcp(AppError::Busy)
+        );
+        assert_eq!(server.work_counts.snapshot(), [2, 2, 1]);
+    }
+
+    #[tokio::test]
+    async fn in_flight_snapshot_finishes_while_later_calls_see_new_generation() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("a.md"), "# A\n\nold\n").unwrap();
+        let app = App::new(root.path());
+        app.index().unwrap();
+        let old = app.current_id().unwrap();
+        let server = OntoDocServer::with_permits(root.path(), 2).unwrap();
+        let (entered_tx, entered_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+        let worker = server.clone();
+        let in_flight = tokio::spawn(async move {
+            worker
+                .blocking::<crate::cli::StatusResponse, _>(move |app, index| {
+                    entered_tx.send(()).unwrap();
+                    // Bounded so a blocked later call cannot hang teardown.
+                    release_rx
+                        .recv_timeout(std::time::Duration::from_secs(10))
+                        .map_err(|_| AppError::Internal)?;
+                    app.status(index)
+                })
+                .await
+        });
+        entered_rx.await.unwrap();
+        // Publish a new generation while the first call holds its snapshot.
+        std::fs::write(root.path().join("a.md"), "# A\n\nnew\n").unwrap();
+        app.index().unwrap();
+        let new = app.current_id().unwrap();
+        assert_ne!(old, new);
+        let generation = |r: CallToolResult| r.structured_content.unwrap()["generation_id"].clone();
+        let later = server.status(Parameters(StatusRequest {})).await.unwrap();
+        assert_eq!(generation(later), serde_json::json!(new));
+        release_tx.send(()).unwrap();
+        let first = in_flight.await.unwrap().unwrap();
+        assert_eq!(generation(first), serde_json::json!(old));
+        // A broken CURRENT is refused for every later call; the cached old
+        // or new index is never served as current.
+        std::fs::write(root.path().join(".ontodoc/CURRENT"), "0".repeat(64)).unwrap();
+        assert!(server.status(Parameters(StatusRequest {})).await.is_err());
     }
 
     #[tokio::test]
@@ -1042,13 +1262,9 @@ mod tests {
             .unwrap_err();
         assert_eq!(error, to_mcp(AppError::Internal));
         assert_eq!(server.admission.available_permits(), 1);
-        assert_eq!(
-            server
-                .status(Parameters(StatusRequest {}))
-                .await
-                .unwrap_err(),
-            to_mcp(AppError::Internal)
-        );
+        // The tool panicked outside the cache lock, so the cache is not
+        // poisoned and the next caller is served normally.
+        assert!(server.status(Parameters(StatusRequest {})).await.is_ok());
         assert_eq!(server.admission.available_permits(), 1);
         assert!(
             !serde_json::to_string(&error)

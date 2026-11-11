@@ -25,7 +25,7 @@ HTTP-0 is blocked on the owner's exposure/admission choice. The
 [authority-gate review](audit_session-2026-11-10-http0-authority-gate.md) records
 historical native-reader and session-limit recommendations. ADR revision 8
 accepts transport-independent local contracts below; HTTP-0 reuses them and
-resolves network/session admission. No listener or new tool is authorized;
+resolves network/session admission. HTTP-1 registry is implemented; no listener or new tool is authorized;
 only OD-3.4 may promote locked rustix with `fs` for local rooted I/O.
 
 ADR revision 4 maps every immediate real subdirectory of `./docs_share/` to a
@@ -52,8 +52,11 @@ server reuse; `src/cli.rs` owns configured roots and trusted per-folder indexing
 `src/store.rs` owns each independent `.ontodoc/` database and atomic publication.
 Keep the five tools, stdio support and retrieval algorithms. HTTP security,
 resource bounds and scoped implementation tasks are required before exposure.
-The directory and HTTP runtime are not present yet; no task is completed or
-reordered by this design. Detailed lifecycle and acceptance requirements live
+HTTP-1 (2026-11-11) implements `mcp::Registry::discover`: immediate real
+subdirectories, sorted, at most 32, URL-unreserved names, symlinks and other
+special entries refused, hidden entries and plain files ignored. It holds one
+`OntoDocServer` per folder, with an exact lookup and no default. The HTTP
+listener is not present; HTTP-0/HTTP-2 own exposure. Detailed lifecycle and acceptance requirements live
 in the ADR's **Folder-Scoped HTTP MCP Architecture** section.
 
 ## Owners
@@ -72,7 +75,7 @@ in the ADR's **Folder-Scoped HTTP MCP Architecture** section.
 | `src/assemble.rs` | breadth-first budgeted context assembly (L0 → L1 → L2), no quality claim | OD-1.8 |
 | `src/cite.rs` | exact active-generation chunk/section membership before rooted current-byte verification (valid / moved / stale / missing) | OD-1.7, OD-3.4 |
 | `src/cli.rs`, `src/main.rs` | application layer (`App`, bounded responses, `AppError::kind()`) shared by CLI and MCP; clap subcommands index/search/read/related/verify/status/serve and `eval split\|pool\|run\|score\|check-benchmark\|sweep\|freeze\|check-frozen\|misses` | OD-2.0, EVAL-1.1, EVAL-1.2 |
-| `src/mcp.rs` | rmcp stdio server, five read-only tools, native input/output bounds, preconversion admission and closure-owned single worker/cache | OD-2.1, OD-3.3, OD-3.5 |
+| `src/mcp.rs` | rmcp stdio server, five read-only tools, native input/output bounds, preconversion admission, closure-owned bounded permits over a snapshot cache, `docs_share` folder registry | OD-2.1, OD-3.3, OD-3.5, HTTP-1, PERF-1 |
 | `src/eval/{metrics,stats}.rs` | metrics, decision rule, bootstrap, randomization, Holm, Wilson, weighted kappa, power | EVAL-1.0 |
 | `src/eval/run.rs` | split/pool/run/score/reports; split-specific capture and opaque mechanical evidence, bounded payload/index bytes and shared cached indexes | EVAL-1.1, EVAL-1.4 |
 | `src/eval/{gates,sweep}.rs` | integrity gates, in-memory pool comparison, captured dev computation, miss attribution, freeze/code-freeze checks; public measurement disabled | EVAL-1.2, EVAL-1.4 |
@@ -134,8 +137,12 @@ in the ADR's **Folder-Scoped HTTP MCP Architecture** section.
   load preflight; `src/search/mod.rs` reuses its document map before tokenization
   with a checked input-byte ceiling. OD-3.5 guards actual stdio input before
   native line collection and admits one actual blocking operation/no queue,
-  including load/rebuild/freshness/verify. Closure-owned permits and mutation
-  locks survive waiter cancellation and runtime shutdown while work remains.
+  including load/rebuild/freshness/verify. Closure-owned permits survive
+  waiter cancellation and runtime shutdown while work remains. PERF-1
+  (2026-11-11) holds the index mutex only for the CURRENT check, reload and
+  `Arc` snapshot. Tools run on the snapshot, so `with_permits(1..=64)` calls
+  overlap; stdio keeps one permit. Excess calls are `busy`, and a tool panic
+  no longer poisons the cache.
   `src/cite.rs` precharges whole-batch read/SHA byte/call budgets, including repeated
   citations and relocation; failures return no partial states. See the
   [OD-3.5 audit](audit_session-2026-11-10-od35-input-work-budgets.md).
@@ -157,9 +164,8 @@ in the ADR's **Folder-Scoped HTTP MCP Architecture** section.
   Captured qrels, split/pool/gate values and `Arc` indexes feed computation
   without mutable rereads; saved scoring parses the bytes it hash-checks.
   This is in-process mechanical evidence, not annotation provenance. EVAL-1.5
-  adds fixed local custody below; public measurement remains disabled pending
-  ADR9's unimplemented provenance/preparation contract and EVAL-1.3's complete
-  admission/success proof.
+  adds fixed local custody below; EVAL-1.3 admits measurement only through a
+  pinned trusted preparation (synthetic success paths proven; no real benchmark).
 - ADR revision 6 assigns the sole write-once registration and started/result
   records to `src/eval/run.rs`, under Git's resolved common directory at
   `ontodoc-eval/`. Registration binds exact frozen TOML and captured identities;
@@ -188,7 +194,7 @@ in the ADR's **Folder-Scoped HTTP MCP Architecture** section.
   OD-3.6 shares that traversal between collecting builds and streaming freshness;
   it does not reintroduce automatic control loading or claim HTTP readiness.
 
-- Accepted ADR9 evaluation homes (not implemented): extend existing
+- Accepted ADR9 evaluation homes (implemented, synthetic evidence only): extend existing
   `src/eval/{run,gates,sweep}.rs` and `src/cli.rs` for query-review and human
   annotation companions plus bounded `preparation.json`. Trusted full preparation
   validates approval before pool ranking, raw human agreement, full-data gates,
@@ -197,8 +203,12 @@ in the ADR's **Folder-Scoped HTTP MCP Architecture** section.
   approves exact hashes in an external audit. No signature or registry service.
   Selected dev execution must not open/stat/hash combined/test/full pool or
   provenance payloads; only approved metadata counts/commitments and selected
-  bytes. Existing load_dev still opens the full pool; that gap and separate-
-  process admission remain EVAL-1.3 work, not proof supplied by capture/custody.
+  bytes. Implemented by EVAL-1.3: measurement CLI commands take
+  `--preparation`/`--preparation-sha256`; `Bench::load_selected` binds config/
+  splits/gates hashes before partition reads and never opens the pool;
+  `check_layout` refuses payloads inside corpus checkouts; `held_out_admission`
+  (registration, export, manifest, power, code, freshness) precedes reservation;
+  `score_held_out` requires completed custody.
   Frozen/registration/run metadata bind whole preparation and selected identities
   separately. Confirmation/preflight reserves the sole attempt before test reads;
   accepted reporting/scoring requires completed custody and published byte parity.

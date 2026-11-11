@@ -9,7 +9,35 @@ Updated: 2026-11-11
 
 | Canonical plan | State | Active task | Counts |
 | --- | --- | --- | --- |
-| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | in-progress | EVAL-1.3: synthetic public evaluation admission | 29 DONE, 9 OPEN, 2 BLOCKED; 40 total |
+| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | none (owner gates: HTTP-0, EVAL-2.0) | 37 DONE, 7 OPEN, 2 BLOCKED; 46 total (FIX-3/FIX-4 DONE) |
+
+- 2026-11-11 review round 3 ([audit](audit_session-2026-11-11-review-round3.md)):
+  FIX-3 (all run files sized against one 16-MiB scoring payload from pinned
+  test ids before reservation; zero-overlap misses are lexical_miss; unused
+  scratch removed) and FIX-4 (lazy cap+1 list collection) DONE via strict
+  complete-local. All-targets 256 passed 1 ignored, fmt, Clippy exit0.
+  Remaining tasks are owner/human-gated (HTTP-0, EVAL-2.0).
+
+- 2026-11-11 review consolidation ([audit](audit_session-2026-11-11-review-simplify-consolidate.md)):
+  four tasks DONE through strict complete-local.
+  - FIX-1: raw-byte moved-citation lines, dev resamples bounded to 1..=10000,
+    preparation layout checked before corpus inspection.
+  - SIMPL-1: freeze sweeps once; dead saved-run branch removed; one shared
+    quantile.
+  - HTTP-1: `mcp::Registry` over `docs_share` with no listener.
+  - PERF-1: index lock covers only reload/snapshot; `with_permits(1..=64)`.
+
+  Final lane perf1-c exit0 (lib 199, mcp 12, cli 8, gates 20, run 13, fmt,
+  Clippy). The 34 DONE `expected_evidence` lists were archived verbatim, taking
+  the plan from 122 KB to 100 KB. Next: HTTP-0 owner choice, then HTTP-2
+  listener; EVAL-2.x stays owner/human-gated.
+
+- EVAL-1.3 is DONE through strict complete-local: every measurement command
+  requires `--preparation`/`--preparation-sha256`; held-out run/score admit before
+  reservation; selected capture binds config/splits/gates before payload reads;
+  layout refuses benchmark payloads inside corpus checkouts. Lane eval13-close-a
+  exit0 (lib 196, gates 20, run 11, cli 8, fmt, Clippy -D warnings). Synthetic only;
+  [audit](audit_session-2026-11-11-eval13-progress.md). Manager now blocked on owner gates.
 
 - EVAL-1.6 is DONE through strict complete-local: ADR9 query-review/human provenance, trusted preparation
   and whole-vs-selected commitments, attempt acceptance and H5-first promotion.
@@ -18,7 +46,7 @@ Updated: 2026-11-11
   [decision audit](audit_session-2026-11-11-eval16-preparation-decision.md).
   Historical tracker scalars are preserved verbatim in a linked audit; no code,
   labels or measurement guards changed. Plan PASS40; eight-document/scope and
-  historical-state checks plus git diff --check exit0. EVAL-1.3 is selected.
+  historical-state checks plus git diff --check exit0. (EVAL-1.3 later DONE.)
 
 - OD-3.9 is DONE through strict `complete-local`: CURRENT commit outcomes,
   finite CLI warnings, bounded HISTORY/fixed-shape cleanup and current protection.
@@ -118,7 +146,7 @@ The 15 historical closeouts remain unchanged; they are not current-tree proof.
   EVAL-1.3 completes all public success/failure paths. Guards stay intact.
 - Local safety no longer depends on HTTP exposure or annotation; HTTP-0 stays
   owner-blocked and composes accepted local contracts with network/session limits.
-- Evaluation: EVAL-1.3 → blocked EVAL-2.0 → EVAL-2.1 →
+- Evaluation: blocked EVAL-2.0 (owner: corpora, query approval, annotators) → EVAL-2.1 →
   EVAL-3.0/3.1/3.2 → OD-4.1 → OD-4.0. Public measurement remains disabled.
 - Accepted folder HTTP: HTTP-0 → HTTP-1/2 after their service-safety prerequisites.
   Stdio is implemented; HTTP is not. Diagnostics remain Proposed.

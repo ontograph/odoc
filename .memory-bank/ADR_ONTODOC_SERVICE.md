@@ -196,6 +196,9 @@ Two predecessors exist:
 
 ## Schema 2: Identity And Canonical Artifacts (Accepted, Not Implemented)
 
+Status 2026-11-11: implemented by OD-3.1/OD-3.2; the heading keeps its original
+anchor for existing links.
+
 Authority: OD-3.1 under the consolidated review-and-proceed instruction.
 OD-3.2 implements this decision in the existing owners; current schema-1 code
 is not evidence that this contract is implemented. The
@@ -331,6 +334,9 @@ tool, cache or benchmark claim is accepted by these safety decisions.
 
 ### Rooted Local I/O (Accepted, Not Implemented)
 
+Status 2026-11-11: implemented by OD-3.4; the heading keeps its original
+anchor for existing links.
+
 Select the already-locked **rustix 1.1.4**, promoted to a direct dependency
 with `fs` in OD-3.4. One concrete reader in `src/corpus.rs` owns the retained
 corpus-directory descriptor; reuse it rather than adding a filesystem trait or
@@ -386,6 +392,9 @@ and mount crossings remain allowed; no inode-origin authentication or
 
 ### Exact Citation Membership (Accepted, Not Implemented)
 
+Status 2026-11-11: implemented by OD-3.4; the heading keeps its original
+anchor for existing links.
+
 Pin the bound corpus's active generation once per request. Before any requested
 document read, validate the **entire** admitted citation batch: every field must
 equal a constructible `for_chunk` or whole-section citation from that generation;
@@ -417,6 +426,9 @@ No normalization, fuzzy match or arbitrary caller-selected subspan is accepted.
   cross-store fallback or retained-generation verification service is selected.
 
 ### Local Request And Actual-Work Ceilings (Accepted, Not Implemented)
+
+Status 2026-11-11: implemented by OD-3.5/OD-3.6; the heading keeps its original
+anchor for existing links.
 
 These are conservative admission policies, **not measured capacity, wall-time
 or resident-memory guarantees**. They are process-local service limits outside
@@ -488,6 +500,9 @@ network, multi-corpus and resident-memory reservations before network delivery.
 
 ### Publication Commit And Outcomes (Accepted, Not Implemented)
 
+Status 2026-11-11: implemented by OD-3.9; the heading keeps its original
+anchor for existing links.
+
 The commit point is a successful atomic rename of `CURRENT.tmp` onto `CURRENT`
 under the store lock. The candidate artifact/directory must already be synced.
 Reused candidates require the same file/directory sync precondition; a valid
@@ -532,6 +547,10 @@ publication/cleanup. Corpus-reader containment does
 not claim race-safe publication against a hostile store administrator.
 
 ## Folder-Scoped HTTP MCP Architecture (Accepted, Not Implemented)
+
+Status 2026-11-11: HTTP-1 implements the startup folder registry in
+`src/mcp.rs`. The listener (HTTP-0/HTTP-2) is not implemented; the heading keeps
+its anchor.
 
 Authority: user requirement of 2026-11-10: each subfolder of `./docs_share`
 must be a separate endpoint named after that folder, with its own database,
@@ -761,6 +780,9 @@ the default until the separately scoped promotion task validates that change.
   labels and would bias H2.
 
 ## Trusted Evaluation Preparation And Promotion (Accepted, Not Implemented)
+
+Status 2026-11-11: implemented by EVAL-1.3 (synthetic evidence; OD-4.1 promotion pending); the heading keeps its original
+anchor for existing links.
 
 Authority: EVAL-1.6 under the review/consolidate/proceed instruction. Extend
 existing `src/eval/{run,gates,sweep}.rs` and `src/cli.rs`; no new service,

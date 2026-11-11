@@ -707,3 +707,142 @@ fn internal_errors_do_not_expose_root_or_os_details() {
     assert!(error.contains("MCP initialization failed"));
     assert!(!error.contains("private-startup-sentinel"));
 }
+
+/// Folder registry: each immediate subdirectory is an independent corpus with
+/// its own store; identical local ids never cross, an unindexed folder
+/// reports `no_index` instead of falling back, and names are exact.
+#[tokio::test]
+async fn docs_share_folders_are_independent_corpora() {
+    use ontodoc::mcp::{Registry, RegistryError};
+    let share = tempfile::tempdir().unwrap();
+    for (name, body) in [
+        ("alpha", "# Guide\n\nalpha needle text\n"),
+        ("beta", "# Guide\n\nbeta needle text\n"),
+    ] {
+        let root = share.path().join(name);
+        fs::create_dir(&root).unwrap();
+        fs::write(root.join("guide.md"), body).unwrap();
+        App::new(&root).index().unwrap();
+    }
+    fs::create_dir(share.path().join("empty")).unwrap();
+    fs::create_dir(share.path().join("has space")).unwrap();
+    fs::create_dir(share.path().join(".git")).unwrap();
+    fs::write(share.path().join("README.md"), "not a corpus").unwrap();
+    fs::write(share.path().join("release notes?.txt"), "plain file").unwrap();
+
+    let registry = Registry::discover(share.path()).unwrap();
+    // Names are kept verbatim (no slugging); metadata dirs and files skipped.
+    assert_eq!(
+        registry.names().collect::<Vec<_>>(),
+        ["alpha", "beta", "empty", "has space"]
+    );
+    assert!(registry.get("Alpha").is_none());
+    assert!(registry.get("has%20space").is_none());
+    assert!(registry.get(".git").is_none());
+
+    let mut seen = Vec::new();
+    let mut citations = Vec::new();
+    for name in ["alpha", "beta"] {
+        let (server_io, client_io) = tokio::io::duplex(1 << 20);
+        let server = registry.get(name).unwrap().clone();
+        tokio::spawn(async move {
+            if let Ok(running) = server.serve(server_io).await {
+                let _ = running.waiting().await;
+            }
+        });
+        let client = ().serve(client_io).await.unwrap();
+        let search = ok(&client, "search", json!({ "query": "needle" })).await;
+        let first = &search["results"][0];
+        // Same local chunk id in both corpora, different text and generation.
+        assert_eq!(first["chunk_id"], "guide.md#guide~0");
+        assert!(first["text"].as_str().unwrap().contains(name), "{first}");
+        let read = ok(&client, "read", json!({ "id": "guide.md#guide~0" })).await;
+        assert!(read["text"].as_str().unwrap().contains(name), "{read}");
+        ok(
+            &client,
+            "related",
+            json!({ "chunk_id": "guide.md#guide~0" }),
+        )
+        .await;
+        let status = ok(&client, "status", json!({})).await;
+        assert_eq!(status["generation_id"], search["generation_id"]);
+        let own = first["citation"].clone();
+        let verify = ok(&client, "verify", json!({ "citations": [own.clone()] })).await;
+        assert_eq!(verify["results"][0]["state"], "valid");
+        // The sibling corpus's citation never verifies here.
+        if let Some(other) = citations.last() {
+            let crossed = call(&client, "verify", json!({ "citations": [other] })).await;
+            let refused = match crossed {
+                Err(_) => true,
+                Ok(r) => {
+                    r.is_error == Some(true)
+                        || r.structured_content.unwrap()["results"][0]["state"] != "valid"
+                }
+            };
+            assert!(refused, "cross-corpus citation verified in {name}");
+        }
+        citations.push(own);
+        seen.push(search["generation_id"].clone());
+        client.cancel().await.unwrap();
+    }
+    assert_ne!(seen[0], seen[1]);
+
+    let (server_io, client_io) = tokio::io::duplex(1 << 20);
+    let server = registry.get("empty").unwrap().clone();
+    tokio::spawn(async move {
+        if let Ok(running) = server.serve(server_io).await {
+            let _ = running.waiting().await;
+        }
+    });
+    let client = ().serve(client_io).await.unwrap();
+    let error = call(&client, "search", json!({ "query": "needle" }))
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("no_index"), "{error}");
+    client.cancel().await.unwrap();
+
+    // Names that cannot be one lossless segment, and symlinks (including
+    // hidden ones), refuse startup explicitly.
+    let bad = tempfile::tempdir().unwrap();
+    fs::create_dir(bad.path().join("tab\tname")).unwrap();
+    assert!(matches!(
+        Registry::discover(bad.path()),
+        Err(RegistryError::InvalidName(_))
+    ));
+    let link = tempfile::tempdir().unwrap();
+    std::os::unix::fs::symlink(share.path().join("alpha"), link.path().join("alias")).unwrap();
+    assert!(matches!(
+        Registry::discover(link.path()),
+        Err(RegistryError::NotDirectory(_))
+    ));
+    let hidden_link = tempfile::tempdir().unwrap();
+    std::os::unix::fs::symlink(
+        share.path().join("alpha"),
+        hidden_link.path().join(".alias"),
+    )
+    .unwrap();
+    assert!(matches!(
+        Registry::discover(hidden_link.path()),
+        Err(RegistryError::NotDirectory(_))
+    ));
+    assert!(matches!(
+        Registry::discover(&share.path().join("missing")),
+        Err(RegistryError::Unavailable(_))
+    ));
+    let many = tempfile::tempdir().unwrap();
+    for i in 0..=ontodoc::mcp::MAX_CORPORA {
+        fs::create_dir(many.path().join(format!("c{i:02}"))).unwrap();
+    }
+    assert!(matches!(
+        Registry::discover(many.path()),
+        Err(RegistryError::TooMany)
+    ));
+    let files = tempfile::tempdir().unwrap();
+    for i in 0..=ontodoc::mcp::MAX_ENTRIES {
+        fs::write(files.path().join(format!("f{i}")), "").unwrap();
+    }
+    assert!(matches!(
+        Registry::discover(files.path()),
+        Err(RegistryError::TooManyEntries)
+    ));
+}

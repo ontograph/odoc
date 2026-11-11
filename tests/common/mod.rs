@@ -6,6 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+use ontodoc::corpus::sha256_hex;
 use ontodoc::store::Store;
 use serde_json::{Value, json};
 
@@ -134,6 +135,7 @@ impl Fixture {
             }
         }
         fx.lines("queries.jsonl", &queries);
+        fx.review();
         fs::write(fx.path("qrels.jsonl"), "").unwrap();
         ok(fx.cli(&[
             "eval",
@@ -175,13 +177,7 @@ impl Fixture {
                 50
             );
         }
-        ok(fx.cli(&[
-            "eval",
-            "pool",
-            s(&fx.config),
-            "--out",
-            s(&fx.path("pool.jsonl")),
-        ]));
+        ok(fx.pool("pool.jsonl"));
         let hashes: BTreeMap<_, _> = ["a", "b"]
             .into_iter()
             .map(|corpus| {
@@ -212,8 +208,73 @@ impl Fixture {
             "every answerable query has a positive pooled judgement"
         );
         fx.lines("qrels.jsonl", &qrels);
+        fx.annotate();
         fx.write("gates.json", &json!({"floors":{"min_answerable_test":150,"min_off_topic_test":30,"min_per_stratum_test":15},"pool":"pool.jsonl","pins":pins}));
         fx
+    }
+
+    /// Synthetic operator step: one accepted GPT-6-Astra review per current
+    /// query. Real review evidence is never fabricated this way.
+    pub fn review(&self) {
+        let records: Vec<Value> = self
+            .read_lines("queries.jsonl")
+            .into_iter()
+            .map(|q| review_record(&q))
+            .collect();
+        self.lines("query-review.jsonl", &records);
+    }
+
+    /// The pin the operator audit would record for the current review bytes.
+    pub fn review_sha256(&self) -> String {
+        sha256_hex(&fs::read(self.path("query-review.jsonl")).unwrap())
+    }
+
+    /// Synthetic double-labelled annotation of the current qrels by two
+    /// pseudonymous humans. Raw grades cycle 1, 2, 0 so agreement is defined;
+    /// the adjudicated final grade is the qrel grade.
+    pub fn annotate(&self) {
+        let records: Vec<Value> = self
+            .read_lines("qrels.jsonl")
+            .iter()
+            .enumerate()
+            .map(|(i, j)| {
+                let raw = [1, 2, 0][i % 3];
+                json!({"version":1,"query_id":j["query_id"],"section_id":j["section_id"],
+                    "span_sha256":j["span_sha256"],
+                    "grades":[{"annotator":"h1","grade":raw,"evidence":format!("grade/h1/{i}")},
+                        {"annotator":"h2","grade":raw,"evidence":format!("grade/h2/{i}")}],
+                    "final":{"grade":j["grade"],
+                        "adjudicator":{"id":"adj-1","kind":"human","evidence":"adjudication/log"},
+                        "evidence":format!("final/{i}")}})
+            })
+            .collect();
+        self.lines("annotation.jsonl", &records);
+        let notes = json!({"version":1,"guideline_version":"synthetic-g1",
+            "annotators":[{"id":"h1","kind":"human","evidence":"roster/h1"},
+                {"id":"h2","kind":"human","evidence":"roster/h2"}],
+            "assignment_seed":11,"overlap":"corpus-stratum-ceil30-v1",
+            "blinding_evidence":"synthetic: no system identity, scores or ranks shown",
+            "adjudication_rule":"third human resolves disagreements"});
+        fs::write(
+            self.path("annotation.md"),
+            format!("# Synthetic annotation notes\n\n```annotation-notes\n{notes}\n```\n"),
+        )
+        .unwrap();
+    }
+
+    pub fn pool(&self, rel: &str) -> Output {
+        let pin = self.review_sha256();
+        self.cli(&[
+            "eval",
+            "pool",
+            s(&self.config),
+            "--out",
+            s(&self.path(rel)),
+            "--query-review",
+            s(&self.path("query-review.jsonl")),
+            "--query-review-sha256",
+            &pin,
+        ])
     }
 
     pub fn path(&self, rel: &str) -> PathBuf {
@@ -269,6 +330,7 @@ impl Fixture {
         fs::write(self.path(rel), text).unwrap();
     }
     pub fn check(&self, stage: &str) -> Vec<String> {
+        let pin = self.review_sha256();
         let out = self.cli(&[
             "eval",
             "check-benchmark",
@@ -277,30 +339,20 @@ impl Fixture {
             stage,
             "--gates",
             s(&self.path("gates.json")),
+            "--query-review",
+            s(&self.path("query-review.jsonl")),
+            "--query-review-sha256",
+            &pin,
+            "--annotation",
+            s(&self.path("annotation.jsonl")),
+            "--annotation-notes",
+            s(&self.path("annotation.md")),
         ]);
-        if out.status.success() {
-            assert_eq!(ok(out)["passed"], true);
-            return Vec::new();
-        }
-        assert!(out.stdout.is_empty());
-        let err: Value = serde_json::from_slice(&out.stderr).unwrap();
-        assert_eq!(err["error"], "gates_failed", "{err}");
-        let report: Value = serde_json::from_str(
-            err["message"]
-                .as_str()
-                .unwrap()
-                .trim_start_matches("integrity gates failed: "),
-        )
-        .unwrap();
-        report["failures"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|failure| failure["gate"].as_str().unwrap().to_string())
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .collect()
+        gate_failures(out)
     }
+}
+
+impl Fixture {
     pub fn run(&self, split: &str, rel: &str, confirm: bool) -> Output {
         let output = self.path(rel);
         let mut args = vec![
@@ -340,4 +392,99 @@ impl Fixture {
             s(&self.repo),
         ])
     }
+}
+
+impl Fixture {
+    /// Partition inputs and publish the operator-approved preparation
+    /// through the CLI; returns its out-of-band pin.
+    pub fn prepare(&self) -> String {
+        self.partition_inputs();
+        let pin = self.review_sha256();
+        let out = self.path("preparation.json");
+        let published = ok(self.cli(&[
+            "eval",
+            "check-benchmark",
+            s(&self.config),
+            "--stage",
+            "qrels",
+            "--query-review",
+            s(&self.path("query-review.jsonl")),
+            "--query-review-sha256",
+            &pin,
+            "--annotation",
+            s(&self.path("annotation.jsonl")),
+            "--annotation-notes",
+            s(&self.path("annotation.md")),
+            "--preparation-out",
+            s(&out),
+            "--operator",
+            "op",
+            "--operator-evidence",
+            "audit/prep",
+        ]));
+        published["preparation_sha256"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+
+    /// Runs an eval subcommand with `--preparation` and its pin appended.
+    pub fn admitted(&self, args: &[&str], pin: &str) -> Output {
+        let manifest = self.path("preparation.json");
+        let mut all = args.to_vec();
+        all.extend(["--preparation", s(&manifest), "--preparation-sha256", pin]);
+        self.cli(&all)
+    }
+}
+
+/// Gate names from a check-benchmark invocation; empty when it passed.
+pub fn gate_failures(out: Output) -> Vec<String> {
+    if out.status.success() {
+        assert_eq!(ok(out)["passed"], true);
+        return Vec::new();
+    }
+    assert!(out.stdout.is_empty());
+    let err: Value = serde_json::from_slice(&out.stderr).unwrap();
+    assert_eq!(err["error"], "gates_failed", "{err}");
+    let report: Value = serde_json::from_str(
+        err["message"]
+            .as_str()
+            .unwrap()
+            .trim_start_matches("integrity gates failed: "),
+    )
+    .unwrap();
+    report["failures"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|failure| failure["gate"].as_str().unwrap().to_string())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+/// Accepted version-1 review of one query; model drafts get an independent
+/// GPT-6-Astra reviewer interaction.
+pub fn review_record(q: &Value) -> Value {
+    let id = q["id"].as_str().unwrap();
+    let text_sha256 = sha256_hex(q["text"].as_str().unwrap().as_bytes());
+    let drafted = q["model_drafted"].as_bool().unwrap_or(false);
+    let author = if drafted {
+        json!({"id":"drafter-1","kind":"model","model":"synthetic-drafter","evidence":format!("draft/{id}")})
+    } else {
+        json!({"id":"author-1","kind":"human","evidence":format!("draft/{id}")})
+    };
+    let reviewer = if drafted {
+        json!({"id":"reviewer-astra","kind":"model","model":"gpt-6-astra","evidence":format!("review/{id}")})
+    } else {
+        json!({"id":"reviewer-1","kind":"human","evidence":format!("review/{id}")})
+    };
+    json!({
+        "version": 1, "query_id": id, "final_text_sha256": text_sha256,
+        "corpus": q["corpus"], "stratum": q["stratum"], "model_drafted": drafted,
+        "stratum_evidence": format!("stratum/{id}"), "author": author, "reviewer": reviewer,
+        "decision": "accept", "rationale": "synthetic fixture: answerable and unambiguous",
+        "history": [{"text_sha256": text_sha256, "predecessor_sha256": null,
+            "author": author, "reviewer": reviewer, "decision": "accept"}]
+    })
 }

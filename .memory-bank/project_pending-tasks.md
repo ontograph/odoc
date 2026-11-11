@@ -16,7 +16,7 @@ this file routes blockers, not a second queue.
   OD-3.6 is also DONE ([streaming/admission audit](audit_session-2026-11-10-od36-streaming-admission.md));
   OD-3.5 input/verification/actual-work budgets are DONE ([closure audit](audit_session-2026-11-10-od35-input-work-budgets.md)).
   OD-3.9 is DONE ([publication/lock audit](audit_session-2026-11-11-od39-publication-outcomes.md)).
-  Next EVAL-1.3. HTTP-0 still needs the owner exposure/admission choice; completed
+  EVAL-1.3 is DONE. HTTP-0 still needs the owner exposure/admission choice; completed
   local work is not multi-user readiness or measured capacity.
 
 - OD-3.8 bounded store reads/publication is DONE: final managed job d passed
@@ -40,7 +40,7 @@ this file routes blockers, not a second queue.
 - HTTP-0 is BLOCKED: owner exposure/admission choice remains unsupplied. Pick
   local loopback-only use or authenticated trusted-ingress remote delivery and
   accept the admission/session trust boundary. [Review](audit_session-2026-11-10-http0-authority-gate.md)
-  records proposals only. HTTP-1/2 still depend on acceptance;
+  records proposals only. HTTP-1 (registry, no listener) is DONE; HTTP-2 depends on HTTP-0;
   no listener or automatic indexing. Local safety decisions no longer depend on
   HTTP-0: OD-3.8 → SAFETY-0 → OD-3.4 → OD-3.6 → OD-3.5 → OD-3.9 are DONE.
   Publication/process-lock tests pass; the historical parallel Locked cause
@@ -53,7 +53,7 @@ this file routes blockers, not a second queue.
 - EVAL-1.6 is DONE through strict complete-local: trusted preparation/provenance
   handoff and deterministic default-promotion policy before EVAL-1.3.
   ADR9 decision is documented and Astra-reviewed; historical tracker evidence is
-  compacted with exact scalar/hash preservation. EVAL-1.3 is selected next.
+  compacted with exact scalar/hash preservation. EVAL-1.3 later DONE.
 - EVAL-1.4 is DONE: immutable physical split capture, current freshness/pins and
   shared indexes; pre-filter traversal and explicit ignore-input budgets close
   the earlier gap. Final 139 tests and Clippy/formatting passed; Astra reviewed.
@@ -63,10 +63,9 @@ this file routes blockers, not a second queue.
 - EVAL-1.5 is DONE: ADR revision6 resolves fixed common-dir custody/external
   exports and audits; exact completed metadata/report binds saved-run hashes.
   [Audit](audit_session-2026-11-10-eval15-attempt-identity.md) records Astra review and validation.
-- EVAL-1.3 remains OPEN, dependent on completed EVAL-1.4 inputs, EVAL-1.5
-  custody and completed EVAL-1.6 preparation/provenance/default-promotion decision. Connect test-selected capture, preparation counts,
-  provenance and complete public success/failure paths. Universal refusals contain
-  mutable rereads but do not satisfy a valid-evidence success path.
+- EVAL-1.3 is DONE: preparation-pinned measurement commands, selected-only
+  capture, held-out admission before reservation and synthetic end-to-end
+  dev-then-one-held-out success. [Audit](audit_session-2026-11-11-eval13-progress.md).
 - Dev loading must not open held-out query/label payloads. Validate and compute
   from identical captured bytes; full preparation has a different evidence scope.
   ADR9 also excludes combined/full-pool/full-provenance payloads from ordinary
@@ -78,7 +77,8 @@ this file routes blockers, not a second queue.
 - EVAL-3.x external benchmark/binary/custody/audit commands are rebound under
   ADR6; EVAL-1.3 must validate them before measurement. Registration is one-shot,
   with no delete/reset workflow; superseding custody needs fresh approval.
-- EVAL-2.0 remains BLOCKED on EVAL-1.3. At least 270 reviewed stratified queries,
+- EVAL-2.0 remains BLOCKED on the trusted operator: pinned permissive corpora,
+  manager-owned query-approval audit before pooling. At least 270 reviewed stratified queries,
   including >=150 answerable and >=30 off-topic held-out queries, are still needed.
   GPT-6-Astra query review is authorized; model review is never human annotation.
 - EVAL-2.1 requires two human annotators and annotation provenance; no substitution
@@ -87,8 +87,9 @@ this file routes blockers, not a second queue.
   implements the audited default or records no-op before OD-4.0. Omitted
   threshold stays disabled, explicit modes/weights remain supported, and no
   mutable evaluation artifact enters retrieval.
-- This checkout has no initial commit; clean matching commit/binary identity is
-  a later freeze prerequisite, not a reason to manufacture one during review.
+- HEAD exists (b6e3f3e) but the tree is dirty. A clean, matching commit and
+  binary identity is a freeze prerequisite the owner supplies; it is not
+  manufactured during review.
 
 ## Deferred Decisions
 

@@ -14,13 +14,16 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
 
 ## Active Plans
 
-- [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - EVAL-1.3 next; HTTP-0 and EVAL-2.0 blocked; 29/40 done; historical evidence compacted intact.
+- [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - 37/46 done (FIX-3/FIX-4 closed 2026-11-11); blocked on owner gates: HTTP-0 exposure, EVAL-2.0 corpora/query approval/human annotators.
 
 ## Recent Evidence
 
-- [Preparation/promotion decision](audit_session-2026-11-11-eval16-preparation-decision.md) -
-  ADR9 target contracts and separate OD-4.1; EVAL-1.3 still implements admission.
-
+- [Review round 3](audit_session-2026-11-11-review-round3.md) - FIX-3 run-file bound, miss attribution, FIX-4 list caps DONE.
+- [Review/simplify consolidation](audit_session-2026-11-11-review-simplify-consolidate.md) -
+  FIX-1, SIMPL-1, HTTP-1 folder registry and PERF-1 concurrent snapshot admission
+  DONE; lane perf1-c exit0; Astra P2s fixed. DONE expected_evidence archived.
+- [EVAL-1.3 admission](audit_session-2026-11-11-eval13-progress.md) - DONE: preparation-pinned
+  measurement, held-out pre-reservation admission; synthetic only, lane eval13-close-a exit0.
 - [Publication outcomes/process locks](audit_session-2026-11-11-od39-publication-outcomes.md) -
   OD-3.9 complete; focused/default-parallel and process checks, Clippy/formatting
   passed; Astra reviewed. Historical parallel Locked cause remains unknown.
@@ -69,8 +72,6 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
   Astra-challenged recommendations: identity, bounds and evidence before semantic edges.
 - [Folder-scoped MCP decision 2026-11-10](audit_session-2026-11-10-folder-mcp-architecture.md) -
   one named endpoint and independent database per `docs_share/` child; design only.
-- [Code and agent-guidance review 2026-11-09](audit_session-2026-11-09-agents-code-review.md) -
-  source findings and Astra-challenged agent rules; runtime and plan unchanged.
 - [Prior-attempt review 2026-11-08](audit_session-2026-11-08-prior-attempt-review.md) -
   why `ontocode-rs/` is reference-only and which patterns are reused.
 - [Donor ideas review 2026-11-08](audit_session-2026-11-08-donor-ideas-review.md) -
@@ -81,8 +82,6 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
   optional single-access-domain HTTP recommended; security/work bounds gate adoption.
 - [Shared-corpus clarification 2026-11-09](audit_session-2026-11-09-shared-corpus-clarification.md) -
   equal reader access; single-corpus assumption superseded by ADR rev 4.
-- [Plan challenge 2026-11-08](audit_session-2026-11-08-plan-challenge.md) -
-  findings C1-L3 and dispositions behind ADR rev 3.
 - [Implementation session 2026-11-08](audit_session-2026-11-08-implementation-od0-eval12.md) -
   OD-0.0..EVAL-1.2 closeouts, commands, exit codes, deviations, EVAL-2.0 blocker.
 - [Astra query-review amendment 2026-11-08](audit_session-2026-11-08-astra-query-review.md) -
@@ -92,7 +91,7 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
 
 - Language: Rust 1.95.0, edition 2024, one package `ontodoc` at the repo root.
 - Accepted HTTP design: `docs_share/<name>/` → `/<name>/mcp`, own `.ontodoc/`
-  database per folder; equal access, no cross-corpus retrieval. Not implemented.
+  database per folder; equal access, no cross-corpus retrieval. Registry done; no listener.
 - `ontocode-rs/` is a read-only source snapshot (`COPY_MANIFEST.json`); it is
   not buildable and must never be part of the Cargo build.
 - Quality claims require the ADR protocol: section-level qrels, powered held-out

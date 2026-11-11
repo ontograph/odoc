@@ -49,7 +49,7 @@ pub struct PowerInputs {
     pub required_answerable_test: usize,
 }
 
-fn validate_power(power: &PowerInputs) -> Result<(), EvalError> {
+pub(crate) fn validate_power(power: &PowerInputs) -> Result<(), EvalError> {
     if power.alpha != POWER_ALPHA
         || power.power != POWER
         || power.min_effect != MIN_EFFECT
@@ -82,19 +82,6 @@ pub struct SweepReport {
     pub best_alpha: f64,
     pub best_beta: f64,
     pub power: PowerInputs,
-}
-
-fn split_queries(bench: &Bench, split: SplitName) -> Result<Vec<&Query>, EvalError> {
-    let (splits, _) = bench.splits()?;
-    let ids = match split {
-        SplitName::Dev => splits.dev,
-        SplitName::Test => splits.test,
-    };
-    Ok(bench
-        .queries
-        .iter()
-        .filter(|q| ids.contains(&q.id))
-        .collect())
 }
 
 fn ndcg_per_query(
@@ -136,12 +123,11 @@ pub fn sweep(bench: &Bench, split: SplitName) -> Result<SweepReport, EvalError> 
             "sweep runs on the dev split only".into(),
         ));
     }
-    super::run::ensure_measurement_ready()?;
     sweep_captured(bench)
 }
 
 pub(crate) fn sweep_captured(bench: &Bench) -> Result<SweepReport, EvalError> {
-    bench.require_dev_capture()?;
+    bench.require_prepared_capture(SplitName::Dev)?;
     for grid in [&bench.config.alpha_grid, &bench.config.beta_grid] {
         if grid.is_empty()
             || grid
@@ -250,9 +236,12 @@ pub(crate) fn sweep_captured(bench: &Bench) -> Result<SweepReport, EvalError> {
 pub enum MissStage {
     /// The section is not in the generation.
     NotIndexed,
-    /// The section has no chunk containing any query term.
+    /// The section's text matches query terms, but none of its chunks does:
+    /// the terms fall outside every chunk span (heading-only or split
+    /// across a boundary). Not reported for zero vocabulary overlap.
     ChunkBoundary,
-    /// BM25 ranks none of its chunks within the fetch depth.
+    /// BM25 ranks none of its chunks within the fetch depth, including when
+    /// the section shares no query term at all (vocabulary mismatch).
     LexicalMiss,
     /// BM25 alone has it in the top 10, but fusion pushed it out.
     FusionDisplaced,
@@ -281,7 +270,26 @@ pub fn attribute_miss(
         .map(|(i, _)| i)
         .collect();
     if own.iter().all(|&i| scores[i] <= 0.0) {
-        return MissStage::ChunkBoundary;
+        // Zero chunk score is a boundary miss only when the section's own
+        // text (spanning all its chunks) still contains a query term.
+        let section_text = g
+            .sections
+            .iter()
+            .find(|s| s.id == section_id)
+            .and_then(|s| {
+                g.documents
+                    .iter()
+                    .find(|d| d.path == s.path)?
+                    .text
+                    .get(s.span.byte_start..s.span.byte_end)
+            })
+            .unwrap_or("");
+        let section_terms = crate::search::tokenize::tokenize(section_text);
+        return if terms.iter().any(|t| section_terms.contains(t)) {
+            MissStage::ChunkBoundary
+        } else {
+            MissStage::LexicalMiss
+        };
     }
     let b1 = rank_sections(index, System::B1, query);
     let in_b1 = b1.iter().any(|(s, _)| s == section_id);
@@ -300,17 +308,28 @@ pub fn attribute_miss(
     }
 }
 
+/// Version 2 binds the preparation manifest and both partitions; older
+/// frozen files are refused, never migrated.
+pub const FROZEN_VERSION: u32 = 2;
+
 /// Frozen evaluation configuration (TOML).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct FrozenConfig {
+    pub version: u32,
+    /// SHA-256 of the admitted preparation manifest.
+    pub preparation_sha256: String,
     pub alpha: f64,
     pub beta: f64,
     pub threshold: f64,
     pub seed: u64,
     pub resamples: usize,
     pub config_sha256: String,
-    pub queries_sha256: String,
-    pub qrels_sha256: String,
+    /// Exact partition payload digests from the manifest.
+    pub dev_queries_sha256: String,
+    pub dev_qrels_sha256: String,
+    pub test_queries_sha256: String,
+    pub test_qrels_sha256: String,
     pub splits_sha256: String,
     pub git_commit: String,
     pub cargo_lock_sha256: String,
@@ -319,26 +338,53 @@ pub struct FrozenConfig {
     pub power: PowerInputs,
 }
 
+/// A quoted string valid as both a TOML basic string and JSON: `"`, `\` and
+/// control characters (including DEL) are escaped; everything else is
+/// written verbatim, so ordinary names keep their historical bytes.
+fn toml_string(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + 2);
+    out.push('"');
+    for c in value.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\t' => out.push_str("\\t"),
+            '\r' => out.push_str("\\r"),
+            c if c.is_control() => out.push_str(&format!("\\u{:04X}", u32::from(c))),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
 impl FrozenConfig {
     /// Deterministic TOML: scalars, power inputs and sorted corpus generations.
     pub fn to_toml(&self) -> String {
         let p = &self.power;
         let mut text = format!(
             "# Frozen evaluation configuration. Do not edit after test-split access.\n\
+             version = {}\npreparation_sha256 = \"{}\"\n\
              alpha = {:?}\nbeta = {:?}\nthreshold = {:?}\nseed = {}\nresamples = {}\n\
-             config_sha256 = \"{}\"\nqueries_sha256 = \"{}\"\nqrels_sha256 = \"{}\"\n\
+             config_sha256 = \"{}\"\ndev_queries_sha256 = \"{}\"\ndev_qrels_sha256 = \"{}\"\n\
+             test_queries_sha256 = \"{}\"\ntest_qrels_sha256 = \"{}\"\n\
              splits_sha256 = \"{}\"\ngit_commit = \"{}\"\ncargo_lock_sha256 = \"{}\"\n\
              binary_sha256 = \"{}\"\n\n[power]\nalpha = {:?}\npower = {:?}\nmin_effect = {:?}\n\
              sd_diff_h2 = {:?}\nsd_diff_h5 = {:?}\nn_h2 = {}\nn_h5 = {}\n\
              required_answerable_test = {}\n",
+            self.version,
+            self.preparation_sha256,
             self.alpha,
             self.beta,
             self.threshold,
             self.seed,
             self.resamples,
             self.config_sha256,
-            self.queries_sha256,
-            self.qrels_sha256,
+            self.dev_queries_sha256,
+            self.dev_qrels_sha256,
+            self.test_queries_sha256,
+            self.test_qrels_sha256,
             self.splits_sha256,
             self.git_commit,
             self.cargo_lock_sha256,
@@ -354,7 +400,11 @@ impl FrozenConfig {
         );
         text.push_str("\n[generation_ids]\n");
         for (corpus, generation) in &self.generation_ids {
-            text.push_str(&format!("{corpus:?} = {generation:?}\n"));
+            text.push_str(&format!(
+                "{} = {}\n",
+                toml_string(corpus),
+                toml_string(generation)
+            ));
         }
         text
     }
@@ -381,18 +431,22 @@ impl FrozenConfig {
                 line: i + 1,
                 message: format!("unsupported line {raw:?}"),
             };
-            let (key, value) = line.split_once(" = ").ok_or_else(bad)?;
-            let value: serde_json::Value = serde_json::from_str(value).map_err(|_| bad())?;
             let table = match section {
                 "[power]" => &mut power,
                 "[generation_ids]" => &mut generations,
                 _ => &mut top,
             };
-            let key = if section == "[generation_ids]" {
-                serde_json::from_str::<String>(key).map_err(|_| bad())?
+            // Corpus keys are quoted strings that may themselves contain " = ".
+            let (key, value) = if section == "[generation_ids]" {
+                let mut keys = serde_json::Deserializer::from_str(line).into_iter::<String>();
+                let key = keys.next().ok_or_else(bad)?.map_err(|_| bad())?;
+                let rest = line.get(keys.byte_offset()..).ok_or_else(bad)?;
+                (key, rest.strip_prefix(" = ").ok_or_else(bad)?)
             } else {
-                key.to_string()
+                let (key, value) = line.split_once(" = ").ok_or_else(bad)?;
+                (key.to_string(), value)
             };
+            let value: serde_json::Value = serde_json::from_str(value).map_err(|_| bad())?;
             if table.insert(key, value).is_some() {
                 return Err(bad());
             }
@@ -407,7 +461,45 @@ impl FrozenConfig {
             "generation_ids".into(),
             serde_json::Value::Object(generations),
         );
-        Ok(serde_json::from_value(serde_json::Value::Object(top))?)
+        let frozen: Self = serde_json::from_value(serde_json::Value::Object(top))?;
+        if frozen.version != FROZEN_VERSION {
+            return Err(EvalError::Invalid(
+                "unsupported frozen config version".into(),
+            ));
+        }
+        Ok(frozen)
+    }
+
+    /// Mismatches between this freeze and the bench's manifest-admitted
+    /// capture: manifest hash, both partitions and the selected split's
+    /// captured digests. Empty when bound.
+    pub(crate) fn preparation_problems(&self, bench: &Bench) -> Result<Vec<String>, EvalError> {
+        let Some((split, sha, partitions)) = bench.preparation_binding() else {
+            return Ok(vec![
+                "benchmark capture lacks an admitted preparation".into(),
+            ]);
+        };
+        let mut problems = Vec::new();
+        if self.version != FROZEN_VERSION {
+            problems.push("frozen config version unsupported".into());
+        }
+        if self.preparation_sha256 != sha {
+            problems.push("preparation manifest differs".into());
+        }
+        let frozen = [
+            (&self.dev_queries_sha256, &self.dev_qrels_sha256),
+            (&self.test_queries_sha256, &self.test_qrels_sha256),
+        ];
+        for (name, (want, have)) in ["dev", "test"].iter().zip(frozen.iter().zip(partitions)) {
+            if (want.0, want.1) != (&have.0, &have.1) {
+                problems.push(format!("{name} partition digests differ"));
+            }
+        }
+        let k = usize::from(split == SplitName::Test);
+        if (&bench.queries_sha256, &bench.qrels()?.1) != (&partitions[k].0, &partitions[k].1) {
+            problems.push("captured partition differs from the manifest".into());
+        }
+        Ok(problems)
     }
 }
 
@@ -443,13 +535,13 @@ impl CodeIdentity {
 }
 
 /// Builds the frozen config from a dev sweep and the code identity.
+/// Runs the dev sweep once and freezes its selection.
 pub fn freeze(
     bench: &Bench,
-    sweep: &SweepReport,
     threshold: f64,
     code: &CodeIdentity,
 ) -> Result<FrozenConfig, EvalError> {
-    super::run::ensure_measurement_ready()?;
+    bench.require_prepared_capture(SplitName::Dev)?;
     if bench.config.resamples != REQUIRED_RESAMPLES {
         return Err(EvalError::Invalid(
             "freezing requires exactly 10000 resamples".into(),
@@ -458,11 +550,7 @@ pub fn freeze(
     if code.dirty {
         return Err(EvalError::Invalid("refusing to freeze a dirty tree".into()));
     }
-    if *sweep != self::sweep(bench, SplitName::Dev)? {
-        return Err(EvalError::Invalid(
-            "dev sweep evidence does not match this benchmark".into(),
-        ));
-    }
+    let sweep = &self::sweep(bench, SplitName::Dev)?;
     validate_power(&sweep.power)?;
     if sweep.dev_answerable < 2 {
         return Err(EvalError::Invalid(
@@ -486,17 +574,23 @@ pub fn freeze(
         ));
     }
     let generation_ids = generation_ids(bench)?;
-    let (_, qrels_sha256) = bench.qrels()?;
     let (_, splits_sha256) = bench.splits()?;
+    let (_, preparation_sha256, [dev, test]) = bench
+        .preparation_binding()
+        .ok_or_else(|| EvalError::Invalid("freezing requires an admitted preparation".into()))?;
     Ok(FrozenConfig {
+        version: FROZEN_VERSION,
+        preparation_sha256: preparation_sha256.into(),
+        dev_queries_sha256: dev.0.clone(),
+        dev_qrels_sha256: dev.1.clone(),
+        test_queries_sha256: test.0.clone(),
+        test_qrels_sha256: test.1.clone(),
         alpha: sweep.best_alpha,
         beta: sweep.best_beta,
         threshold,
         seed: bench.config.seed,
         resamples: bench.config.resamples,
         config_sha256: bench.config_sha256.clone(),
-        queries_sha256: bench.queries_sha256.clone(),
-        qrels_sha256,
         splits_sha256,
         git_commit: code.git_commit.clone(),
         cargo_lock_sha256: code.cargo_lock_sha256.clone(),
@@ -513,7 +607,9 @@ pub fn check_frozen(
     bench: &Bench,
     code: &CodeIdentity,
 ) -> Result<(), EvalError> {
-    super::run::ensure_measurement_ready()?;
+    let answerable = bench
+        .prepared_test_answerable()
+        .ok_or_else(super::run::admission_error)?;
     if frozen.resamples != REQUIRED_RESAMPLES || bench.config.resamples != REQUIRED_RESAMPLES {
         return Err(EvalError::Invalid(
             "frozen config requires exactly 10000 resamples".into(),
@@ -536,28 +632,17 @@ pub fn check_frozen(
         &code.cargo_lock_sha256,
     );
     same("binary", &frozen.binary_sha256, &code.binary_sha256);
-    same("queries", &frozen.queries_sha256, &bench.queries_sha256);
     same(
         "benchmark config",
         &frozen.config_sha256,
         &bench.config_sha256,
     );
-    let (judgements, qrels) = bench.qrels()?;
     let (_, splits) = bench.splits()?;
-    same("qrels", &frozen.qrels_sha256, &qrels);
     same("splits", &frozen.splits_sha256, &splits);
+    problems.extend(frozen.preparation_problems(bench)?);
     if generation_ids(bench)? != frozen.generation_ids {
         problems.push("corpus generations differ from the frozen config".into());
     }
-    let answerable = split_queries(bench, SplitName::Test)?
-        .iter()
-        .filter(|q| q.stratum != Stratum::OffTopic)
-        .filter(|q| {
-            judgements
-                .get(&q.id)
-                .is_some_and(|r| r.values().any(|&grade| grade >= 1))
-        })
-        .count();
     if answerable < frozen.power.required_answerable_test {
         problems.push(format!(
             "answerable test queries {answerable} below required {}",
@@ -602,14 +687,18 @@ mod tests {
         let n_h2 = required_n(0.2, MIN_EFFECT, POWER_ALPHA, POWER);
         let n_h5 = required_n(0.15, MIN_EFFECT, POWER_ALPHA, POWER);
         FrozenConfig {
+            version: FROZEN_VERSION,
+            preparation_sha256: "p".into(),
             alpha: 0.2,
             beta: 0.2,
             threshold: 0.3,
             seed: 1,
             resamples: 10,
             config_sha256: "c".into(),
-            queries_sha256: "q".into(),
-            qrels_sha256: "r".into(),
+            dev_queries_sha256: "dq".into(),
+            dev_qrels_sha256: "dr".into(),
+            test_queries_sha256: "tq".into(),
+            test_qrels_sha256: "tr".into(),
             splits_sha256: "s".into(),
             git_commit: "abc".into(),
             cargo_lock_sha256: "lock".into(),
@@ -637,6 +726,79 @@ mod tests {
         assert_eq!(FrozenConfig::from_toml(&text).unwrap(), f);
         assert!(FrozenConfig::from_toml("alpha: 1").is_err());
         assert!(FrozenConfig::from_toml(text.split("[generation_ids]").next().unwrap()).is_err());
+        // Version-1 files (no version, combined digests) and unknown
+        // versions are refused rather than migrated.
+        let v1 = text
+            .replace("version = 2\n", "")
+            .replace("preparation_sha256 = \"p\"\n", "")
+            .replace("dev_queries_sha256 = \"dq\"\n", "queries_sha256 = \"q\"\n");
+        assert!(FrozenConfig::from_toml(&v1).is_err());
+        let v3 = text.replace("version = 2\n", "version = 3\n");
+        assert!(FrozenConfig::from_toml(&v3).is_err());
+        let extra = text.replace("version = 2\n", "version = 2\nqueries_sha256 = \"q\"\n");
+        assert!(FrozenConfig::from_toml(&extra).is_err());
+    }
+
+    #[test]
+    fn frozen_config_roundtrips_unusual_corpus_names() {
+        // Old codec wrote Rust debug escapes (`\u{1}`, `\u{200b}`), which the
+        // JSON reader refused; a key containing " = " split at the wrong place.
+        let names = [
+            "a\u{1}b",
+            "q\"uote",
+            "back\\slash",
+            "del\u{7f}",
+            "zero\u{200b}width",
+            "кириллица",
+            "k = v",
+            "tab\there\nnl",
+            "c1\u{85}",
+        ];
+        let mut f = frozen();
+        f.generation_ids = names
+            .iter()
+            .map(|n| ((*n).to_string(), format!("gen {n}")))
+            .collect();
+        let text = f.to_toml();
+        assert_eq!(FrozenConfig::from_toml(&text).unwrap(), f);
+        // Ordinary names keep their historical bytes.
+        assert!(
+            frozen()
+                .to_toml()
+                .ends_with("\"corpus\" = \"generation\"\n")
+        );
+        assert_eq!(toml_string("del\u{7f}"), "\"del\\u007F\"");
+        // A key followed by anything but " = " is refused.
+        let broken = text.replace("\"k = v\" = ", "\"k = v\" =");
+        assert!(FrozenConfig::from_toml(&broken).is_err());
+    }
+
+    #[test]
+    fn zero_overlap_is_a_lexical_miss_and_child_only_terms_are_a_chunk_boundary() {
+        let dir = tempfile::tempdir().unwrap();
+        // `# Parent` owns only its intro block; its span also covers `## Child`.
+        std::fs::write(
+            dir.path().join("a.md"),
+            "# Parent\n\nintro words\n\n## Child\n\nzebra stripes\n",
+        )
+        .unwrap();
+        let generation =
+            crate::store::build(dir.path(), &crate::store::IndexConfig::default()).unwrap();
+        let index = SearchIndex::new(generation);
+        // No query term anywhere in the section: vocabulary mismatch.
+        assert_eq!(
+            attribute_miss(&index, "unrelated", "a.md#parent", System::B1),
+            MissStage::LexicalMiss
+        );
+        // The term is in the parent's span, but only in the child's chunk.
+        assert_eq!(
+            attribute_miss(&index, "zebra", "a.md#parent", System::B1),
+            MissStage::ChunkBoundary
+        );
+        assert_eq!(
+            attribute_miss(&index, "zebra", "missing.md#x", System::B1),
+            MissStage::NotIndexed
+        );
     }
 
     #[test]

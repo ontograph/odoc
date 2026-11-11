@@ -740,10 +740,7 @@ impl Store {
                 match read_store_file(&target.join(name), cap, what) {
                     Ok(_) => (),
                     Err(StoreError::Io { source, .. })
-                        if source.kind() == std::io::ErrorKind::NotFound =>
-                    {
-                        ()
-                    }
+                        if source.kind() == std::io::ErrorKind::NotFound => {}
                     Err(error) => return Err(error),
                 }
             }

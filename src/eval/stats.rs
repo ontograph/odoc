@@ -44,8 +44,8 @@ fn mean(values: &[f64]) -> f64 {
     }
 }
 
-/// Type-7 (linear interpolation) quantile of sorted values.
-fn quantile(sorted: &[f64], p: f64) -> f64 {
+/// Type-7 (linear interpolation) quantile of sorted values; 0 when empty.
+pub(crate) fn quantile(sorted: &[f64], p: f64) -> f64 {
     if sorted.is_empty() {
         return 0.0;
     }
