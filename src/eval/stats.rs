@@ -4,7 +4,7 @@
 //! - [`paired_bootstrap`]: percentile CI of the mean paired difference,
 //!   resampling queries within each corpus (stratum).
 //! - [`randomization_test`]: two-sided paired sign-flip test.
-//! - [`holm`], [`wilson`], [`weighted_kappa`], [`required_n`], [`decide`].
+//! - [`holm`], [`wilson`], [`weighted_kappa`] / [`kappa_from_counts`], [`required_n`], [`decide`].
 
 /// SplitMix64 (Steele, Lea, Flood 2014).
 #[derive(Debug, Clone)]
@@ -141,26 +141,38 @@ pub fn weighted_kappa(a: &[u8], b: &[u8], categories: usize) -> Option<f64> {
     if a.len() != b.len() || a.is_empty() || categories < 2 {
         return None;
     }
-    let k = categories;
-    let mut observed = vec![vec![0.0; k]; k];
+    let mut observed = vec![vec![0.0; categories]; categories];
     for (&x, &y) in a.iter().zip(b) {
         let (x, y) = (usize::from(x), usize::from(y));
-        if x >= k || y >= k {
+        if x >= categories || y >= categories {
             return None;
         }
         observed[x][y] += 1.0;
     }
-    let n = a.len() as f64;
-    let rows: Vec<f64> = observed.iter().map(|r| r.iter().sum()).collect();
+    kappa_from_counts(&observed)
+}
+
+/// Quadratic-weighted kappa of a square rater-pair count matrix with at
+/// least two categories; `None` when empty or expected disagreement is zero.
+pub fn kappa_from_counts<R: AsRef<[f64]>>(observed: &[R]) -> Option<f64> {
+    let k = observed.len();
+    if k < 2 || observed.iter().any(|r| r.as_ref().len() != k) {
+        return None;
+    }
+    let n: f64 = observed.iter().flat_map(|r| r.as_ref()).sum();
+    if n <= 0.0 {
+        return None;
+    }
+    let rows: Vec<f64> = observed.iter().map(|r| r.as_ref().iter().sum()).collect();
     let cols: Vec<f64> = (0..k)
-        .map(|j| observed.iter().map(|r| r[j]).sum())
+        .map(|j| observed.iter().map(|r| r.as_ref()[j]).sum())
         .collect();
     let weight = |i: usize, j: usize| ((i as f64 - j as f64) / (k - 1) as f64).powi(2);
     let (mut num, mut den) = (0.0, 0.0);
-    for i in 0..k {
-        for j in 0..k {
-            num += weight(i, j) * observed[i][j];
-            den += weight(i, j) * rows[i] * cols[j] / n;
+    for (i, (row, total)) in observed.iter().zip(&rows).enumerate() {
+        for (j, (count, col)) in row.as_ref().iter().zip(&cols).enumerate() {
+            num += weight(i, j) * count;
+            den += weight(i, j) * total * col / n;
         }
     }
     (den > 0.0).then(|| 1.0 - num / den)

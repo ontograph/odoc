@@ -1,8 +1,8 @@
 # OntoDoc
 
-Standalone Rust MCP service for cited documentation retrieval. The implemented
-transport is **stdio**, exposing five read-only tools over one configured
-corpus. Index publication is a trusted CLI action. Retrieval uses local
+Standalone Rust MCP service for cited documentation retrieval. It exposes
+five read-only tools over **stdio** (one configured corpus) or over a
+**loopback HTTP** listener (one endpoint per `docs_share/<folder>/`). Index publication is a trusted CLI action. Retrieval uses local
 lexical/graph algorithms; no model, embeddings or outbound service is required
 on the retrieval path.
 
@@ -55,7 +55,7 @@ root. For clients using an `mcpServers` JSON configuration:
 Use the client's own supported configuration format; the JSON above is not an
 OntoDoc configuration file. Run `index` before starting retrieval. `serve`
 communicates over stdin/stdout; stdout contains MCP frames only, not a shell
-prompt or human-readable search output. There is no HTTP listen command.
+prompt or human-readable search output.
 
 To serve several `docs_share/<name>/` folders today, index each folder and
 configure one stdio server per folder; each keeps its own `.ontodoc/` store:
@@ -77,6 +77,31 @@ configure one stdio server per folder; each keeps its own `.ontodoc/` store:
 
 One stdio connection serves exactly one corpus; there is no cross-folder
 retrieval or in-session switching.
+
+### HTTP (loopback, behind an authenticated ingress)
+
+Index each folder first (`ontodoc --root docs_share/<name> index`), then:
+
+```sh
+ontodoc serve-http --docs-share /absolute/path/to/docs_share --listen 127.0.0.1:8080
+```
+
+Each immediate folder is served at `http://127.0.0.1:8080/<percent-encoded
+name>/mcp` with its own `.ontodoc/` store; endpoints are printed to stderr.
+The transport is MCP Streamable HTTP in stateless JSON mode: `POST` only, one
+JSON-RPC message per request, no sessions or SSE (`GET`/`DELETE` → 405).
+
+- The listener refuses non-loopback addresses. Remote users must reach it
+  through an operator-run TLS ingress that authenticates every request;
+  OntoDoc has no authentication. The ingress must forward the configured
+  `Host` (the listen address) unchanged.
+- Requests carrying `Origin` are refused (403): native MCP clients only.
+- Limits: 32 corpora; 128 KiB request and complete response bodies (413 /
+  generic 500); 256 admitted connections and 256 in-flight requests, excess
+  refused (503 or closed), never queued; 30 s to send headers and body; 4
+  global and 2 per-corpus blocking-work permits (`busy` when exhausted).
+- Error bodies are generic; queries, documents and credentials are not logged.
+- Ctrl-C/SIGTERM stops accepting and drains in-flight requests.
 
 ## Tools And CLI
 
@@ -117,18 +142,16 @@ calls can change the active generation; cross-call snapshot pinning is absent.
 - Aggregate freshness/verification work, store-read allocation and actual
   blocking-work admission/cancellation are not fully bounded. Timeouts alone
   cannot stop `spawn_blocking`. Passing wire-limit tests does not establish these
-  separate protections or HTTP readiness.
-- The accepted HTTP design maps each immediate `docs_share/<name>/` directory
-  to `/<name>/mcp`, with its own `.ontodoc/` store and shared per-corpus index.
-  **HTTP is not implemented.** HTTP-0 requires an owner choice between trusted
-  loopback-only use and authenticated trusted-ingress delivery before acceptance
-  of exposure/resource contracts. Equal document access is not anonymous access.
+  separate protections or measured multi-user capacity.
+- HTTP limits are conservative policies, not measured capacity. Equal document
+  access is not anonymous access: never expose the listener without the
+  authenticating ingress.
 - Evidence/provenance/topology diagnostic extensions remain Proposed. No new
   tools or measured quality gain follows from donor ideas or passing tests.
 
 See the [active plan](.memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md),
 [service ADR](.memory-bank/ADR_ONTODOC_SERVICE.md),
-[HTTP authority gate](.memory-bank/audit_session-2026-11-10-http0-authority-gate.md)
+[owner decisions](.memory-bank/audit_session-2026-11-11-owner-decisions.md)
 and [architecture owners](.memory-bank/project_architecture.md).
 
 ## Development And Evaluation

@@ -9,6 +9,16 @@ Updated: 2026-11-11. The structured
 [canonical plan](ONTODOC_IMPLEMENTATION_PLAN.md) controls status and ordering;
 this file routes blockers, not a second queue.
 
+## Current (2026-11-11)
+
+- Service work is complete: HTTP-2 loopback listener, FIX-7, SIMPL-3 and FIX-8
+  DONE ([owner decisions](audit_session-2026-11-11-owner-decisions.md)).
+- EVAL-2.0 (BLOCKED) is parked by the owner pending pinned corpora, a trusted
+  operator and two human annotators; EVAL-2.1 → EVAL-3.x → OD-4.1 → OD-4.0
+  follow it. Delivery item outside code: the operator's authenticated TLS
+  ingress in front of `serve-http`.
+- Entries below are history.
+
 ## Active Service Repair
 
 - SAFETY-0 and OD-3.4 are DONE: ADR8 local contracts and

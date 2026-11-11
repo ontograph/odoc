@@ -549,6 +549,57 @@ fn stale_corpus_refuses_held_out_before_reservation() {
     assert!(!out.exists());
 }
 
+/// An output parent that admission accepts but cannot hold the private
+/// staging directory (read-only) fails before the sole attempt is reserved.
+#[test]
+fn unwritable_output_parent_refuses_before_reservation() {
+    use std::os::unix::fs::PermissionsExt;
+    let fx = Fixture::new();
+    let pin = fx.prepare();
+    let config = s(&fx.config);
+    let frozen = fx.path("frozen-config.toml");
+    ok(fx.admitted(
+        &[
+            "eval",
+            "freeze",
+            config,
+            "--threshold",
+            "0.3",
+            "--repo",
+            s(&fx.repo),
+            "--out",
+            s(&frozen),
+        ],
+        &pin,
+    ));
+    let custody = fx.repo.join(".git/ontodoc-eval");
+    let parent = fx.path("read-only");
+    fs::create_dir(&parent).unwrap();
+    fs::set_permissions(&parent, fs::Permissions::from_mode(0o555)).unwrap();
+    // A privileged user can write anyway; the refusal is then untestable.
+    if fs::write(parent.join("probe"), b"").is_ok() {
+        return;
+    }
+    let out = parent.join("test-run");
+    let refusal = fx.admitted(
+        &[
+            "eval",
+            "run",
+            config,
+            "--split",
+            "test",
+            "--out",
+            s(&out),
+            "--confirm-test-split",
+        ],
+        &pin,
+    );
+    fs::set_permissions(&parent, fs::Permissions::from_mode(0o755)).unwrap();
+    refused(refusal, "read-only");
+    assert!(!custody.join("attempt-started.json").exists());
+    assert!(!out.exists());
+}
+
 /// Trusted preparation inputs placed inside a corpus checkout are refused
 /// before corpus freshness or git inspection could read them: the notes file
 /// is Markdown, so a freshness pass would otherwise hash it as corpus text.

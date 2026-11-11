@@ -9,7 +9,17 @@ Updated: 2026-11-11
 
 | Canonical plan | State | Active task | Counts |
 | --- | --- | --- | --- |
-| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | none (owner gates: HTTP-0, EVAL-2.0) | 40 DONE, 7 OPEN, 2 BLOCKED; 49 total (FIX-5/FIX-6 DONE) |
+| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | none (EVAL-2.0 parked by owner pending human inputs) | 45 DONE, 6 OPEN, 1 BLOCKED; 52 total |
+
+- 2026-11-11 owner packet approved ([decisions](audit_session-2026-11-11-owner-decisions.md)):
+  ADR revision 10; HTTP-0, HTTP-2, FIX-7, SIMPL-3, FIX-8 DONE via strict
+  complete-local. HTTP-2: loopback `serve-http`, stateless JSON rmcp per
+  `docs_share` folder, Origin/Host/size/admission refusals; Astra P1
+  (disconnect leak) and two P2 (connection admission/read deadline, rmcp error
+  bodies) fixed with regressions. FIX-7 `text_truncated` and null n = 0
+  statistics; SIMPL-3 one kappa; FIX-8 staging before reservation. All-targets
+  (lib 210 passed 1 ignored; cli 8, gates 20, run 14, http 4, mcp 12), fmt,
+  Clippy exit0. Remaining work is EVAL-2.0 onward, parked on human inputs.
 
 - 2026-11-11 review round 3 ([audit](audit_session-2026-11-11-review-round3.md)):
   FIX-3 (all run files sized against one 16-MiB scoring payload from pinned

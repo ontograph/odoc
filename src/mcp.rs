@@ -89,6 +89,8 @@ pub struct OntoDocServer {
     app: Arc<App>,
     index: IndexSlot,
     admission: Arc<Semaphore>,
+    /// Process-wide work permits shared by every corpus (HTTP); `None` for stdio.
+    global: Option<Arc<Semaphore>>,
     #[cfg(test)]
     work_counts: Arc<WorkCounts>,
     tool_router: ToolRouter<Self>,
@@ -366,6 +368,7 @@ impl OntoDocServer {
             app: Arc::new(App::new(root)),
             index: Arc::new(Mutex::new(None)),
             admission: Arc::new(Semaphore::new(permits)),
+            global: None,
             #[cfg(test)]
             work_counts: Arc::new(WorkCounts::default()),
             tool_router: Self::tool_router(),
@@ -381,6 +384,15 @@ impl OntoDocServer {
         T: Bounded + Send + 'static,
         F: FnOnce(&App, &SearchIndex) -> Result<T, AppError> + Send + 'static,
     {
+        // Global first, then per corpus; both fail fast and move into the work.
+        let global = match &self.global {
+            Some(g) => Some(
+                g.clone()
+                    .try_acquire_owned()
+                    .map_err(|_| to_mcp(AppError::Busy))?,
+            ),
+            None => None,
+        };
         let permit = self
             .admission
             .clone()
@@ -393,7 +405,7 @@ impl OntoDocServer {
         #[cfg(test)]
         counts.spawns.fetch_add(1, Ordering::Relaxed);
         tokio::task::spawn_blocking(move || {
-            let _permit = permit;
+            let _permits = (global, permit);
             let index = {
                 let mut slot = slot.lock().map_err(|_| to_mcp(AppError::Internal))?;
                 #[cfg(test)]
@@ -552,6 +564,8 @@ pub enum RegistryError {
     TooMany,
     #[error("more than {MAX_ENTRIES} docs_share entries")]
     TooManyEntries,
+    #[error("per-corpus permits must be 1..={MAX_PERMITS}")]
+    InvalidPermits,
 }
 
 /// Independent per-folder MCP servers discovered once at startup. Each
@@ -564,6 +578,19 @@ pub struct Registry {
 
 impl Registry {
     pub fn discover(docs_share: &Path) -> Result<Self, RegistryError> {
+        Self::discover_with(docs_share, 1, None)
+    }
+
+    /// Discovery for a shared listener: `per_corpus` permits per folder plus
+    /// one process-wide `global` semaphore that every corpus draws from.
+    pub fn discover_with(
+        docs_share: &Path,
+        per_corpus: usize,
+        global: Option<Arc<Semaphore>>,
+    ) -> Result<Self, RegistryError> {
+        if !(1..=MAX_PERMITS).contains(&per_corpus) {
+            return Err(RegistryError::InvalidPermits);
+        }
         let mut names = Vec::new();
         let entries = std::fs::read_dir(docs_share).map_err(RegistryError::Unavailable)?;
         for (seen, entry) in entries.enumerate() {
@@ -600,11 +627,19 @@ impl Registry {
         let servers = names
             .into_iter()
             .map(|name| {
-                let server = OntoDocServer::new(&docs_share.join(&name));
+                let mut server = OntoDocServer::build(&docs_share.join(&name), per_corpus);
+                server.global = global.clone();
                 (name, server)
             })
             .collect();
         Ok(Self { servers })
+    }
+
+    /// Sorted `(name, server)` pairs.
+    pub fn servers(&self) -> impl Iterator<Item = (&str, &OntoDocServer)> {
+        self.servers
+            .iter()
+            .map(|(name, server)| (name.as_str(), server))
     }
 
     /// Sorted endpoint names.
@@ -1084,6 +1119,47 @@ mod tests {
             let _permit = server.admission.acquire().await.unwrap();
             assert!(server.index.try_lock().unwrap().is_some());
         });
+    }
+
+    #[tokio::test]
+    async fn shared_global_permits_bound_work_across_corpora_before_any_io() {
+        let share = tempfile::tempdir().unwrap();
+        for name in ["a", "b", "c"] {
+            std::fs::create_dir(share.path().join(name)).unwrap();
+        }
+        assert!(matches!(
+            Registry::discover_with(share.path(), 0, None),
+            Err(RegistryError::InvalidPermits)
+        ));
+        let global = Arc::new(Semaphore::new(4));
+        let registry = Registry::discover_with(share.path(), 2, Some(global.clone())).unwrap();
+        let a = registry.get("a").unwrap();
+        let b = registry.get("b").unwrap();
+        let c = registry.get("c").unwrap();
+        // Per corpus: 2 permits; corpora do not share them.
+        assert_eq!(a.admission.available_permits(), 2);
+        assert!(!Arc::ptr_eq(&a.admission, &b.admission));
+        // Hold all 4 global permits through corpora a and b.
+        let held: Vec<_> = (0..2)
+            .flat_map(|_| {
+                [
+                    global.clone().try_acquire_owned().unwrap(),
+                    global.clone().try_acquire_owned().unwrap(),
+                ]
+            })
+            .collect();
+        assert_eq!(held.len(), 4);
+        // Corpus c still has per-corpus room, but the global bound refuses it
+        // before CURRENT reads, reloads or spawns, and takes no c permit.
+        let err = c.status(Parameters(StatusRequest {})).await.unwrap_err();
+        assert_eq!(err, to_mcp(AppError::Busy));
+        assert_eq!(c.admission.available_permits(), 2);
+        assert_eq!(c.work_counts.snapshot(), [0; 3]);
+        drop(held);
+        // With global room, c proceeds to real work (no index: typed error).
+        let err = c.status(Parameters(StatusRequest {})).await.unwrap_err();
+        assert_ne!(err, to_mcp(AppError::Busy));
+        assert_eq!(global.available_permits(), 4);
     }
 
     #[tokio::test]

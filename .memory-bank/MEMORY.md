@@ -8,16 +8,17 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
 - [Current project status](project_plan-current.md) - in-progress plan and next task.
 - [Pending tasks](project_pending-tasks.md) - waiting and blocked work.
 - [Architecture](project_architecture.md) - owners and change-home rules.
-- [Service ADR](ADR_ONTODOC_SERVICE.md) - folder MCP/schema 2, local safety, fixed custody and trusted preparation/promotion (rev 9); measurement gated.
+- [Service ADR](ADR_ONTODOC_SERVICE.md) - folder MCP/schema 2, local safety, custody, trusted preparation (rev 9), HTTP-0 exposure/limits (rev 10); measurement gated.
 - [Evidence/diagnostics ADR](ADR_ONTODOC_EVIDENCE_DIAGNOSTICS.md) - proposed existing-tool extensions and trusted CLI diagnostics; not accepted or implemented.
 - [Agent rules](../AGENTS.md) - repository-wide instructions.
 
 ## Active Plans
 
-- [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - 40/49 done (FIX-5/6 closed round 4, 2026-11-11); blocked on owner gates: HTTP-0 exposure, EVAL-2.0 corpora/query approval/human annotators.
+- [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - 45/52 done (HTTP-2, FIX-7, SIMPL-3, FIX-8 closed 2026-11-11); EVAL-2.0 parked by owner pending corpora, operator and two human annotators.
 
 ## Recent Evidence
 
+- [Owner decisions](audit_session-2026-11-11-owner-decisions.md) - ten approved; ADR rev 10; HTTP-2 loopback listener, FIX-7/SIMPL-3/FIX-8 DONE.
 - [Review round 4](audit_session-2026-11-11-review-round4.md) - FIX-5 pre-reservation refusals, FIX-6 heading cap DONE.
 - [Review round 3](audit_session-2026-11-11-review-round3.md) - FIX-3 run-file bound, miss attribution, FIX-4 list caps DONE.
 - [Review/simplify consolidation](audit_session-2026-11-11-review-simplify-consolidate.md) -
@@ -57,8 +58,6 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
   139 tests, Clippy and formatting passed; Astra reviewed. Measurement disabled.
 - [Operational docs 2026-11-10](audit_session-2026-11-10-operations-docs.md) -
   README/agent guidance describes current stdio/schema/safety limits; Astra and document checks passed.
-- [HTTP-0 authority gate 2026-11-10](audit_session-2026-11-10-http0-authority-gate.md) -
-  explicit owner exposure/admission choice required; Astra-reviewed proposals only, no implementation.
 - [Schema-2 implementation 2026-11-10](audit_session-2026-11-10-schema2-implementation.md) -
   OD-3.2 identity/canonical artifacts, Astra review, 92 library + 5 CLI tests and Clippy passed.
 - [Identity/canonical decision 2026-11-10](audit_session-2026-11-10-identity-canonical-decision.md) -
@@ -92,7 +91,7 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
 
 - Language: Rust 1.95.0, edition 2024, one package `ontodoc` at the repo root.
 - Accepted HTTP design: `docs_share/<name>/` → `/<name>/mcp`, own `.ontodoc/`
-  database per folder; equal access, no cross-corpus retrieval. Registry done; no listener.
+  database per folder; equal access, no cross-corpus retrieval. Loopback `serve-http` behind an authenticated ingress.
 - `ontocode-rs/` is a read-only source snapshot (`COPY_MANIFEST.json`); it is
   not buildable and must never be part of the Cargo build.
 - Quality claims require the ADR protocol: section-level qrels, powered held-out

@@ -1,8 +1,8 @@
 # OntoDoc Implementation Plan
 
 Date: 2026-11-10
-Status: Blocked on owner gates (HTTP-0, EVAL-2.0); see manager_loop
-Authority: `ADR_ONTODOC_SERVICE.md` (Accepted, revision 9); user requirement of
+Status: HTTP delivery done; EVAL-2.0 parked by owner (2026-11-11) pending human inputs; see manager_loop
+Authority: `ADR_ONTODOC_SERVICE.md` (Accepted, revision 10); user requirement of
 2026-11-08: new Rust MCP service for documentation in this repository, with
 scientifically provable improvements. Reviews: `audit_session-2026-11-08-prior-attempt-review.md`,
 `audit_session-2026-11-08-donor-ideas-review.md`, `audit_session-2026-11-08-plan-challenge.md`.
@@ -751,7 +751,7 @@ tasks:
     - No permissively licensed second corpus is available.
     - Queries cannot be written without copying target text.
     known_blockers:
-    - 'EVAL-1.3 DONE 2026-11-11. Remaining owner gate: real benchmark assembly needs the trusted operator (human) to select pinned permissive corpora, supply the manager-owned query-approval audit and digest before the first pool run, and commit human annotators for EVAL-2.1. GPT-6-Astra review is authorized for queries only and never counts as human annotation; generic proceed does not resolve this gate.'
+    - 'Parked by owner 2026-11-11 pending corpora, a trusted operator and two human annotators (audit_session-2026-11-11-owner-decisions.md). EVAL-1.3 DONE 2026-11-11. Remaining owner gate: real benchmark assembly needs the trusted operator (human) to select pinned permissive corpora, supply the manager-owned query-approval audit and digest before the first pool run, and commit human annotators for EVAL-2.1. GPT-6-Astra review is authorized for queries only and never counts as human annotation; generic proceed does not resolve this gate.'
   EVAL-2.1:
     title: Given approved pools, when two humans independently label every pair for the predeclared overlap of at least 30% of answerable queries, then qrels and provenance pass qrels-stage preparation with raw-grade agreement and trusted approval
     status: OPEN
@@ -1392,7 +1392,7 @@ tasks:
     dod_status: pass
   HTTP-0:
     title: Given accepted folder-scoped HTTP, decide exposure and numerical resource/containment contracts before implementing network delivery
-    status: BLOCKED
+    status: DONE
     classification: architecture-paperwork
     assurance_profile: full
     complexity: complex
@@ -1423,11 +1423,15 @@ tasks:
     - Revert only this decision's document changes.
     stop_conditions:
     - Network exposure requires an authentication or deployment choice not supplied by the service owner.
-    known_blockers:
-    - Owner has not selected loopback-only use versus authenticated trusted-ingress remote delivery or supplied the remote admission/session trust boundary. See audit_session-2026-11-10-http0-authority-gate.md; generic proceed does not resolve this stop condition.
+    known_blockers: []
     closeout:
       role_results:
         coder-manager: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: approved and continue (round-4 decision packet); audit_session-2026-11-11-owner-decisions.md'
+        validation_summary: 'ADR revision 10 adds "HTTP-0 Exposure And Numeric Contracts": loopback backend behind authenticated trusted ingress; rmcp stateless JSON mode (no sessions/SSE/replay); exact /<folder>/mcp routing; Host allowlist, Origin refused; 128-KiB request/response, 256 concurrent requests, 4 global/2 per-corpus fail-fast work permits owned by work, reloads inside permits; no payload/credential logging; drain on shutdown; stdio parity. Also section IDs 4096, per-result text_truncated, null empty-group stats. Documentation only; project_plan_validate run after edit.'
+    dod_status: pass
   HTTP-1:
     title: Given docs_share folders, startup produces bounded sorted independent corpus endpoints and stores without cross-corpus fallback
     status: DONE
@@ -1473,7 +1477,7 @@ tasks:
     dod_status: pass
   HTTP-2:
     title: Given configured HTTP delivery, locked rmcp serves endpoint-bound sessions with stdio parity and bounded actual work
-    status: OPEN
+    status: DONE
     classification: implementation-ready
     assurance_profile: full
     complexity: complex
@@ -1492,20 +1496,28 @@ tasks:
     - src/main.rs
     - src/cli.rs
     - src/mcp.rs
+    - src/http.rs
+    - src/lib.rs
     - tests/mcp.rs
     - tests/cli.rs
+    - tests/http.rs
     allowed_write_set:
     - Cargo.toml
     - Cargo.lock
     - src/main.rs
     - src/cli.rs
     - src/mcp.rs
+    - src/http.rs
+    - src/lib.rs
     - tests/mcp.rs
     - tests/cli.rs
+    - tests/http.rs
     non_goals:
     - New MCP tools, retrieval-network dependencies, anonymous exposure or scientific quality claims.
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo test --test mcp --test cli
+    - CARGO_BUILD_JOBS=4 cargo test --test mcp --test cli --test http
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib http:': null
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib mcp:': null
     expected_evidence:
     - Enable only the approved locked rmcp HTTP feature and minimal required transport dependencies; reuse the five stdio handlers, no REST ranker.
     - Synthetic listener tests prove endpoint/session isolation, same-corpus stdio parity, complete wire bounds, origin/host/admission rejection, cancellation ownership and controlled drain.
@@ -1518,6 +1530,11 @@ tasks:
     closeout:
       role_results:
         coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: approved and continue (all ten owner recommendations); audit_session-2026-11-11-owner-decisions.md; ADR revision 10 HTTP-0 section'
+        validation_summary: 'Local run exit0: cargo test --all-targets all suites ok (lib 208 passed 1 ignored before the review fixes); after fixes cargo test --lib http:: 4 passed, --test http 4 passed; fmt --check ok; clippy --all-targets -D warnings ok. src/http.rs: loopback-only serve, rmcp 1.7 stateless JSON, exact /<encoded folder>/mcp routing, Origin 403, Host allowlist, POST only, 128 KiB streaming request bound and complete response bound, 256 connection plus 256 in-flight fail-fast admission, 30 s header/body read deadline, rmcp call detached in a tracked task owning its slot (disconnect cannot leak rmcp oneshot tasks), rmcp non-2xx bodies replaced by a generic body, drain on Ctrl-C/SIGTERM. mcp.rs: global 4 then per-corpus 2 permits fail-fast, moved into spawn_blocking. GPT-6-Astra review: P1 disconnect leak, P2 connection admission/slowloris, P2 rmcp error bodies, all fixed with regressions. Synthetic only.'
+    dod_status: pass
   OD-3.7:
     title: Given the current service, operational documentation accurately describes installation, five tools and limitations without waiting for retrieval-quality results
     status: DONE
@@ -2023,6 +2040,123 @@ tasks:
         authorization_ref: 'User 2026-11-11: review/challenge/consolidate and proceed (round 4); audit_session-2026-11-11-review-round4.md'
         validation_summary: 'Local run exit0: cargo test --lib store:: 44 passed 1 ignored; cli:: 7; cli 8, mcp 12 passed; cargo test --all-targets 257 passed 1 ignored (before the chunk-path extension; store/cli/mcp rerun after); fmt --check ok; clippy --all-targets -D warnings ok. build_rooted refuses CapExceeded("citation heading bytes") for any section or chunk heading_path above 64 headings / 16 KiB, sharing MAX_CITATION_HEADINGS/MAX_CITATION_HEADING_BYTES with validate_citation_fields; build-only, no schema bump, existing generations still load. Regression heading_paths_beyond_the_citation_bound_fail_publication (16 KiB ok, +1 refused). Proposed last-# lookup rejected: ADR lines 238-240 keep that limitation and tests/cli.rs caught it. Astra delta: no findings plus one P3 (chunk paths), fixed. Synthetic only.'
     dod_status: pass
+  FIX-7:
+    title: Given search results and evaluation reports, per-result text truncation is explicit and empty exploratory groups report null statistics
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - HTTP-2
+    type: code
+    validation_tier: unit-fast
+    impact_risk: low
+    owner_files:
+    - src/cli.rs
+    - src/eval/run.rs
+    allowed_write_set:
+    - src/cli.rs
+    - src/eval/run.rs
+    non_goals:
+    - Changing ranking, assembly order, schema version or the confirmatory decision rule.
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib cli::'
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval::'
+    - CARGO_BUILD_JOBS=4 cargo test --test cli --test mcp --test eval_run
+    - cargo fmt --check
+    expected_evidence:
+    - SearchResult.text_truncated from stored l0_truncated/l1_truncated (L2 false); regression search_results_carry_the_stored_tier_truncation_flag.
+    - Comparison mean/ci_lo/ci_hi/p are Option and null when n = 0; Holm uses 1 for a missing p; decision Inconclusive without an interval; per_corpus_comparisons test asserts nulls.
+    rollback:
+    - Revert this task's listed changes.
+    stop_conditions:
+    - Null statistics would change a confirmatory decision with n > 0.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: approved and continue (owner decisions 7, 8, 9, 10); audit_session-2026-11-11-owner-decisions.md'
+        validation_summary: 'text_truncated added (ADR rev10 section 8); Comparison.stats() maps n = 0 to null (ADR rev10 statistics line). Local run exit0 this session: cargo test --all-targets (lib 210 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4, mcp 12); cargo fmt --check ok; clippy --all-targets -D warnings ok. Synthetic only.'
+    dod_status: pass
+  SIMPL-3:
+    title: Given rater count matrices, one quadratic-weighted kappa implementation serves agreement gates and statistics
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - FIX-7
+    type: code
+    validation_tier: unit-fast
+    impact_risk: low
+    owner_files:
+    - src/eval/gates.rs
+    - src/eval/stats.rs
+    allowed_write_set:
+    - src/eval/gates.rs
+    - src/eval/stats.rs
+    non_goals:
+    - Consolidating identity checks (deferred by owner) or changing agreement thresholds.
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval::'
+    - cargo fmt --check
+    expected_evidence:
+    - stats::kappa_from_counts (square matrix, k >= 2) is the only kappa formula; weighted_kappa builds counts and delegates; gates.rs duplicate removed.
+    - Worked examples unchanged: 10/13, identical raters 1, undefined None (stats and gates tests).
+    rollback:
+    - Revert this task's listed changes.
+    stop_conditions:
+    - A worked-example value changes.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: approved and continue (owner decisions 7, 8, 9, 10); audit_session-2026-11-11-owner-decisions.md'
+        validation_summary: 'Net -10 lines; gates cluster_kappa and stats quadratic_weighted_kappa worked examples pass unchanged. Local run exit0 this session: cargo test --all-targets (lib 210 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4, mcp 12); cargo fmt --check ok; clippy --all-targets -D warnings ok. Synthetic only.'
+    dod_status: pass
+  FIX-8:
+    title: Given a held-out run, the private staging directory exists before the sole attempt is reserved
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - SIMPL-3
+    type: code
+    validation_tier: unit-fast
+    impact_risk: high
+    owner_files:
+    - src/eval/run.rs
+    - tests/eval_run.rs
+    allowed_write_set:
+    - src/eval/run.rs
+    - tests/eval_run.rs
+    non_goals:
+    - Reading held-out payloads before reservation or changing StagingDir semantics.
+    required_validation:
+    - CARGO_BUILD_JOBS=4 cargo test --test eval_run
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval::'
+    - cargo fmt --check
+    expected_evidence:
+    - run_held_out and run create StagingDir before Bench::load_test_reserved / run_reserved; run_reserved takes the stage.
+    - Regression unwritable_output_parent_refuses_before_reservation: read-only parent refuses, no attempt-started.json, no output; fails with the old ordering (checked by temporary revert).
+    rollback:
+    - Revert this task's listed changes.
+    stop_conditions:
+    - Staging before reservation would read held-out payloads.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: approved and continue (owner decisions 7, 8, 9, 10); audit_session-2026-11-11-owner-decisions.md'
+        validation_summary: 'Staging moved before reservation; StagingDir::create semantics unchanged; dev runs also stage before ranking. Local run exit0 this session: cargo test --all-targets (lib 210 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4, mcp 12); cargo fmt --check ok; clippy --all-targets -D warnings ok. Synthetic only.'
+    dod_status: pass
   PERF-1:
     title: Given concurrent MCP clients, requests snapshot the shared immutable index under a short lock and run with bounded configurable permits owned by the actual work
     status: DONE
@@ -2109,6 +2243,9 @@ tasks:
 | REQ-041 | 2026-11-11 round-3 deferred simplification: single held-out freeze verification per command | implementation | SIMPL-2 | unchanged refusal tests |
 | REQ-042 | 2026-11-11 round-4 review: held-out pre-reservation refusals for TSV-unsafe ids and unusable output parents | implementation | FIX-5 | refusal regressions |
 | REQ-043 | 2026-11-11 round-4 review: verifiable citations (heading bound at publication) | implementation | FIX-6 | cap and lookup regressions |
+| REQ-044 | Owner decisions 7-8 (rev10): per-result text_truncated; null statistics for n = 0 groups | implementation | FIX-7 | flag and null regressions |
+| REQ-045 | Owner decision 9: one shared kappa implementation | implementation | SIMPL-3 | unchanged worked examples |
+| REQ-046 | Owner decision 10: staging before held-out reservation | implementation | FIX-8 | unwritable-parent refusal regression |
 
 ## Decisions And Non-Goals
 

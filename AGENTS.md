@@ -34,17 +34,16 @@ or passing unit tests. These rules apply repository-wide.
 
 ## Service Boundary
 
-- The implemented transport is **stdio**, with five read-only tools. ADR
-  revision 4 accepts folder-scoped HTTP architecture; scoped tasks are still
-  required before implementation. It does not authorize listener startup,
-  automatic indexing, an authentication stack or new MCP tools in this task.
-  HTTP-0 is blocked on an explicit owner exposure/admission choice; generic
-  proceed does not choose it. Native-reader/session/budget recommendations in
-  its audit remain proposals, not approved dependencies or implementation rules.
-- Each immediate real subfolder `docs_share/<name>/` gets its own logical MCP
-  endpoint `/<name>/mcp` and physically separate `.ontodoc/` database/index store
-  in the accepted design; startup discovery (`mcp::Registry`, HTTP-1) exists,
-  but no route or listener is implemented.
+- Transports: **stdio** (one corpus) and a **loopback-only** stateless JSON
+  Streamable HTTP listener (`serve-http`, `src/http.rs`, HTTP-2), with the same
+  five read-only tools. ADR revision 10 fixes its contracts: authenticated TLS
+  ingress in front (not OntoDoc code), Origin refused, Host allowlist, 128 KiB
+  bodies, 256 connections/in-flight, 4 global + 2 per-corpus work permits.
+  Never bind non-loopback, add authentication, sessions/SSE or new tools
+  without an ADR amendment.
+- Each immediate real subfolder `docs_share/<name>/` is its own endpoint
+  `/<percent-encoded name>/mcp` with a physically separate `.ontodoc/` store,
+  discovered once at startup (`mcp::Registry`).
   Preserve folder names with URL-segment encoding; no merged database or path
   filter in place of separate stores. Nested folders stay in their parent corpus.
 - Every service user may read every exposed corpus. Do not add document ACLs
@@ -198,7 +197,7 @@ own approved dev evaluation and preregistration, not a changed confirmatory fami
 <!-- ontoindex:start -->
 # OntoIndex — Code Intelligence
 
-This project is indexed by OntoIndex as **ontodoc** (12126 symbols, 29497 relationships, 300 execution flows). Use the OntoIndex MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by OntoIndex as **ontodoc** (12193 symbols, 29672 relationships, 300 execution flows). Use the OntoIndex MCP tools to understand code, assess impact, and navigate safely.
 
 > Always query OntoIndex first. Repo queries refresh stale indexes in the background; dirty edits use the automatic overlay. Use stale/refreshing results with freshness labels; verify edited or new code from source. Never fall back to grep-only because the index is stale. Manual `ontoindex analyze` is only for immediate refresh with no active job. Sub-agents never start reindex jobs; refresh-on-query covers them.
 

@@ -2257,7 +2257,8 @@ pub fn run(
         ));
     }
     bench.require_prepared_capture(SplitName::Dev)?;
-    run_reserved(bench, split, confirm_test, out, None)
+    let stage = StagingDir::create(out)?;
+    run_reserved(bench, split, confirm_test, out, stage, None)
 }
 
 /// Held-out run from the pinned preparation: confirmation and admission are
@@ -2276,12 +2277,15 @@ pub fn run_held_out(
     let evidence = Preparation::load(preparation, preparation_sha256)?;
     let custody = Custody::resolve(Path::new("."))?;
     held_out_admission(config_path, &evidence, &custody, out)?;
+    // An unusable output location must fail before the sole attempt is spent.
+    let stage = StagingDir::create(out)?;
     let (bench, started) = Bench::load_test_reserved(config_path, &evidence, &custody, out)?;
     run_reserved(
         &bench,
         SplitName::Test,
         confirm_test,
         out,
+        stage,
         Some((custody, started)),
     )
 }
@@ -2291,9 +2295,11 @@ fn run_reserved(
     split: SplitName,
     confirm_test: bool,
     out: &Path,
+    stage: StagingDir,
     attempt: Option<(Custody, AttemptStarted)>,
 ) -> Result<Report, EvalError> {
-    let result = (|| {
+    let attempt_ref = attempt.as_ref();
+    let result = (move || {
         let registered = if split == SplitName::Test {
             Some(check_held_out_code(bench)?)
         } else {
@@ -2344,7 +2350,6 @@ fn run_reserved(
             &indexes,
             &systems,
         ))?;
-        let stage = StagingDir::create(out)?;
         let code_identity = frozen.map(|f| (f.git_commit, f.binary_sha256));
         let stage_path = stage.path();
         let mut run_sha256 = BTreeMap::new();
@@ -2439,7 +2444,7 @@ fn run_reserved(
             ));
         }
         let report_bytes = serde_json::to_vec_pretty(&report)?;
-        publish_run(stage, out, &meta_bytes, &report_bytes, attempt.as_ref())?;
+        publish_run(stage, out, &meta_bytes, &report_bytes, attempt_ref)?;
         Ok(report)
     })();
     consume_on_error(attempt.as_ref(), result)
@@ -2557,12 +2562,26 @@ pub struct Comparison {
     pub metric: String,
     pub stratum: Option<String>,
     pub n: usize,
-    pub mean: f64,
-    pub ci_lo: f64,
-    pub ci_hi: f64,
-    pub p: f64,
+    /// `None` (serialized `null`) when `n = 0`: no statistic exists.
+    pub mean: Option<f64>,
+    pub ci_lo: Option<f64>,
+    pub ci_hi: Option<f64>,
+    pub p: Option<f64>,
     pub holm_p: Option<f64>,
     pub decision: Option<Decision>,
+}
+
+impl Comparison {
+    /// Statistics of one contrast; an empty group reports them unavailable
+    /// instead of the bootstrap's zero placeholders.
+    fn stats(&mut self, n: usize, ci: Interval, p: f64) {
+        self.n = n;
+        let some = |v: f64| (n > 0).then_some(v);
+        self.mean = some(ci.mean);
+        self.ci_lo = some(ci.lo);
+        self.ci_hi = some(ci.hi);
+        self.p = some(p);
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -2656,21 +2675,23 @@ fn per_corpus_comparisons(
                 resamples,
                 seed,
             );
-            out.push(Comparison {
+            let mut c = Comparison {
                 id: format!("{corpus}/{}", sp.id),
                 role: "exploratory".into(),
                 treatment: sp.treatment.clone(),
                 baseline: sp.baseline.clone(),
                 metric: sp.metric.into(),
                 stratum: sp.stratum.map(|s| s.name().to_string()),
-                n,
-                mean: ci.mean,
-                ci_lo: ci.lo,
-                ci_hi: ci.hi,
-                p,
+                n: 0,
+                mean: None,
+                ci_lo: None,
+                ci_hi: None,
+                p: None,
                 holm_p: None,
                 decision: None,
-            });
+            };
+            c.stats(n, ci, p);
+            out.push(c);
         }
     }
     out
@@ -3069,47 +3090,50 @@ fn score_captured(
                 meta.resamples,
                 meta.seed,
             );
-            Comparison {
+            let mut c = Comparison {
                 id: sp.id.into(),
                 role: sp.role.into(),
                 treatment: sp.treatment.clone(),
                 baseline: sp.baseline.clone(),
                 metric: sp.metric.into(),
                 stratum: sp.stratum.map(|s| s.name().to_string()),
-                n,
-                mean: ci.mean,
-                ci_lo: ci.lo,
-                ci_hi: ci.hi,
-                p,
+                n: 0,
+                mean: None,
+                ci_lo: None,
+                ci_hi: None,
+                p: None,
                 holm_p: None,
                 decision: None,
-            }
+            };
+            c.stats(n, ci, p);
+            c
         })
         .collect();
     let per_corpus_comparisons =
         per_corpus_comparisons(&specs, &metric, &corpus_of, meta.resamples, meta.seed);
-    let holm = stats::holm(&[comparisons[1].p, comparisons[2].p]);
-    let h1_passed = comparisons[0].n > 0
-        && comparisons[0].mean > 0.0
-        && comparisons[0].ci_lo > 0.0
-        && comparisons[0].p < ALPHA;
+    // A missing p (n = 0) enters Holm as 1, the least significant value.
+    let p_or_one = |c: &Comparison| c.p.unwrap_or(1.0);
+    let holm = stats::holm(&[p_or_one(&comparisons[1]), p_or_one(&comparisons[2])]);
+    let h0 = &comparisons[0];
+    let h1_passed = h0.n > 0
+        && h0.mean.is_some_and(|m| m > 0.0)
+        && h0.ci_lo.is_some_and(|lo| lo > 0.0)
+        && h0.p.is_some_and(|p| p < ALPHA);
     for (i, c) in comparisons.iter_mut().enumerate().take(3) {
-        let p = if i == 0 { c.p } else { holm[i - 1] };
+        let p = if i == 0 { p_or_one(c) } else { holm[i - 1] };
         if i > 0 && h1_passed {
             c.holm_p = Some(p);
         }
         if i > 0 && !h1_passed {
             continue;
         }
-        let ci = Interval {
-            mean: c.mean,
-            lo: c.ci_lo,
-            hi: c.ci_hi,
+        let ci = match (c.mean, c.ci_lo, c.ci_hi) {
+            (Some(mean), Some(lo), Some(hi)) => Some(Interval { mean, lo, hi }),
+            _ => None,
         };
-        c.decision = Some(if c.n == 0 || (i > 0 && !h1_passed) {
-            Decision::Inconclusive
-        } else {
-            stats::decide(ci, p, ALPHA, MIN_EFFECT)
+        c.decision = Some(match ci {
+            Some(ci) if i == 0 || h1_passed => stats::decide(ci, p, ALPHA, MIN_EFFECT),
+            _ => Decision::Inconclusive,
         });
     }
 
@@ -3381,11 +3405,17 @@ mod tests {
         assert_eq!(ids, ["a/H2", "a/E1", "b/H2", "b/E1"]);
         assert_eq!(
             (out[0].n, out[0].mean, out[0].ci_lo, out[0].ci_hi),
-            (2, 0.5, 0.5, 0.5)
+            (2, Some(0.5), Some(0.5), Some(0.5))
         );
-        assert_eq!((out[2].n, out[2].mean), (1, -0.25));
+        assert_eq!((out[2].n, out[2].mean), (1, Some(-0.25)));
         // The stratum filter is kept: corpus b has no multi-hop query.
         assert_eq!((out[1].n, out[3].n), (2, 0));
+        // An empty group has no statistics: null, never fabricated zeros.
+        let empty = serde_json::to_value(&out[3]).unwrap();
+        for field in ["mean", "ci_lo", "ci_hi", "p"] {
+            assert!(empty[field].is_null(), "{field}: {empty}");
+        }
+        assert!(out[1].p.is_some());
         assert_eq!(out[1].stratum.as_deref(), Some("multi-hop"));
         assert!(
             out.iter()

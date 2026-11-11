@@ -468,28 +468,6 @@ fn overlap_selection(queries: &[Query], seed: u64) -> BTreeSet<&str> {
 
 type Counts = [[f64; 3]; 3];
 
-/// Quadratic-weighted kappa of a 3x3 rater-pair count matrix; `None` when
-/// expected disagreement is zero (same formula as `stats::weighted_kappa`).
-fn kappa_from_counts(observed: &Counts) -> Option<f64> {
-    let n: f64 = observed.iter().flatten().sum();
-    if n <= 0.0 {
-        return None;
-    }
-    let rows: Vec<f64> = observed.iter().map(|r| r.iter().sum()).collect();
-    let cols: Vec<f64> = (0..3)
-        .map(|j| observed.iter().map(|r| r[j]).sum())
-        .collect();
-    let (mut num, mut den) = (0.0, 0.0);
-    for i in 0..3 {
-        for j in 0..3 {
-            let w = ((i as f64 - j as f64) / 2.0).powi(2);
-            num += w * observed[i][j];
-            den += w * rows[i] * cols[j] / n;
-        }
-    }
-    (den > 0.0).then(|| 1.0 - num / den)
-}
-
 fn percentile(sorted: &[f64], p: f64) -> Option<f64> {
     (!sorted.is_empty()).then(|| super::stats::quantile(sorted, p))
 }
@@ -507,7 +485,7 @@ fn cluster_agreement(
             }
         }
     }
-    let kappa = kappa_from_counts(&total);
+    let kappa = crate::eval::stats::kappa_from_counts(&total);
     if clusters.is_empty() {
         return (kappa, None, None, 0);
     }
@@ -523,7 +501,7 @@ fn cluster_agreement(
                 }
             }
         }
-        values.extend(kappa_from_counts(&sample));
+        values.extend(crate::eval::stats::kappa_from_counts(&sample));
     }
     values.sort_by(f64::total_cmp);
     let undefined = AGREEMENT_RESAMPLES - values.len();
@@ -1200,13 +1178,13 @@ mod tests {
         // O = [[3,0,0],[1,2,1],[0,1,2]]: observed 0.75, expected 3.25 (see
         // stats::quadratic_weighted_kappa_worked_example), kappa = 10/13.
         let o: Counts = [[3.0, 0.0, 0.0], [1.0, 2.0, 1.0], [0.0, 1.0, 2.0]];
-        let k = kappa_from_counts(&o).unwrap();
+        let k = crate::eval::stats::kappa_from_counts(&o).unwrap();
         assert!((k - 10.0 / 13.0).abs() < 1e-12);
-        assert_eq!(kappa_from_counts(&[[0.0; 3]; 3]), None);
+        assert_eq!(crate::eval::stats::kappa_from_counts(&[[0.0; 3]; 3]), None);
         // All mass in one cell: expected disagreement 0, undefined.
         let mut same = [[0.0; 3]; 3];
         same[1][1] = 4.0;
-        assert_eq!(kappa_from_counts(&same), None);
+        assert_eq!(crate::eval::stats::kappa_from_counts(&same), None);
         // Splitting O into two clusters keeps the pooled point estimate.
         let a: Counts = [[3.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0]];
         let b: Counts = [[0.0, 0.0, 0.0], [0.0, 2.0, 1.0], [0.0, 1.0, 2.0]];

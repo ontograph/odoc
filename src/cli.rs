@@ -61,6 +61,16 @@ pub enum Command {
     Status,
     /// Serve the read-only MCP tools over stdio.
     Serve,
+    /// Serve every `docs_share/<folder>/` at `/<folder>/mcp` over HTTP on a
+    /// loopback address (put an authenticated TLS ingress in front).
+    ServeHttp {
+        /// Directory whose immediate subfolders are corpora.
+        #[arg(long)]
+        docs_share: PathBuf,
+        /// Loopback listen address.
+        #[arg(long, default_value = "127.0.0.1:8080")]
+        listen: std::net::SocketAddr,
+    },
     /// Benchmark harness.
     #[command(subcommand)]
     Eval(EvalCommand),
@@ -561,6 +571,9 @@ pub struct SearchResult {
     pub stale: bool,
     pub tier: TierLevel,
     pub text: String,
+    /// The returned L0/L1 text was shortened by the tier byte cap at
+    /// indexing (stored flag); L2 is never shortened.
+    pub text_truncated: bool,
     pub citation: Citation,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub explain: Option<Components>,
@@ -833,6 +846,11 @@ impl App {
                 stale: stale.contains(c.path.as_str()),
                 tier,
                 text: text.to_string(),
+                text_truncated: match tier {
+                    TierLevel::L0 => c.l0_truncated,
+                    TierLevel::L1 => c.l1_truncated,
+                    TierLevel::L2 => false,
+                },
                 citation: Citation::for_chunk(g, hit.chunk)
                     .ok_or_else(|| AppError::NotFound(c.id.clone()))?,
                 explain: ranked.explain.get(i).copied(),
@@ -1078,9 +1096,9 @@ pub fn run(cli: Cli) -> Result<String, AppError> {
         }
         Command::Status => serde_json::to_string_pretty(&app.status(&app.load_index()?)?)?,
         Command::Eval(cmd) => run_eval(cmd)?,
-        Command::Serve => {
+        Command::Serve | Command::ServeHttp { .. } => {
             return Err(AppError::InvalidArgument(
-                "`serve` is handled by the binary entry point".into(),
+                "serve commands are handled by the binary entry point".into(),
             ));
         }
     };
@@ -1641,6 +1659,44 @@ mod tests {
             "generation_unavailable"
         );
         assert_eq!(app.load_index().unwrap().generation.generation_id, next);
+    }
+
+    #[test]
+    fn search_results_carry_the_stored_tier_truncation_flag() {
+        let root = tempfile::tempdir().unwrap();
+        // A 300-byte first sentence exceeds L0_CAP (200), so L0 is capped.
+        let long = format!("{}.", "zeta ".repeat(60));
+        std::fs::write(root.path().join("a.md"), format!("# A\n\n{long}\n")).unwrap();
+        std::fs::write(root.path().join("b.md"), "# B\n\nzeta short.\n").unwrap();
+        let app = App::new(root.path());
+        app.index().unwrap();
+        let index = app.load_index().unwrap();
+        let request = |budget| SearchRequest {
+            query: "zeta".into(),
+            mode: SearchMode::Lexical,
+            top_k: 10,
+            scope: None,
+            explain: false,
+            budget_bytes: budget,
+            alpha: None,
+            beta: None,
+            threshold: None,
+        };
+        // A budget of exactly the L0 bytes keeps every result at L0.
+        let budget = index.generation.chunks.iter().map(|c| c.l0.len()).sum();
+        let l0 = app.search(&index, &request(Some(budget))).unwrap();
+        let flag = |r: &SearchResponse, path: &str| {
+            r.results
+                .iter()
+                .find(|x| x.citation.path == path)
+                .map(|x| (x.tier, x.text_truncated))
+        };
+        assert_eq!(flag(&l0, "a.md"), Some((TierLevel::L0, true)));
+        // b.md's L1 equals its L0, so it may upgrade; either way, uncapped.
+        assert_eq!(flag(&l0, "b.md").map(|f| f.1), Some(false));
+        // Unbudgeted search returns L2, which is never shortened.
+        let l2 = app.search(&index, &request(None)).unwrap();
+        assert_eq!(flag(&l2, "a.md"), Some((TierLevel::L2, false)));
     }
 
     #[test]

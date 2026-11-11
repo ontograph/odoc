@@ -24,6 +24,11 @@ belongs to OD-3.4/3.6/3.5/3.9; HTTP-0 remains owner-blocked.
 Revision 9 accepts EVAL-1.6's trusted preparation/provenance handoff and fixed
 default-promotion priority below. EVAL-1.3 implements admission; measurement
 remains disabled, human annotation and HTTP exposure gates unchanged.
+Revision 10 (2026-11-11) records the owner's approval of the round-4 decision
+packet: HTTP-0 exposure and numeric contracts (below), the 4096-byte section-ID
+exception, a per-result `text_truncated` search field, and unavailable
+statistics for empty exploratory groups. Evaluation stays parked on human
+inputs (`audit_session-2026-11-11-owner-decisions.md`).
 Owner: OntoDoc maintainers
 
 ## Status
@@ -163,7 +168,10 @@ Two predecessors exist:
      **breadth-first context assembly**. Every result first gets L0; leftover
      budget then upgrades results in rank order to L1 and then L2. A tier that
      doesn't fit stays at the previous tier and is never truncated. This is a
-     feature with no quality claim.
+     feature with no quality claim. Each result carries `text_truncated`: true
+     when its L0/L1 text was shortened by the tier byte cap at indexing (the
+     stored flag; L2 is never shortened). The response `truncated` flag keeps
+     meaning omitted results (revision 10).
    - `read`: chunk or section by id or path#anchor.
    - `related`: graph neighbours of a chunk.
    - `verify`: re-check citations against current bytes.
@@ -622,10 +630,56 @@ Local stdio client   → one explicitly configured corpus root, as today
   prerequisites for exposure. Bound active corpora and total/per-corpus work;
   reject an exceeded cap explicitly rather than silently omitting folders.
 
+### HTTP-0 Exposure And Numeric Contracts (Accepted, Revision 10)
+
+Owner decision 2026-11-11: **loopback backend behind authenticated trusted
+ingress.** The process binds only a loopback address. Remote users reach it
+through an operator-run TLS ingress that authenticates every request and
+cannot be bypassed; ingress configuration is a delivery acceptance item, not
+OntoDoc code. Anonymous or direct public listeners remain unauthorized.
+
+- Transport: locked `rmcp` 1.7 `transport-streamable-http-server` in
+  **stateless JSON mode** (`stateful_mode=false`, `json_response=true`): one
+  POST carries one JSON-RPC message and receives one bounded JSON response.
+  No server sessions, SSE streams, replay cache or session store exist, so
+  session hijack/reuse, retained-channel and replay bounds are vacuous. GET and
+  DELETE return 405. Each request is bound to its URL's corpus by routing; no
+  tool argument selects a corpus. Server-initiated notifications are not used.
+- Routing: `/<percent-encoded folder>/mcp` exact match against the HTTP-1
+  registry; anything else is 404 with a generic body. No default corpus.
+- Host/Origin: `Host` must match the configured loopback authority (rmcp
+  `allowed_hosts`). Native-client profile: any request carrying `Origin` is
+  refused 403 before routing or body reads. A browser allowlist needs a later
+  ADR change. Forwarded headers are ignored.
+- Numeric limits (conservative policies, not measured capacity):
+
+  | Boundary | Limit |
+  | --- | --- |
+  | Corpora | 32 (HTTP-1 `MAX_CORPORA`) |
+  | Request body | 128 KiB, enforced while streaming, before JSON decode; `Content-Length` above it refuses 413 without reading |
+  | Complete response body | 128 KiB, existing `MAX_RESPONSE_BYTES` envelope rule |
+  | Concurrent in-flight HTTP requests (connections admitted) | 256 global each; excess requests refused 503 and excess connections closed, fail-fast, no queue |
+  | Request read deadline | 30 s for the request head and for the body (408) |
+  | Actual blocking tool work | 4 global and 2 per corpus permits, acquired fail-fast before CURRENT reads/reload/spawn and owned by the work until it stops; `busy` on exhaustion |
+  | Reloads | inside the same permits; one shared immutable index per corpus |
+  | Load/artifact | existing local limits; operators keep artifacts small (no new resident-memory guarantee) |
+  | Source file | 2 MiB, unchanged |
+
+- Privacy: no logging of queries, documents, session IDs, credentials or
+  request bodies; rmcp `tracing` output is not installed by OntoDoc (no
+  subscriber). Error bodies stay generic (rmcp non-2xx bodies are replaced). Stdout stays free of protocol output
+  in HTTP mode; diagnostics go to stderr.
+- Shutdown: Ctrl-C/SIGTERM stops accepting, then drains in-flight requests;
+  blocking work keeps its permit until it actually ends.
+- Parity: the five handlers are the same `OntoDocServer` methods used by stdio;
+  responses for the same corpus and request are identical apart from transport
+  framing.
+
 ### Delivery Boundary
 
-Current `src/mcp.rs` serves stdio only; `docs_share/` does not yet exist in this
-checkout. This amendment authorizes the architecture, not listener startup,
+Revision 10 authorizes HTTP-2 to implement the contracts above. Before that,
+`src/mcp.rs` serves stdio only; `docs_share/` does not exist in this
+checkout. Revision 4 authorized the architecture, not listener startup,
 database creation, automatic indexing or changes to the active evaluation task.
 The existing implementation plan remains its stdio/evaluation baseline until
 scoped HTTP tasks are added through the project planning workflow.
@@ -650,6 +704,8 @@ retrieval-quality hypotheses; the pre-registered benchmark is unchanged.
   Off-topic queries are not judged; they are used only for H3.
 - Two corpora: bootstrap and randomization resample within each corpus
   (stratified). Results are reported pooled and per corpus.
+  An exploratory group with `n = 0` reports `mean`, CI bounds and `p` as
+  unavailable (`null`), never fabricated zeros (revision 10).
 
 ### Hypotheses
 
@@ -870,7 +926,8 @@ accept a caller's JSON `passed` field in place of recomputation. Capture each
 input once within existing 16-MiB-per-payload / 256-MiB-total / 100,000-record
 limits; query count remains 2,000. Provenance counts consume the shared record
 budget, including history/grade entries; reject before excess allocations.
-Bound identifiers to 128 UTF-8 bytes and rationale/evidence fields to 4 KiB;
+Bound identifiers to 128 UTF-8 bytes, except section IDs (path plus heading
+chain), which are bounded to 4,096 bytes (revision 10); rationale/evidence fields to 4 KiB;
 the manifest is capped at 1 MiB. Cap exhaustion is a refusal, not omitted evidence.
 
 Publish one versioned `preparation.json` only after its required checks pass:

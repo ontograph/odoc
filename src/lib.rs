@@ -9,6 +9,7 @@ pub mod cli;
 pub mod corpus;
 pub mod eval;
 pub mod graph;
+pub mod http;
 pub mod mcp;
 pub mod parse;
 pub mod search;

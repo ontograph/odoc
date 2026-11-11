@@ -50,8 +50,14 @@ corpus identity because generation/section IDs can coincide across stores.
 Extend existing owners: `src/mcp.rs` owns endpoint/session routing and per-corpus
 server reuse; `src/cli.rs` owns configured roots and trusted per-folder indexing;
 `src/store.rs` owns each independent `.ontodoc/` database and atomic publication.
-Keep the five tools, stdio support and retrieval algorithms. HTTP security,
-resource bounds and scoped implementation tasks are required before exposure.
+Keep the five tools, stdio support and retrieval algorithms. HTTP-2
+(2026-11-11, ADR revision 10) adds `src/http.rs`: loopback-only hyper http1
+accept loop → `Router` (connection and in-flight caps, Origin 403, exact
+encoded-route lookup, POST only, 128 KiB streaming body, 30 s read deadline)
+→ rmcp stateless JSON `StreamableHttpService` per corpus (Host allowlist) in a
+tracked task that owns its slot → complete-response bound and generic
+non-2xx bodies. Each route reuses the registry's `OntoDocServer`; tool work
+takes 4 global then 2 per-corpus permits inside `OntoDocServer::blocking`.
 HTTP-1 (2026-11-11) implements `mcp::Registry::discover`: immediate real
 subdirectories, sorted, at most 32, URL-unreserved names, symlinks and other
 special entries refused, hidden entries and plain files ignored. It holds one
@@ -74,9 +80,10 @@ in the ADR's **Folder-Scoped HTTP MCP Architecture** section.
 | `src/search/mod.rs` | checked aggregate tokenizer-input admission and shared first-text/last-hierarchy document map; trusted compatibility constructor retained | OD-1.6, OD-3.6 |
 | `src/assemble.rs` | breadth-first budgeted context assembly (L0 → L1 → L2), no quality claim | OD-1.8 |
 | `src/cite.rs` | exact active-generation chunk/section membership before rooted current-byte verification (valid / moved / stale / missing) | OD-1.7, OD-3.4 |
-| `src/cli.rs`, `src/main.rs` | application layer (`App`, bounded responses, `AppError::kind()`) shared by CLI and MCP; clap subcommands index/search/read/related/verify/status/serve and `eval split\|pool\|run\|score\|check-benchmark\|sweep\|freeze\|check-frozen\|misses` | OD-2.0, EVAL-1.1, EVAL-1.2 |
-| `src/mcp.rs` | rmcp stdio server, five read-only tools, native input/output bounds, preconversion admission, closure-owned bounded permits over a snapshot cache, `docs_share` folder registry | OD-2.1, OD-3.3, OD-3.5, HTTP-1, PERF-1 |
-| `src/eval/{metrics,stats}.rs` | metrics, decision rule, bootstrap, randomization, Holm, Wilson, weighted kappa, power | EVAL-1.0 |
+| `src/cli.rs`, `src/main.rs` | application layer (`App`, bounded responses, `AppError::kind()`) shared by CLI and MCP; clap subcommands index/search/read/related/verify/status/serve/serve-http (runtime in `main.rs`) and `eval split\|pool\|run\|score\|check-benchmark\|sweep\|freeze\|check-frozen\|misses` | OD-2.0, EVAL-1.1, EVAL-1.2 |
+| `src/mcp.rs` | rmcp stdio server, five read-only tools, native input/output bounds, preconversion admission, closure-owned bounded permits (optional shared global, then per-corpus) over a snapshot cache, `docs_share` folder registry | OD-2.1, OD-3.3, OD-3.5, HTTP-1, PERF-1, HTTP-2 |
+| `src/http.rs` | loopback Streamable HTTP listener: routing, admission, body/response bounds, drain | HTTP-2 |
+| `src/eval/{metrics,stats}.rs` | metrics, decision rule, bootstrap, randomization, Holm, Wilson, the single weighted-kappa implementation (`kappa_from_counts`), power | EVAL-1.0 |
 | `src/eval/run.rs` | split/pool/run/score/reports; split-specific capture and opaque mechanical evidence, bounded payload/index bytes and shared cached indexes | EVAL-1.1, EVAL-1.4 |
 | `src/eval/{gates,sweep}.rs` | integrity gates, in-memory pool comparison, captured dev computation, miss attribution, freeze/code-freeze checks; public measurement disabled | EVAL-1.2, EVAL-1.4 |
 | `eval/` | corpora pins, queries, pools, qrels, frozen config, results | EVAL-2.x, EVAL-3.x |
