@@ -9,7 +9,7 @@ Updated: 2026-11-11
 
 | Canonical plan | State | Active task | Counts |
 | --- | --- | --- | --- |
-| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | none (owner gates: HTTP-0, EVAL-2.0) | 38 DONE, 7 OPEN, 2 BLOCKED; 47 total (SIMPL-2 DONE) |
+| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | none (owner gates: HTTP-0, EVAL-2.0) | 40 DONE, 7 OPEN, 2 BLOCKED; 49 total (FIX-5/FIX-6 DONE) |
 
 - 2026-11-11 review round 3 ([audit](audit_session-2026-11-11-review-round3.md)):
   FIX-3 (all run files sized against one 16-MiB scoring payload from pinned
@@ -148,7 +148,7 @@ The 15 historical closeouts remain unchanged; they are not current-tree proof.
   owner-blocked and composes accepted local contracts with network/session limits.
 - Evaluation: blocked EVAL-2.0 (owner: corpora, query approval, annotators) → EVAL-2.1 →
   EVAL-3.0/3.1/3.2 → OD-4.1 → OD-4.0. Public measurement remains disabled.
-- Accepted folder HTTP: HTTP-0 → HTTP-1/2 after their service-safety prerequisites.
+- Accepted folder HTTP: HTTP-1 registry DONE; HTTP-0 owner choice → HTTP-2 listener.
   Stdio is implemented; HTTP is not. Diagnostics remain Proposed.
 
 See [pending tasks](project_pending-tasks.md) for gates and external dependencies.

@@ -14,10 +14,11 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
 
 ## Active Plans
 
-- [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - 38/47 done (FIX-3/4, SIMPL-2 closed 2026-11-11); blocked on owner gates: HTTP-0 exposure, EVAL-2.0 corpora/query approval/human annotators.
+- [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - 40/49 done (FIX-5/6 closed round 4, 2026-11-11); blocked on owner gates: HTTP-0 exposure, EVAL-2.0 corpora/query approval/human annotators.
 
 ## Recent Evidence
 
+- [Review round 4](audit_session-2026-11-11-review-round4.md) - FIX-5 pre-reservation refusals, FIX-6 heading cap DONE.
 - [Review round 3](audit_session-2026-11-11-review-round3.md) - FIX-3 run-file bound, miss attribution, FIX-4 list caps DONE.
 - [Review/simplify consolidation](audit_session-2026-11-11-review-simplify-consolidate.md) -
   FIX-1, SIMPL-1, HTTP-1 folder registry and PERF-1 concurrent snapshot admission

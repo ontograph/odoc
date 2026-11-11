@@ -57,6 +57,27 @@ OntoDoc configuration file. Run `index` before starting retrieval. `serve`
 communicates over stdin/stdout; stdout contains MCP frames only, not a shell
 prompt or human-readable search output. There is no HTTP listen command.
 
+To serve several `docs_share/<name>/` folders today, index each folder and
+configure one stdio server per folder; each keeps its own `.ontodoc/` store:
+
+```json
+{
+  "mcpServers": {
+    "docs-guide": {
+      "command": "/absolute/path/to/ontodoc",
+      "args": ["--root", "/absolute/path/to/docs_share/guide", "serve"]
+    },
+    "docs-api": {
+      "command": "/absolute/path/to/ontodoc",
+      "args": ["--root", "/absolute/path/to/docs_share/api", "serve"]
+    }
+  }
+}
+```
+
+One stdio connection serves exactly one corpus; there is no cross-folder
+retrieval or in-session switching.
+
 ## Tools And CLI
 
 | MCP tool | Main input | Behavior | Equivalent CLI |

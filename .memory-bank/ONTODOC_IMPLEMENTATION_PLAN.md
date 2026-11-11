@@ -1,7 +1,7 @@
 # OntoDoc Implementation Plan
 
 Date: 2026-11-10
-Status: In progress
+Status: Blocked on owner gates (HTTP-0, EVAL-2.0); see manager_loop
 Authority: `ADR_ONTODOC_SERVICE.md` (Accepted, revision 9); user requirement of
 2026-11-08: new Rust MCP service for documentation in this repository, with
 scientifically provable improvements. Reviews: `audit_session-2026-11-08-prior-attempt-review.md`,
@@ -1949,6 +1949,80 @@ tasks:
         authorization_ref: 'User 2026-11-11: proceed after stated default (baseline commit plus re-check consolidation); audit_session-2026-11-11-review-round3.md'
         validation_summary: 'Local run exit0: cargo test --lib eval:: 48 passed; eval_gates 20, eval_run 13, cli 8 passed; fmt --check ok; clippy --all-targets -D warnings ok. run_reserved and score read/verify the registered freeze once (check_held_out_code) and pass it to held_out_preflight, which now only runs check_frozen; check order unchanged, no check removed; CLI check-frozen unchanged. Synthetic only.'
     dod_status: pass
+  FIX-5:
+    title: Given TSV-unsafe query ids or an unusable output parent, held-out admission refuses before the attempt is reserved
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - SIMPL-2
+    type: code
+    validation_tier: integration
+    impact_risk: medium
+    owner_files:
+    - src/eval/run.rs
+    allowed_write_set:
+    - src/eval/run.rs
+    non_goals:
+    - Writability probes; weakening custody; reading held-out payloads before reservation; real benchmark data.
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval:: && CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run --test cli'
+    - cargo fmt --check
+    expected_evidence:
+    - validate_queries and the pinned split ids refuse tab/CR/LF ids; regression.
+    - external_path requires a directory parent and admission refuses non-NotFound metadata errors; regression.
+    rollback:
+    - Revert this task's listed changes.
+    stop_conditions:
+    - A fix requires reading a held-out payload before reservation.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: review/challenge/consolidate and proceed (round 4); audit_session-2026-11-11-review-round4.md'
+        validation_summary: 'Local run exit0: cargo test --lib eval:: 48 passed; eval_gates 20, eval_run 13, cli 8 passed; fmt --check ok; clippy --all-targets -D warnings ok. validate_queries refuses empty/tab/CR/LF ids via check_tsv_field; held_out_run_bound runs check_run_ids on manifest-pinned splits.test before reservation; external_path requires a directory parent; held_out_admission refuses non-NotFound symlink_metadata errors. Regressions in run_file_bound_refuses_unscorable_output_before_writing and partial_custody_and_symlinks_are_consumed_or_refused. Residual: an unwritable directory still fails only at staging (no writability probe, by non-goal). Synthetic only.'
+    dod_status: pass
+  FIX-6:
+    title: Given any published generation, every returned citation is verifiable and path#anchor lookup works for paths containing
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - FIX-5
+    type: code
+    validation_tier: unit-fast
+    impact_risk: low
+    owner_files:
+    - src/store.rs
+    - src/cli.rs
+    allowed_write_set:
+    - src/store.rs
+    - src/cli.rs
+    non_goals:
+    - Changing citation shape, ID scheme, schema version or MCP response fields.
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib store:: && CARGO_BUILD_JOBS=4 cargo test --lib cli:: && CARGO_BUILD_JOBS=4 cargo test --test cli --test mcp'
+    - cargo fmt --check
+    expected_evidence:
+    - build refuses (CapExceeded) a heading path above the citation input bound (64 headings / 16 KiB); regression.
+    - find_section splits path#anchor at the last
+    rollback:
+    - Revert this task's listed changes.
+    stop_conditions:
+    - The cap requires a schema version bump or alters existing valid generations.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: review/challenge/consolidate and proceed (round 4); audit_session-2026-11-11-review-round4.md'
+        validation_summary: 'Local run exit0: cargo test --lib store:: 44 passed 1 ignored; cli:: 7; cli 8, mcp 12 passed; cargo test --all-targets 257 passed 1 ignored (before the chunk-path extension; store/cli/mcp rerun after); fmt --check ok; clippy --all-targets -D warnings ok. build_rooted refuses CapExceeded("citation heading bytes") for any section or chunk heading_path above 64 headings / 16 KiB, sharing MAX_CITATION_HEADINGS/MAX_CITATION_HEADING_BYTES with validate_citation_fields; build-only, no schema bump, existing generations still load. Regression heading_paths_beyond_the_citation_bound_fail_publication (16 KiB ok, +1 refused). Proposed last-# lookup rejected: ADR lines 238-240 keep that limitation and tests/cli.rs caught it. Astra delta: no findings plus one P3 (chunk paths), fixed. Synthetic only.'
+    dod_status: pass
   PERF-1:
     title: Given concurrent MCP clients, requests snapshot the shared immutable index under a short lock and run with bounded configurable permits owned by the actual work
     status: DONE
@@ -2033,6 +2107,8 @@ tasks:
 | REQ-039 | 2026-11-11 round-3 review: verified eval output-budget, miss-attribution and dead-plumbing defects | implementation | FIX-3 | pre-reservation budget and attribution regressions |
 | REQ-040 | 2026-11-11 round-3 review: bounded related/status collection | implementation | FIX-4 | unchanged-response regression |
 | REQ-041 | 2026-11-11 round-3 deferred simplification: single held-out freeze verification per command | implementation | SIMPL-2 | unchanged refusal tests |
+| REQ-042 | 2026-11-11 round-4 review: held-out pre-reservation refusals for TSV-unsafe ids and unusable output parents | implementation | FIX-5 | refusal regressions |
+| REQ-043 | 2026-11-11 round-4 review: verifiable citations (heading bound at publication) | implementation | FIX-6 | cap and lookup regressions |
 
 ## Decisions And Non-Goals
 

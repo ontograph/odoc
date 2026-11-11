@@ -317,16 +317,24 @@ pub(crate) fn validate_citation_fields(
     sha256: &str,
 ) -> Result<usize, AppError> {
     check_input_limit(path.len(), MAX_QUERY_BYTES, "citation path bytes")?;
-    check_input_limit(heading_path.len(), 64, "citation heading count")?;
+    check_input_limit(
+        heading_path.len(),
+        crate::store::MAX_CITATION_HEADINGS,
+        "citation heading count",
+    )?;
     let mut headings = 0usize;
     for heading in heading_path {
         headings = headings
             .checked_add(heading.len())
             .ok_or(StoreError::CapExceeded {
                 what: "citation heading bytes",
-                cap: MAX_ID_BYTES,
+                cap: crate::store::MAX_CITATION_HEADING_BYTES,
             })?;
-        check_input_limit(headings, MAX_ID_BYTES, "citation heading bytes")?;
+        check_input_limit(
+            headings,
+            crate::store::MAX_CITATION_HEADING_BYTES,
+            "citation heading bytes",
+        )?;
     }
     for value in [generation_id, sha256] {
         validate_citation_hash(value)?;

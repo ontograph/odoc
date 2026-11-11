@@ -43,7 +43,8 @@ or passing unit tests. These rules apply repository-wide.
   its audit remain proposals, not approved dependencies or implementation rules.
 - Each immediate real subfolder `docs_share/<name>/` gets its own logical MCP
   endpoint `/<name>/mcp` and physically separate `.ontodoc/` database/index store
-  in the accepted design; these routes and discovery are not implemented.
+  in the accepted design; startup discovery (`mcp::Registry`, HTTP-1) exists,
+  but no route or listener is implemented.
   Preserve folder names with URL-segment encoding; no merged database or path
   filter in place of separate stores. Nested folders stay in their parent corpus.
 - Every service user may read every exposed corpus. Do not add document ACLs
@@ -197,7 +198,7 @@ own approved dev evaluation and preregistration, not a changed confirmatory fami
 <!-- ontoindex:start -->
 # OntoIndex — Code Intelligence
 
-This project is indexed by OntoIndex as **ontodoc** (11751 symbols, 28603 relationships, 300 execution flows). Use the OntoIndex MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by OntoIndex as **ontodoc** (12126 symbols, 29497 relationships, 300 execution flows). Use the OntoIndex MCP tools to understand code, assess impact, and navigate safely.
 
 > Always query OntoIndex first. Repo queries refresh stale indexes in the background; dirty edits use the automatic overlay. Use stale/refreshing results with freshness labels; verify edited or new code from source. Never fall back to grep-only because the index is stale. Manual `ontoindex analyze` is only for immediate refresh with no active job. Sub-agents never start reindex jobs; refresh-on-query covers them.
 

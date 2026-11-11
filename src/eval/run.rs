@@ -801,7 +801,7 @@ fn validate_queries(queries: &[Query], config: &EvalConfig) -> Result<(), EvalEr
         return Err(EvalError::Invalid("query work limit exceeded".into()));
     }
     for q in queries {
-        if q.id.is_empty()
+        if check_tsv_field(&q.id).is_err()
             || q.id.len() > MAX_QUERY_ID_BYTES
             || q.text.len() > 4096
             || !ids.insert(&q.id)
@@ -1806,12 +1806,17 @@ fn write_new(path: &Path, bytes: &[u8]) -> Result<(), EvalError> {
 }
 
 fn external_path(root: &Path, path: &Path) -> Result<PathBuf, EvalError> {
-    let resolved = fs::canonicalize(parent(path))
-        .map_err(io_err(parent(path)))?
-        .join(
-            path.file_name()
-                .ok_or_else(|| EvalError::Invalid("missing output filename".into()))?,
-        );
+    let dir = fs::canonicalize(parent(path)).map_err(io_err(parent(path)))?;
+    if !dir.is_dir() {
+        return Err(EvalError::Invalid(format!(
+            "output parent {} is not a directory",
+            dir.display()
+        )));
+    }
+    let resolved = dir.join(
+        path.file_name()
+            .ok_or_else(|| EvalError::Invalid("missing output filename".into()))?,
+    );
     if resolved.starts_with(root) {
         return Err(EvalError::Invalid(
             "evaluation export/output must be outside code checkout".into(),
@@ -2089,11 +2094,20 @@ fn held_out_admission(
         ));
     }
     external_path(&custody.root, out)?;
-    if fs::symlink_metadata(out).is_ok() {
-        return Err(EvalError::Invalid(format!(
-            "refusing to overwrite run directory {}",
-            out.display()
-        )));
+    match fs::symlink_metadata(out) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(source) => {
+            return Err(EvalError::Io {
+                path: out.to_path_buf(),
+                source,
+            });
+        }
+        Ok(_) => {
+            return Err(EvalError::Invalid(format!(
+                "refusing to overwrite run directory {}",
+                out.display()
+            )));
+        }
     }
     let export = read_bounded(&dir.join("frozen-config.toml"), MAX_INPUT_BYTES / 8)?;
     let frozen = super::sweep::FrozenConfig::from_toml(&registration.frozen)?;
@@ -2136,11 +2150,17 @@ fn held_out_admission(
     held_out_run_bound(&dev, &frozen)
 }
 
+/// Split ids are written to run files; refuse TSV-unsafe ones up front.
+fn check_run_ids(ids: &[String]) -> Result<(), EvalError> {
+    ids.iter().try_for_each(|id| check_tsv_field(id).map(drop))
+}
+
 /// Run files of the held-out attempt must fit scoring's payload bound. Uses
 /// the test query ids of the manifest-pinned splits (metadata only, no test
 /// payload), so an unscorable run refuses before the attempt is reserved.
 fn held_out_run_bound(dev: &Bench, frozen: &super::sweep::FrozenConfig) -> Result<(), EvalError> {
     let (splits, _) = dev.splits()?;
+    check_run_ids(&splits.test)?;
     let systems = [
         System::B0,
         System::B1,
@@ -3501,6 +3521,11 @@ mod tests {
         assert!(linked.registration().is_err());
         assert!(linked.create_dir().is_err());
         assert!(external_path(&custody.root, &custody.root.join("export.toml")).is_err());
+        // A regular file cannot be an output parent.
+        let file = dir.path().join("plain-file");
+        fs::write(&file, b"x").unwrap();
+        let err = external_path(&custody.root, &file.join("run")).unwrap_err();
+        assert!(err.to_string().contains("not a directory"), "{err}");
         let huge = fs::OpenOptions::new()
             .write(true)
             .open(custody.dir.join("registration.json"))
@@ -4417,6 +4442,14 @@ mod tests {
         assert_eq!(run_file_bound(&ids, &indexes, &systems), per(2) + per(3));
         // The held-out bound uses the manifest-pinned test ids (metadata only).
         let (splits, _) = dev.splits().unwrap();
+        // Those ids must be TSV-safe before reservation; queries too.
+        assert!(check_run_ids(&splits.test).is_ok());
+        for bad in ["a\tb", "a\nb", "a\rb", ""] {
+            assert!(check_run_ids(&[bad.to_string()]).is_err(), "{bad:?}");
+            let mut queries = dev.queries().to_vec();
+            queries[0].id = bad.into();
+            assert!(validate_queries(&queries, &dev.config).is_err(), "{bad:?}");
+        }
         assert!(check_run_file_bytes(run_file_bound(&splits.test, &indexes, &systems)).is_ok());
         // A section id wide enough that the pinned test split cannot be scored:
         // refused by the same check admission runs before any reservation.

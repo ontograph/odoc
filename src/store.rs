@@ -399,6 +399,10 @@ pub fn generation_id(
 }
 
 /// Walks, parses, chunks, derives tiers and builds the graph for `root`.
+/// Citation heading-vector bounds shared by publication and `verify` admission.
+pub(crate) const MAX_CITATION_HEADINGS: usize = 64;
+pub(crate) const MAX_CITATION_HEADING_BYTES: usize = 16 * 1024;
+
 pub fn build(root: &Path, config: &IndexConfig) -> Result<Generation, StoreError> {
     build_rooted(&corpus::RootedCorpus::open(root)?, config)
 }
@@ -424,6 +428,24 @@ pub(crate) fn build_rooted(
             (sections, chunks)
         })
         .collect();
+    // Every published heading path must fit `verify`'s citation input bound,
+    // so each returned citation can be verified (ADR: 64 headings / 16 KiB).
+    // Sections and the chunks that citations are built from are both checked.
+    for (sections, chunks) in &parsed {
+        let heading_paths = sections
+            .iter()
+            .map(|s| &s.heading_path)
+            .chain(chunks.iter().map(|c| &c.heading_path));
+        for heading_path in heading_paths {
+            let bytes = heading_path.iter().map(String::len).sum::<usize>();
+            if heading_path.len() > MAX_CITATION_HEADINGS || bytes > MAX_CITATION_HEADING_BYTES {
+                return Err(StoreError::CapExceeded {
+                    what: "citation heading bytes",
+                    cap: MAX_CITATION_HEADING_BYTES,
+                });
+            }
+        }
+    }
     let chunk_count: usize = parsed.iter().map(|(_, c)| c.len()).sum();
     if chunk_count > config.max_chunks {
         return Err(StoreError::CapExceeded {
@@ -3028,6 +3050,41 @@ mod tests {
         let store = store_of(root.path());
         store.publish(&generation).unwrap();
         assert_eq!(store.load().unwrap(), generation);
+    }
+
+    #[test]
+    fn heading_paths_beyond_the_citation_bound_fail_publication() {
+        // One heading of exactly 16 KiB fits; one byte more refuses the build.
+        for (len, ok) in [
+            (MAX_CITATION_HEADING_BYTES, true),
+            (MAX_CITATION_HEADING_BYTES + 1, false),
+        ] {
+            let root = tempfile::tempdir().unwrap();
+            fs::write(
+                root.path().join("a.md"),
+                format!(
+                    "# {}
+
+body
+",
+                    "x".repeat(len)
+                ),
+            )
+            .unwrap();
+            let result = build(root.path(), &IndexConfig::default());
+            assert_eq!(result.is_ok(), ok, "{len}");
+            if !ok {
+                assert!(matches!(
+                    result,
+                    Err(StoreError::CapExceeded {
+                        what: "citation heading bytes",
+                        ..
+                    })
+                ));
+            }
+        }
+        // Markdown nests at most six headings, so the 64-heading bound only
+        // guards caller input; the byte bound is the reachable one.
     }
 
     #[test]

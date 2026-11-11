@@ -27,7 +27,7 @@ this file routes blockers, not a second queue.
 
 - OD-3.0 is DONE: duplicate section/chunk publication and load reject. Store
   tests (12 passed), formatting and managed all-target Clippy exited 0. Existing
-  malformed generations reject, not migrate; empty-slug Markdown needs OD-3.1/3.2.
+  malformed generations reject, not migrate; empty-slug IDs landed in OD-3.1/3.2.
 - OD-3.3 is DONE: complete native MCP frame/error bounds and generic internal
   messages. Exact escaped IDs preserved or connection rejected before dispatch;
   85 library + 4 CLI + 7 MCP tests, formatting and all-target Clippy exit 0.
@@ -87,9 +87,9 @@ this file routes blockers, not a second queue.
   implements the audited default or records no-op before OD-4.0. Omitted
   threshold stays disabled, explicit modes/weights remain supported, and no
   mutable evaluation artifact enters retrieval.
-- HEAD exists (b6e3f3e) but the tree is dirty. A clean, matching commit and
-  binary identity is a freeze prerequisite the owner supplies; it is not
-  manufactured during review.
+- Baseline commits exist (2026-11-11, see `git log`). A clean, matching commit
+  and binary identity at freeze time remain a prerequisite the operator
+  supplies; they are not manufactured during review.
 
 ## Deferred Decisions
 
