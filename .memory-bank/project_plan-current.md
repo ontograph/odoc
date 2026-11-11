@@ -9,7 +9,12 @@ Updated: 2026-11-11
 
 | Canonical plan | State | Active task | Counts |
 | --- | --- | --- | --- |
-| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | none (EVAL-2.0 parked by owner pending human inputs) | 47 DONE, 6 OPEN, 1 BLOCKED; 54 total |
+| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | none (EVAL-2.0 parked by owner pending human inputs) | 48 DONE, 6 OPEN, 1 BLOCKED; 55 total |
+
+- 2026-11-11 review round 7 ([audit](audit_session-2026-11-11-review-round6.md#round-7-same-day-challenge-of-round-6)):
+  FIX-11 DONE: prune moves to `tmp-<id>` before deleting (ADR rev 11), so an
+  interrupted prune self-heals; slug finding closed as no bug; fusion tie and
+  HTTP read-deadline tests. Table-aware first sentence remains an owner decision.
 
 - 2026-11-11 review round 6 ([audit](audit_session-2026-11-11-review-round6.md)):
   FIX-10 DONE: hand-computed BM25/PPR/fusion edge tests, optimized dev hash

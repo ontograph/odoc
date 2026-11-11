@@ -2243,6 +2243,50 @@ tasks:
         authorization_ref: 'User 2026-11-11: review/challenge/consolidate and proceed (round 6); audit_session-2026-11-11-review-round6.md'
         validation_summary: 'Local run exit0: cargo test --all-targets (lib 213 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4, mcp 12, ranking_sanity 1) in 17.8 s wall; fmt --check ok; clippy --all-targets -D warnings ok; git diff --check ok. Synthetic only.'
     dod_status: pass
+  FIX-11:
+    title: Given round-7 review, an interrupted prune no longer disables pruning, fusion tie-break tests discriminate, and HTTP socket tests have deadlines
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - FIX-10
+    type: code
+    validation_tier: unit-fast
+    impact_risk: high
+    owner_files:
+    - src/store.rs
+    - src/search/fusion.rs
+    - src/search/bm25.rs
+    - tests/http.rs
+    allowed_write_set:
+    - src/store.rs
+    - src/search/fusion.rs
+    - src/search/bm25.rs
+    - tests/http.rs
+    non_goals:
+    - Parser, tier, identity, schema or ranking changes; recovery of already-existing incomplete generation dirs.
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib store::'
+    - CARGO_BUILD_JOBS=4 cargo test --all-targets
+    - cargo fmt --check
+    expected_evidence:
+    - record_and_prune renames each validated complete pruned generation to tmp-<id> (refusing an occupied name), syncs generations/ and the store dir, then deletes; new PruneMove phase.
+    - Regression - failing on the second prune file leaves one file in tmp-<id>; the next publish removes it and prunes to three generations.
+    - Fusion shuffled-input raw-BM25 and chunk-id tie tests; HTTP reads bounded by a deadline and accumulated to the header terminator.
+    rollback:
+    - Revert this task's listed changes.
+    stop_conditions:
+    - The fix would relax complete-shape validation of generations/.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: review/challenge/consolidate and proceed (round 7); audit_session-2026-11-11-review-round6.md#round-7'
+        validation_summary: 'Local run exit0: cargo test --all-targets (lib 214 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4, mcp 12, ranking_sanity 1); fmt --check ok; clippy --all-targets -D warnings ok; git diff --check ok. ADR revision 11. Two GPT-6-Astra reviews, no P1; P2 store-dir sync and P3 partial-file coverage fixed. Synthetic only.'
+    dod_status: pass
   PERF-1:
     title: Given concurrent MCP clients, requests snapshot the shared immutable index under a short lock and run with bounded configurable permits owned by the actual work
     status: DONE
@@ -2334,6 +2378,7 @@ tasks:
 | REQ-046 | Owner decision 10: staging before held-out reservation | implementation | FIX-8 | unwritable-parent refusal regression |
 | REQ-047 | Round-5 review: dev staging order; ADR discrimination check on planted synthetic sections | implementation | FIX-9 | ranking_sanity and staging regressions |
 | REQ-048 | Round-6 review: hand-computed scorer edge tests; dev hash-crate optimization | implementation | FIX-10 | search:: numeric tests |
+| REQ-049 | Round-7 review: interrupted prune recovery via temp namespace; discriminating fusion ties; bounded HTTP test reads | implementation | FIX-11 | store prune regression |
 
 ## Decisions And Non-Goals
 

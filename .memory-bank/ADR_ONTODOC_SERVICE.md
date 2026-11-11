@@ -1,7 +1,7 @@
 # ADR: OntoDoc — Measurable Documentation Graph-RAG MCP Service
 
 Date: 2026-11-08
-Revision: 9 (2026-11-11). Revision 2 added donor ideas
+Revision: 11 (2026-11-11). Revision 2 added donor ideas
 (`audit_session-2026-11-08-donor-ideas-review.md`); revision 3 applies the plan
 challenge (`audit_session-2026-11-08-plan-challenge.md`): section-level
 evaluation unit, frozen chunk budget, raw-score abstention, specified PPR, power
@@ -29,6 +29,8 @@ packet: HTTP-0 exposure and numeric contracts (below), the 4096-byte section-ID
 exception, a per-result `text_truncated` search field, and unavailable
 statistics for empty exploratory groups. Evaluation stays parked on human
 inputs (`audit_session-2026-11-11-owner-decisions.md`).
+Revision 11 (2026-11-11) makes pruning move a validated complete generation to
+`tmp-<id>` before deleting it (round 6; `audit_session-2026-11-11-review-round6.md`).
 Owner: OntoDoc maintainers
 
 ## Status
@@ -543,7 +545,10 @@ generation directory changes after pruning; phase failures keep the above
 classification. Validate bounded cleanup inventory before deletion; remove only
 expected owned generation/temp shapes (`index.json`, `meta.json`, then empty
 directory; incomplete temp shapes may contain a subset of these regular files),
-never recursively traverse unknown trees. Unexpected nested/symlink
+never recursively traverse unknown trees. Pruning first renames a validated
+complete generation to its `tmp-<id>` name (refusing an occupied name) and
+syncs `generations/`, so an interrupted deletion leaves only an incomplete
+temp shape for the next temp cleanup (revision 11; no rule relaxed). Unexpected nested/symlink
 contents or cap/error refuse cleanup. Explicitly protect CURRENT even if HISTORY
 is damaged; a precommit cleanup refusal cannot damage active data. Retain the
 lock through sync/maintenance. No janitor, transaction framework or disk format

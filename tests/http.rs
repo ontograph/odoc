@@ -15,6 +15,9 @@ use serde_json::{Value, json};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_util::sync::CancellationToken;
 
+/// Upper bound for any single socket exchange in these tests.
+const DEADLINE: std::time::Duration = std::time::Duration::from_secs(10);
+
 fn share() -> tempfile::TempDir {
     let share = tempfile::tempdir().unwrap();
     for (name, body) in [
@@ -274,7 +277,9 @@ async fn idle_connections_count_against_admission() {
     let mut over = TcpStream::connect(a).await.unwrap();
     let _ = over.write_all(probe.as_bytes()).await;
     let mut buf = Vec::new();
-    let read = over.read_to_end(&mut buf).await;
+    let read = tokio::time::timeout(DEADLINE, over.read_to_end(&mut buf))
+        .await
+        .expect("excess connection neither closed nor reset");
     assert!(read.is_err() || buf.is_empty(), "excess connection served");
     // Releasing one idle socket admits a new connection again (the server
     // notices the close asynchronously, so retry a bounded number of times).
@@ -283,9 +288,20 @@ async fn idle_connections_count_against_admission() {
     for _ in 0..100 {
         let mut retry = TcpStream::connect(a).await.unwrap();
         let _ = retry.write_all(probe.as_bytes()).await;
-        let mut buf = vec![0; 64];
-        let n = retry.read(&mut buf).await.unwrap_or(0);
-        served = String::from_utf8_lossy(&buf[..n]).into_owned();
+        // Accumulate until the header terminator; a status line may arrive
+        // split across reads.
+        let mut buf = Vec::new();
+        let _ = tokio::time::timeout(DEADLINE, async {
+            let mut chunk = [0u8; 256];
+            while !buf.windows(4).any(|w| w == b"\r\n\r\n") && buf.len() < 8192 {
+                match retry.read(&mut chunk).await {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => buf.extend_from_slice(&chunk[..n]),
+                }
+            }
+        })
+        .await;
+        served = String::from_utf8_lossy(&buf).into_owned();
         if !served.is_empty() {
             break;
         }

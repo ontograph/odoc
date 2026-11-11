@@ -70,3 +70,29 @@ without the owner, and no store split.
    accept it as an index-content fix before the first dev registration.
 2. Finding 3: amend the ADR so prune may remove an owned incomplete generation
    directory.
+
+## Round 7 (same day): Challenge Of Round 6
+
+A GPT-6-Astra reviewer re-checked round 6; a second reviewer checked the fix.
+OntoIndex `impact` on `record_and_prune` reported HIGH (36 nodes, all within
+`publish_inner`, its callers and the store tests); all of them ran green.
+
+| # | Finding | Decision |
+| --- | --- | --- |
+| R1 | Finding 1's premise was wrong. github-slugger takes the heading's `textContent`. `<br>` contributes no text and the slugger strips LF, so GitHub's anchor is `alphabeta`, as OntoDoc already produces. | **Closed, no bug.** Section IDs are correct. Only the human-readable `heading_path` loses the space, which is cosmetic and left unchanged. |
+| R2 | Finding 3 did not need a relaxed rule. | Fixed (FIX-11, ADR revision 11). Prune renames each validated complete generation to `tmp-<id>` (refusing an occupied name), syncs `generations/` and the store directory, then deletes. An interrupted deletion leaves an incomplete temp shape, which the existing temp cleanup removes on the next publish. A regression test fails on the second file and checks recovery to three generations. Already-existing incomplete generation directories still refuse; that is unchanged. |
+| R3 | P3: the fusion tie test could not detect a missing BM25 comparator, because input, id and BM25 order coincided. | Fixed: a shuffled-input test where only raw BM25 decides, and an all-equal test where only chunk id decides. |
+| R4 | P2: `tests/http.rs` had an unbounded `read_to_end` and assumed a single-read status line. | Fixed: a 10 s deadline, and reads accumulate to `\r\n\r\n`, capped at 8 KiB. |
+| R5 | Finding 2 (tables chosen as the first sentence). | Deferral confirmed: the fix changes tier and B3 bytes. Still an owner decision. |
+
+Round-7 overengineering avoided: no recovery janitor for legacy incomplete
+directories, no batch rename-then-delete restructuring (a single loop under the
+held lock is sufficient), and no cosmetic heading-text change.
+
+Validation (round 7):
+- `cargo test --all-targets`, exit 0: lib 214 passed, 1 ignored; cli 8,
+  eval_gates 20, eval_run 14, http 4, mcp 12, ranking_sanity 1.
+- `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` and
+  `git diff --check`: ok.
+- `project_plan_validate`: pass, 55 tasks. FIX-11 was closed through strict
+  `reopen` and `complete-local`.

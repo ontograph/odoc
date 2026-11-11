@@ -121,7 +121,7 @@ pub(crate) mod tests {
         // d0 = "", d1 = "a"; N = 2, avgdl = 1/2.
         // idf(a): n=1 -> ln(1 + 1.5/1.5) = ln 2.
         // d1: tf=1, |d|=1, ratio=2: K = 1.2*(0.25+0.75*2) = 2.1;
-        //     ln2*1*2.2/(1+2.1) = (22/31)·ln 2 = 0.49190...
+        //     ln2*1*2.2/(1+2.1) = (22/31)·ln 2 = 0.49191090233286444
         let bm25 = Bm25::new([Vec::new(), vec!["a".to_string()]]);
         assert!((bm25.idf("a") - 2f64.ln()).abs() < 1e-12);
         let s = bm25.scores(&["a".into()]);

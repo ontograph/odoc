@@ -12,14 +12,14 @@ this file routes blockers, not a second queue.
 ## Current (2026-11-11)
 
 - Service work is complete: HTTP-2 loopback listener, FIX-7, SIMPL-3, FIX-8 and
-  FIX-9 (round 5) and FIX-10 (round 6) DONE ([owner decisions](audit_session-2026-11-11-owner-decisions.md)).
+  FIX-9 (round 5), FIX-10 (round 6) and FIX-11 (round 7) DONE ([owner decisions](audit_session-2026-11-11-owner-decisions.md)).
 - EVAL-2.0 (BLOCKED) is parked by the owner pending pinned corpora, a trusted
   operator and two human annotators; EVAL-2.1 → EVAL-3.x → OD-4.1 → OD-4.0
   follow it. Delivery item outside code: the operator's authenticated TLS
   ingress in front of `serve-http`.
-- Owner decisions from round 6 ([audit](audit_session-2026-11-11-review-round6.md)):
-  setext soft-break slug (identity), table-aware first sentence (tiers/B3),
-  prune recovery of incomplete generation dirs (ADR amendment).
+- Owner decision from rounds 6-7 ([audit](audit_session-2026-11-11-review-round6.md)):
+  table-aware first sentence (tier/B3 bytes). Slug closed as no bug; prune
+  recovery fixed (FIX-11, ADR rev 11).
 - Entries below are history.
 
 ## Active Service Repair

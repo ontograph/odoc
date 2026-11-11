@@ -100,6 +100,7 @@ pub enum PublishPhase {
     HistoryRename,
     HistorySync,
     PruneInventory,
+    PruneMove,
     PruneRemoveFile,
     PruneRemoveDir,
     PruneSync,
@@ -1012,8 +1013,27 @@ impl Store {
             }
         }
         for (path, files) in inventory {
+            // Move into the temp namespace first: an interrupted deletion then
+            // leaves an incomplete temp shape that the next publication's temp
+            // cleanup removes, instead of an incomplete generation directory
+            // that would refuse every later prune.
+            let Some(name) = path.file_name() else {
+                return Err(invalid_store("cleanup target has no name", ""));
+            };
+            let mut tmp_name = std::ffi::OsString::from("tmp-");
+            tmp_name.push(name);
+            let tmp = self.dir.join(tmp_name);
+            match fs::symlink_metadata(&tmp) {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => (),
+                Ok(_) => return Err(invalid_store("prune temp name occupied", "")),
+                Err(error) => return Err(io_err(&tmp)(error)),
+            }
+            publication.step(PublishPhase::PruneMove, &tmp)?;
+            fs::rename(&path, &tmp).map_err(io_err(&tmp))?;
+            publication.sync(PublishPhase::PruneSync, &generations)?;
+            publication.sync(PublishPhase::PruneSync, &self.dir)?;
             remove_owned(
-                &path,
+                &tmp,
                 &files,
                 publication,
                 [
@@ -1689,6 +1709,7 @@ mod tests {
                         | PublishPhase::HistoryRead
                         | PublishPhase::HistorySync
                         | PublishPhase::PruneInventory
+                        | PublishPhase::PruneMove
                         | PublishPhase::PruneRemoveFile
                         | PublishPhase::PruneRemoveDir
                         | PublishPhase::PruneSync
@@ -1851,6 +1872,7 @@ mod tests {
                             "HistoryRead",
                             "HistorySync",
                             "PruneInventory",
+                            "PruneMove",
                             "PruneRemoveFile",
                             "PruneRemoveDir",
                             "PruneSync",
@@ -2089,6 +2111,7 @@ mod tests {
             PublishPhase::HistoryRename,
             PublishPhase::HistorySync,
             PublishPhase::PruneInventory,
+            PublishPhase::PruneMove,
             PublishPhase::PruneRemoveFile,
             PublishPhase::PruneRemoveDir,
             PublishPhase::PruneSync,
@@ -3476,6 +3499,53 @@ body
         ));
         assert_eq!(store.current_id().unwrap(), first.generation_id);
         assert_eq!(generation_dirs(&store), vec![first.generation_id.clone()]);
+    }
+
+    #[test]
+    fn interrupted_prune_leaves_a_temp_shape_that_the_next_publication_removes() {
+        let root = corpus();
+        let store = store_of(root.path());
+        let mut ids = Vec::new();
+        for i in 0..3 {
+            fs::write(root.path().join("n.md"), format!("# N{i}\n")).unwrap();
+            let generation = build(root.path(), &IndexConfig::default()).unwrap();
+            store.publish(&generation).unwrap();
+            ids.push(generation.generation_id);
+        }
+        // The fourth publication prunes ids[0]; fail on its second file, so
+        // one artifact file remains in the moved directory.
+        fs::write(root.path().join("n.md"), "# N3\n").unwrap();
+        let fourth = build(root.path(), &IndexConfig::default()).unwrap();
+        let mut removed = 0;
+        let outcome = store
+            .publish_inner(&fourth, |phase, _| {
+                if phase == PublishPhase::PruneRemoveFile {
+                    removed += 1;
+                    if removed == 2 {
+                        return Err(std::io::Error::other("injected"));
+                    }
+                }
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(outcome.failure_phase, Some(PublishPhase::PruneRemoveFile));
+        let leftover = store.dir.join(format!("tmp-{}", ids[0]));
+        assert_eq!(fs::read_dir(&leftover).unwrap().count(), 1);
+        assert!(!store.dir.join("generations").join(&ids[0]).exists());
+        // The next publication cleans the temp shape and prunes normally.
+        fs::write(root.path().join("n.md"), "# N4\n").unwrap();
+        let fifth = build(root.path(), &IndexConfig::default()).unwrap();
+        let outcome = store.publish(&fifth).unwrap();
+        assert_eq!(outcome.maintenance, Maintenance::Complete);
+        assert!(!leftover.exists());
+        let mut kept = vec![
+            ids[2].clone(),
+            fourth.generation_id.clone(),
+            fifth.generation_id.clone(),
+        ];
+        kept.sort();
+        assert_eq!(generation_dirs(&store), kept);
+        assert_eq!(store.load().unwrap(), fifth);
     }
 
     #[test]

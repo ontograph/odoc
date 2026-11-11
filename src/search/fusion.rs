@@ -104,6 +104,15 @@ mod tests {
         // top_k truncates after ranking.
         let hits = fuse(&pool, &bm25, &secondary, 0.5, &chunks, 1);
         assert_eq!(ranked(&hits), vec![(0, 0.5)]);
+        // Shuffled input: mm(bm25) = [1/2, 0, 1], mm(secondary) = [1/2, 1, 0],
+        // so all fused scores are 1/2 and only the raw-BM25 comparator
+        // (4 > 2 > 0) yields the order 2, 0, 1.
+        let hits = fuse(&pool, &[2.0, 0.0, 4.0], &[0.5, 1.0, 0.0], 0.5, &chunks, 10);
+        assert_eq!(ranked(&hits), vec![(2, 0.5), (0, 0.5), (1, 0.5)]);
+        // Equal BM25 and secondary: min-max is 0 everywhere, so chunk id
+        // (c0 < c1 < c2) decides regardless of pool order.
+        let hits = fuse(&[2, 0, 1], &[1.0; 3], &[1.0; 3], 0.5, &chunks, 10);
+        assert_eq!(ranked(&hits), vec![(0, 0.0), (1, 0.0), (2, 0.0)]);
         // A singleton pool is degenerate for min-max: score 0.
         let hits = fuse(&[1], &[3.0], &[2.0], 0.5, &chunks, 10);
         assert_eq!(ranked(&hits), vec![(1, 0.0)]);
