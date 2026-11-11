@@ -115,4 +115,17 @@ pub(crate) mod tests {
         assert!(bm25.is_empty());
         assert!(bm25.scores(&["a".into()]).is_empty());
     }
+
+    #[test]
+    fn empty_document_counts_toward_avgdl() {
+        // d0 = "", d1 = "a"; N = 2, avgdl = 1/2.
+        // idf(a): n=1 -> ln(1 + 1.5/1.5) = ln 2.
+        // d1: tf=1, |d|=1, ratio=2: K = 1.2*(0.25+0.75*2) = 2.1;
+        //     ln2*1*2.2/(1+2.1) = (22/31)·ln 2 = 0.49190...
+        let bm25 = Bm25::new([Vec::new(), vec!["a".to_string()]]);
+        assert!((bm25.idf("a") - 2f64.ln()).abs() < 1e-12);
+        let s = bm25.scores(&["a".into()]);
+        assert_eq!(s[0], 0.0);
+        assert!((s[1] - 22.0 / 31.0 * 2f64.ln()).abs() < 1e-12, "{}", s[1]);
+    }
 }

@@ -14,10 +14,11 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
 
 ## Active Plans
 
-- [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - 46/53 done (FIX-9 round 5, 2026-11-11); EVAL-2.0 parked by owner pending corpora, operator and two human annotators.
+- [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - 47/54 done (FIX-10 round 6, 2026-11-11); EVAL-2.0 parked by owner pending corpora, operator and two human annotators.
 
 ## Recent Evidence
 
+- [Review round 6](audit_session-2026-11-11-review-round6.md) - FIX-10 numeric tests, test speed; 3 owner decisions (slug, tiers, prune).
 - [Review round 5](audit_session-2026-11-11-review-round5.md) - FIX-9 staging order, ranking-sanity check, docs drift, plan archive.
 - [Owner decisions](audit_session-2026-11-11-owner-decisions.md) - ten approved; ADR rev 10; HTTP-2 loopback listener, FIX-7/SIMPL-3/FIX-8 DONE.
 - [Review round 4](audit_session-2026-11-11-review-round4.md) - FIX-5 pre-reservation refusals, FIX-6 heading cap DONE.

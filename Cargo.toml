@@ -45,3 +45,15 @@ rmcp = { version = "1.7", default-features = false, features = ["client", "serve
 tempfile = "3"
 hyper = { version = "1", default-features = false, features = ["client", "server", "http1"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "io-util"] }
+
+# Debug test builds hash large binaries and corpora (freeze/code identity,
+# freshness); unoptimized sha2 dominated test wall time. Optimizing only the
+# hash crates leaves ontodoc's own debug checks unchanged.
+[profile.dev.package.sha2]
+opt-level = 3
+
+[profile.dev.package.digest]
+opt-level = 3
+
+[profile.dev.package.block-buffer]
+opt-level = 3

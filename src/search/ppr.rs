@@ -113,4 +113,19 @@ mod tests {
         assert_eq!(graph.ppr(&[]), vec![0.0, 0.0]);
         assert_eq!(graph.ppr(&[(0, 0.0)]), vec![0.0, 0.0]);
     }
+
+    #[test]
+    fn two_node_graph_stops_at_iteration_cap() {
+        // A(0)–B(1), seed A, d = 17/20. A' = (1-d) + d·B, B' = d·A.
+        // Fixed point A* = 1/(1+d) = 20/37, B* = 17/37. Errors swap and
+        // shrink by d each step: e_A(k) = (-d)^k·17/37, e_B(k) = -e_A(k).
+        // The L1 change at step k is 2·(17/37)·d^(k-1)·(1+d) ≈ 1.7e-7 at
+        // k = 100, still above 1e-9, so the cap of 100 iterations ends the
+        // loop: A = 20/37 + (17/37)·d^100, B = 1 - A.
+        let r = ChunkGraph::new(2, [(0, 1)]).ppr(&[(0, 1.0)]);
+        let tail = 17.0 / 37.0 * DAMPING.powi(100);
+        assert!(tail > 1e-8, "cap must be observable: {tail}");
+        assert!((r[0] - (20.0 / 37.0 + tail)).abs() < 1e-12, "{}", r[0]);
+        assert!((r[1] - (17.0 / 37.0 - tail)).abs() < 1e-12, "{}", r[1]);
+    }
 }

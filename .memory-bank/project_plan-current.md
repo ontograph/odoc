@@ -9,7 +9,12 @@ Updated: 2026-11-11
 
 | Canonical plan | State | Active task | Counts |
 | --- | --- | --- | --- |
-| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | none (EVAL-2.0 parked by owner pending human inputs) | 46 DONE, 6 OPEN, 1 BLOCKED; 53 total |
+| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | none (EVAL-2.0 parked by owner pending human inputs) | 47 DONE, 6 OPEN, 1 BLOCKED; 54 total |
+
+- 2026-11-11 review round 6 ([audit](audit_session-2026-11-11-review-round6.md)):
+  FIX-10 DONE: hand-computed BM25/PPR/fusion edge tests, optimized dev hash
+  crates (suite ~18 s). Parser soft-break slug, table-aware first sentence and
+  prune recovery deferred to the owner (identity/ranking/ADR).
 
 - 2026-11-11 review round 5 ([audit](audit_session-2026-11-11-review-round5.md)):
   FIX-9 DONE. Dev staging was restored after validation, and the ADR

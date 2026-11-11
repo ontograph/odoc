@@ -2199,6 +2199,50 @@ tasks:
         authorization_ref: 'User 2026-11-11: review/challenge/consolidate and proceed (round 5); audit_session-2026-11-11-review-round5.md'
         validation_summary: 'Local run exit0: cargo test --all-targets (lib 210 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4, mcp 12, ranking_sanity 1); fmt --check ok; clippy --all-targets -D warnings ok. Astra P2 (dev staging moved before ranking) and P3 (silent privileged skip) fixed. The first run of ranking_sanity showed that B0 cannot reach planted later sections. This is the ADR-defined baseline behaviour; it is asserted, not changed. Synthetic only.'
     dod_status: pass
+  FIX-10:
+    title: Given round-6 review, numeric scorers have hand-computed edge tests, hash crates build optimized in dev
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - FIX-9
+    type: code
+    validation_tier: unit-fast
+    impact_risk: low
+    owner_files:
+    - Cargo.toml
+    - src/search/bm25.rs
+    - src/search/ppr.rs
+    - src/search/fusion.rs
+    allowed_write_set:
+    - Cargo.toml
+    - src/search/bm25.rs
+    - src/search/ppr.rs
+    - src/search/fusion.rs
+    non_goals:
+    - Parser, tier, identity, schema or ranking changes; store pruning recovery.
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib search::'
+    - CARGO_BUILD_JOBS=4 cargo test --all-targets
+    - cargo fmt --check
+    expected_evidence:
+    - BM25 empty-document avgdl, PPR iteration-cap and fusion tie/drop/singleton tests with hand computations in comments.
+    - Dev profile opt-level 3 for sha2, digest and block-buffer only.
+    - README usability notes are documentation-only and recorded in the round-6 audit, outside this card.
+    rollback:
+    - Revert this task's listed changes.
+    stop_conditions:
+    - A test would require changing scorer behaviour.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: review/challenge/consolidate and proceed (round 6); audit_session-2026-11-11-review-round6.md'
+        validation_summary: 'Local run exit0: cargo test --all-targets (lib 213 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4, mcp 12, ranking_sanity 1) in 17.8 s wall; fmt --check ok; clippy --all-targets -D warnings ok; git diff --check ok. Synthetic only.'
+    dod_status: pass
   PERF-1:
     title: Given concurrent MCP clients, requests snapshot the shared immutable index under a short lock and run with bounded configurable permits owned by the actual work
     status: DONE
@@ -2289,6 +2333,7 @@ tasks:
 | REQ-045 | Owner decision 9: one shared kappa implementation | implementation | SIMPL-3 | unchanged worked examples |
 | REQ-046 | Owner decision 10: staging before held-out reservation | implementation | FIX-8 | unwritable-parent refusal regression |
 | REQ-047 | Round-5 review: dev staging order; ADR discrimination check on planted synthetic sections | implementation | FIX-9 | ranking_sanity and staging regressions |
+| REQ-048 | Round-6 review: hand-computed scorer edge tests; dev hash-crate optimization | implementation | FIX-10 | search:: numeric tests |
 
 ## Decisions And Non-Goals
 

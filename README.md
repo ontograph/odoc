@@ -80,9 +80,10 @@ retrieval or in-session switching.
 
 ### HTTP (loopback, behind an authenticated ingress)
 
-Index each folder first (`ontodoc --root docs_share/<name> index`), then:
+Index each folder first, then start the listener:
 
 ```sh
+for d in /absolute/path/to/docs_share/*/; do ontodoc --root "$d" index; done
 ontodoc serve-http --docs-share /absolute/path/to/docs_share --listen 127.0.0.1:8080
 ```
 
@@ -90,6 +91,15 @@ Each immediate folder is served at `http://127.0.0.1:8080/<percent-encoded
 name>/mcp` with its own `.ontodoc/` store; endpoints are printed to stderr.
 The transport is MCP Streamable HTTP in stateless JSON mode: `POST` only, one
 JSON-RPC message per request, no sessions or SSE (`GET`/`DELETE` → 405).
+
+- Folders are discovered once at startup: a new folder needs a restart. A
+  folder without an index is still served; its tools return `no_index` until
+  `ontodoc --root <folder> index` publishes one (no restart needed). Plain
+  files are ignored; a symlink or special entry in `docs_share` refuses startup.
+- Clients that accept a URL-based MCP server configure one entry per folder,
+  pointing at the ingress, for example
+  `{"mcpServers": {"docs-guide": {"url": "https://docs.example/guide/mcp"}}}`
+  (use the client's own format and authentication settings).
 
 - The listener refuses non-loopback addresses. Remote users must reach it
   through an operator-run TLS ingress that authenticates every request;
