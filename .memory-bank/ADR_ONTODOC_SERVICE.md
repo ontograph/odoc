@@ -556,9 +556,9 @@ not claim race-safe publication against a hostile store administrator.
 
 ## Folder-Scoped HTTP MCP Architecture (Accepted, Not Implemented)
 
-Status 2026-11-11: HTTP-1 implements the startup folder registry in
-`src/mcp.rs`. The listener (HTTP-0/HTTP-2) is not implemented; the heading keeps
-its anchor.
+Status 2026-11-11: implemented. HTTP-1 is the startup folder registry
+(`src/mcp.rs`), and HTTP-2 is the loopback listener (`src/http.rs`) under the
+revision-10 contracts below. The heading keeps its anchor.
 
 Authority: user requirement of 2026-11-10: each subfolder of `./docs_share`
 must be a separate endpoint named after that folder, with its own database,
@@ -677,14 +677,12 @@ OntoDoc code. Anonymous or direct public listeners remain unauthorized.
 
 ### Delivery Boundary
 
-Revision 10 authorizes HTTP-2 to implement the contracts above. Before that,
-`src/mcp.rs` serves stdio only; `docs_share/` does not exist in this
-checkout. Revision 4 authorized the architecture, not listener startup,
-database creation, automatic indexing or changes to the active evaluation task.
-The existing implementation plan remains its stdio/evaluation baseline until
-scoped HTTP tasks are added through the project planning workflow.
+HTTP-2 (DONE 2026-11-11) implements the contracts above; `tests/http.rs`
+holds the synthetic checks. Still outside this ADR: automatic indexing,
+database creation by the listener, authentication in OntoDoc, sessions/SSE
+and non-loopback binds. `docs_share/` does not exist in this checkout.
 
-Before implementation is called complete, prove with small synthetic corpora
+The acceptance checks were to prove with small synthetic corpora
 that each folder has its own endpoint/store, all five tools stay within that
 folder, identical local IDs do not mix stores, session reuse cannot switch
 endpoints, and publication/failure in one corpus does not replace another's

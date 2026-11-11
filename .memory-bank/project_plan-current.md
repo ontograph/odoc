@@ -9,7 +9,13 @@ Updated: 2026-11-11
 
 | Canonical plan | State | Active task | Counts |
 | --- | --- | --- | --- |
-| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | none (EVAL-2.0 parked by owner pending human inputs) | 45 DONE, 6 OPEN, 1 BLOCKED; 52 total |
+| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | none (EVAL-2.0 parked by owner pending human inputs) | 46 DONE, 6 OPEN, 1 BLOCKED; 53 total |
+
+- 2026-11-11 review round 5 ([audit](audit_session-2026-11-11-review-round5.md)):
+  FIX-9 DONE. Dev staging was restored after validation, and the ADR
+  discrimination check is `tests/ranking_sanity.rs`. Docs drift was fixed. DONE
+  validation summaries were archived, taking the plan from 122 KB to 108 KB.
+  Evaluation code is frozen while parked.
 
 - 2026-11-11 owner packet approved ([decisions](audit_session-2026-11-11-owner-decisions.md)):
   ADR revision 10; HTTP-0, HTTP-2, FIX-7, SIMPL-3, FIX-8 DONE via strict
@@ -158,7 +164,7 @@ The 15 historical closeouts remain unchanged; they are not current-tree proof.
   owner-blocked and composes accepted local contracts with network/session limits.
 - Evaluation: blocked EVAL-2.0 (owner: corpora, query approval, annotators) → EVAL-2.1 →
   EVAL-3.0/3.1/3.2 → OD-4.1 → OD-4.0. Public measurement remains disabled.
-- Accepted folder HTTP: HTTP-1 registry DONE; HTTP-0 owner choice → HTTP-2 listener.
-  Stdio is implemented; HTTP is not. Diagnostics remain Proposed.
+- Folder HTTP: HTTP-0, HTTP-1, HTTP-2 DONE (loopback listener behind an
+  authenticated ingress). Diagnostics remain Proposed.
 
 See [pending tasks](project_pending-tasks.md) for gates and external dependencies.

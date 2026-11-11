@@ -578,6 +578,7 @@ fn unwritable_output_parent_refuses_before_reservation() {
     fs::set_permissions(&parent, fs::Permissions::from_mode(0o555)).unwrap();
     // A privileged user can write anyway; the refusal is then untestable.
     if fs::write(parent.join("probe"), b"").is_ok() {
+        eprintln!("SKIPPED: privileged user ignores directory permissions");
         return;
     }
     let out = parent.join("test-run");

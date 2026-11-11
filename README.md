@@ -93,8 +93,9 @@ JSON-RPC message per request, no sessions or SSE (`GET`/`DELETE` → 405).
 
 - The listener refuses non-loopback addresses. Remote users must reach it
   through an operator-run TLS ingress that authenticates every request;
-  OntoDoc has no authentication. The ingress must forward the configured
-  `Host` (the listen address) unchanged.
+  OntoDoc has no authentication. The ingress must rewrite the upstream
+  `Host` header to the listen authority (for example `127.0.0.1:8080`); any
+  other `Host` is refused with 403.
 - Requests carrying `Origin` are refused (403): native MCP clients only.
 - Limits: 32 corpora; 128 KiB request and complete response bodies (413 /
   generic 500); 256 admitted connections and 256 in-flight requests, excess
@@ -136,13 +137,15 @@ calls can change the active generation; cross-call snapshot pinning is absent.
 
 ## Safety And Delivery Limits
 
-- Race-safe rooted filesystem reads and citation-generation membership are
-  unresolved. Current path checks are not protection against concurrent ancestor
-  or leaf replacement. Do not expose `verify` to untrusted clients.
-- Aggregate freshness/verification work, store-read allocation and actual
-  blocking-work admission/cancellation are not fully bounded. Timeouts alone
-  cannot stop `spawn_blocking`. Passing wire-limit tests does not establish these
-  separate protections or measured multi-user capacity.
+- Corpus reads use `openat2` beneath the retained root without following
+  symlinks, and `verify` accepts only citations that are members of the active
+  generation. This does not protect against a hostile store or corpus
+  administrator.
+- Request inputs, freshness/verification work, store reads and blocking work
+  have fixed ceilings, and work permits stay with the work until it stops.
+  These are policies, not measured capacity. Every `search`, `read` and
+  `status` rehashes the corpus to report freshness, so cost grows with corpus
+  size (capped at 128 MiB read per call); avoid tight `status` polling.
 - HTTP limits are conservative policies, not measured capacity. Equal document
   access is not anonymous access: never expose the listener without the
   authenticating ingress.

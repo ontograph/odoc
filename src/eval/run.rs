@@ -2257,8 +2257,7 @@ pub fn run(
         ));
     }
     bench.require_prepared_capture(SplitName::Dev)?;
-    let stage = StagingDir::create(out)?;
-    run_reserved(bench, split, confirm_test, out, stage, None)
+    run_reserved(bench, split, confirm_test, out, None, None)
 }
 
 /// Held-out run from the pinned preparation: confirmation and admission are
@@ -2285,7 +2284,7 @@ pub fn run_held_out(
         SplitName::Test,
         confirm_test,
         out,
-        stage,
+        Some(stage),
         Some((custody, started)),
     )
 }
@@ -2295,7 +2294,9 @@ fn run_reserved(
     split: SplitName,
     confirm_test: bool,
     out: &Path,
-    stage: StagingDir,
+    // Held-out runs stage before reserving their attempt; dev runs stage
+    // only after their inputs and budgets are validated.
+    stage: Option<StagingDir>,
     attempt: Option<(Custody, AttemptStarted)>,
 ) -> Result<Report, EvalError> {
     let attempt_ref = attempt.as_ref();
@@ -2350,6 +2351,10 @@ fn run_reserved(
             &indexes,
             &systems,
         ))?;
+        let stage = match stage {
+            Some(stage) => stage,
+            None => StagingDir::create(out)?,
+        };
         let code_identity = frozen.map(|f| (f.git_commit, f.binary_sha256));
         let stage_path = stage.path();
         let mut run_sha256 = BTreeMap::new();

@@ -14,16 +14,15 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
 
 ## Active Plans
 
-- [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - 45/52 done (HTTP-2, FIX-7, SIMPL-3, FIX-8 closed 2026-11-11); EVAL-2.0 parked by owner pending corpora, operator and two human annotators.
+- [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - 46/53 done (FIX-9 round 5, 2026-11-11); EVAL-2.0 parked by owner pending corpora, operator and two human annotators.
 
 ## Recent Evidence
 
+- [Review round 5](audit_session-2026-11-11-review-round5.md) - FIX-9 staging order, ranking-sanity check, docs drift, plan archive.
 - [Owner decisions](audit_session-2026-11-11-owner-decisions.md) - ten approved; ADR rev 10; HTTP-2 loopback listener, FIX-7/SIMPL-3/FIX-8 DONE.
 - [Review round 4](audit_session-2026-11-11-review-round4.md) - FIX-5 pre-reservation refusals, FIX-6 heading cap DONE.
 - [Review round 3](audit_session-2026-11-11-review-round3.md) - FIX-3 run-file bound, miss attribution, FIX-4 list caps DONE.
-- [Review/simplify consolidation](audit_session-2026-11-11-review-simplify-consolidate.md) -
-  FIX-1, SIMPL-1, HTTP-1 folder registry and PERF-1 concurrent snapshot admission
-  DONE; lane perf1-c exit0; Astra P2s fixed. DONE expected_evidence archived.
+- [Review/simplify consolidation](audit_session-2026-11-11-review-simplify-consolidate.md) - FIX-1, SIMPL-1, HTTP-1, PERF-1 DONE.
 - [EVAL-1.3 admission](audit_session-2026-11-11-eval13-progress.md) - DONE: preparation-pinned
   measurement, held-out pre-reservation admission; synthetic only, lane eval13-close-a exit0.
 - [Publication outcomes/process locks](audit_session-2026-11-11-od39-publication-outcomes.md) -

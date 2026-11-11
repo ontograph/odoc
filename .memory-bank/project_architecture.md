@@ -21,12 +21,11 @@ authorize HTTP delivery or claim a measured retrieval/performance result.
 
 ## Accepted Folder-Scoped HTTP Design (Not Implemented)
 
-HTTP-0 is blocked on the owner's exposure/admission choice. The
-[authority-gate review](audit_session-2026-11-10-http0-authority-gate.md) records
-historical native-reader and session-limit recommendations. ADR revision 8
-accepts transport-independent local contracts below; HTTP-0 reuses them and
-resolves network/session admission. HTTP-1 registry is implemented; no listener or new tool is authorized;
-only OD-3.4 may promote locked rustix with `fs` for local rooted I/O.
+Implemented 2026-11-11 (heading kept for links): HTTP-1 registry and the
+HTTP-2 loopback listener under ADR revision 10 (owner decision: loopback
+behind an authenticated TLS ingress). The ADR revision 8 local contracts below
+apply to both transports. No new tool, authentication stack or non-loopback
+bind is authorized.
 
 ADR revision 4 maps every immediate real subdirectory of `./docs_share/` to a
 separate logical MCP service, named after that folder:
@@ -61,8 +60,8 @@ takes 4 global then 2 per-corpus permits inside `OntoDocServer::blocking`.
 HTTP-1 (2026-11-11) implements `mcp::Registry::discover`: immediate real
 subdirectories, sorted, at most 32, URL-unreserved names, symlinks and other
 special entries refused, hidden entries and plain files ignored. It holds one
-`OntoDocServer` per folder, with an exact lookup and no default. The HTTP
-listener is not present; HTTP-0/HTTP-2 own exposure. Detailed lifecycle and acceptance requirements live
+`OntoDocServer` per folder, with an exact lookup and no default; `src/http.rs`
+routes to those servers. Detailed lifecycle and acceptance requirements live
 in the ADR's **Folder-Scoped HTTP MCP Architecture** section.
 
 ## Owners
@@ -83,6 +82,7 @@ in the ADR's **Folder-Scoped HTTP MCP Architecture** section.
 | `src/cli.rs`, `src/main.rs` | application layer (`App`, bounded responses, `AppError::kind()`) shared by CLI and MCP; clap subcommands index/search/read/related/verify/status/serve/serve-http (runtime in `main.rs`) and `eval split\|pool\|run\|score\|check-benchmark\|sweep\|freeze\|check-frozen\|misses` | OD-2.0, EVAL-1.1, EVAL-1.2 |
 | `src/mcp.rs` | rmcp stdio server, five read-only tools, native input/output bounds, preconversion admission, closure-owned bounded permits (optional shared global, then per-corpus) over a snapshot cache, `docs_share` folder registry | OD-2.1, OD-3.3, OD-3.5, HTTP-1, PERF-1, HTTP-2 |
 | `src/http.rs` | loopback Streamable HTTP listener: routing, admission, body/response bounds, drain | HTTP-2 |
+| `tests/ranking_sanity.rs` | ADR discrimination check on planted synthetic sections (oracle vs shuffle, self p = 1, B1–B3 vs shuffle); sanity only, no quality claim | FIX-9 |
 | `src/eval/{metrics,stats}.rs` | metrics, decision rule, bootstrap, randomization, Holm, Wilson, the single weighted-kappa implementation (`kappa_from_counts`), power | EVAL-1.0 |
 | `src/eval/run.rs` | split/pool/run/score/reports; split-specific capture and opaque mechanical evidence, bounded payload/index bytes and shared cached indexes | EVAL-1.1, EVAL-1.4 |
 | `src/eval/{gates,sweep}.rs` | integrity gates, in-memory pool comparison, captured dev computation, miss attribution, freeze/code-freeze checks; public measurement disabled | EVAL-1.2, EVAL-1.4 |
