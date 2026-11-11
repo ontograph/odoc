@@ -148,19 +148,22 @@ pub fn parse_sections(rel_path: &str, source: &str) -> Vec<Section> {
     sections
 }
 
+/// Markdown extensions shared by every parser pass, so block structure and
+/// offsets agree across sections, tiers and graph extraction.
+pub(crate) const MARKDOWN_OPTIONS: Options = Options::ENABLE_YAML_STYLE_METADATA_BLOCKS
+    .union(Options::ENABLE_TABLES)
+    .union(Options::ENABLE_FOOTNOTES)
+    .union(Options::ENABLE_STRIKETHROUGH)
+    .union(Options::ENABLE_TASKLISTS);
+
 /// Top-level blocks with trailing whitespace trimmed; front matter excluded.
 fn top_level_blocks(source: &str) -> Vec<Block> {
-    let options = Options::ENABLE_YAML_STYLE_METADATA_BLOCKS
-        | Options::ENABLE_TABLES
-        | Options::ENABLE_FOOTNOTES
-        | Options::ENABLE_STRIKETHROUGH
-        | Options::ENABLE_TASKLISTS;
     let mut blocks = Vec::new();
     let mut depth = 0usize;
     let mut skip = false;
     let mut heading: Option<(u8, String)> = None;
 
-    for (event, range) in Parser::new_ext(source, options).into_offset_iter() {
+    for (event, range) in Parser::new_ext(source, MARKDOWN_OPTIONS).into_offset_iter() {
         match event {
             Event::Start(tag) => {
                 if depth == 0 {

@@ -2287,6 +2287,52 @@ tasks:
         authorization_ref: 'User 2026-11-11: review/challenge/consolidate and proceed (round 7); audit_session-2026-11-11-review-round6.md#round-7'
         validation_summary: 'Local run exit0: cargo test --all-targets (lib 214 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4, mcp 12, ranking_sanity 1); fmt --check ok; clippy --all-targets -D warnings ok; git diff --check ok. ADR revision 11. Two GPT-6-Astra reviews, no P1; P2 store-dir sync and P3 partial-file coverage fixed. Synthetic only.'
     dod_status: pass
+  FIX-12:
+    title: Given owner approval, the first-sentence rule parses with the sectioning GFM extensions so tables are never first sentences, and the stored schema becomes 3
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - FIX-11
+    type: code
+    validation_tier: unit-fast
+    impact_risk: high
+    owner_files:
+    - src/parse.rs
+    - src/tiers.rs
+    - src/graph.rs
+    - src/store.rs
+    - tests/cli.rs
+    allowed_write_set:
+    - src/parse.rs
+    - src/tiers.rs
+    - src/graph.rs
+    - src/store.rs
+    - tests/cli.rs
+    non_goals:
+    - Section or chunk identity changes, ranking parameter changes, tuning, migration of old stores.
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib tiers:: parse:: graph:: store::'
+    - CARGO_BUILD_JOBS=4 cargo test --all-targets
+    - cargo fmt --check
+    expected_evidence:
+    - One pub(crate) MARKDOWN_OPTIONS const in parse.rs used by parse, tiers first_sentence and graph.
+    - Regression - a table before a paragraph yields first sentence "Actual sentence.".
+    - SCHEMA_VERSION 3; schema 2 and 4 artifacts refuse as unsupported; CLI status reports 3.
+    rollback:
+    - Revert this task's listed changes; schema-3 stores then need a reindex under schema 2.
+    stop_conditions:
+    - Section or chunk ids change on any existing fixture.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-11: "approved" (round-7 option 2, table-aware first sentence); ADR revision 12'
+        validation_summary: 'Local run exit0: cargo test --all-targets (lib 214 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4, mcp 12, ranking_sanity 1); fmt --check ok; clippy --all-targets -D warnings ok; git diff --check ok. All section/chunk-id fixture tests unchanged and green. No dev or held-out data exists or was read.'
+    dod_status: pass
   PERF-1:
     title: Given concurrent MCP clients, requests snapshot the shared immutable index under a short lock and run with bounded configurable permits owned by the actual work
     status: DONE
@@ -2379,6 +2425,7 @@ tasks:
 | REQ-047 | Round-5 review: dev staging order; ADR discrimination check on planted synthetic sections | implementation | FIX-9 | ranking_sanity and staging regressions |
 | REQ-048 | Round-6 review: hand-computed scorer edge tests; dev hash-crate optimization | implementation | FIX-10 | search:: numeric tests |
 | REQ-049 | Round-7 review: interrupted prune recovery via temp namespace; discriminating fusion ties; bounded HTTP test reads | implementation | FIX-11 | store prune regression |
+| REQ-050 | Owner-approved table-aware first sentence; schema 3 | implementation | FIX-12 | tiers first_sentence regression |
 
 ## Decisions And Non-Goals
 

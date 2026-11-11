@@ -1,7 +1,7 @@
 # ADR: OntoDoc — Measurable Documentation Graph-RAG MCP Service
 
 Date: 2026-11-08
-Revision: 11 (2026-11-11). Revision 2 added donor ideas
+Revision: 12 (2026-11-11). Revision 2 added donor ideas
 (`audit_session-2026-11-08-donor-ideas-review.md`); revision 3 applies the plan
 challenge (`audit_session-2026-11-08-plan-challenge.md`): section-level
 evaluation unit, frozen chunk budget, raw-score abstention, specified PPR, power
@@ -31,6 +31,10 @@ statistics for empty exploratory groups. Evaluation stays parked on human
 inputs (`audit_session-2026-11-11-owner-decisions.md`).
 Revision 11 (2026-11-11) makes pruning move a validated complete generation to
 `tmp-<id>` before deleting it (round 6; `audit_session-2026-11-11-review-round6.md`).
+Revision 12 (2026-11-11, owner-approved) makes the first-sentence rule parse
+with the same GFM extensions as sectioning, so a table is never a first
+sentence; stored schema becomes 3 and older stores need a trusted reindex. No
+dev or held-out measurement exists, so no evaluation result is affected.
 Owner: OntoDoc maintainers
 
 ## Status
@@ -104,6 +108,9 @@ Two predecessors exist:
    byte caps shorten fragments only at UTF-8 boundaries with explicit truncation.
    Separators are formatting, not source quotations. No generated words,
    summaries or claims are permitted. L2 remains the original chunk text.
+   The first sentence comes from the first block that parses, with the
+   sectioning GFM extensions, as a paragraph; tables, lists and code are
+   skipped (revision 12, schema 3).
 5. **Graph:** nodes are Document, Section and Chunk. Edges:
    - `CONTAINS`: the hierarchy.
    - `NEXT`: reading order.

@@ -19,7 +19,7 @@ use std::ops::Range;
 use pulldown_cmark::{Event, Parser, Tag};
 
 use crate::chunk::Chunk;
-use crate::parse::Section;
+use crate::parse::{MARKDOWN_OPTIONS, Section};
 
 pub const L0_CAP: usize = 200;
 pub const L1_CAP: usize = 1500;
@@ -140,9 +140,12 @@ fn first_sentence<'a>(
     source: &str,
     blocks: impl Iterator<Item = &'a Range<usize>>,
 ) -> Option<Range<usize>> {
-    let block = blocks
-        .filter_map(|b| source.get(b.clone()))
-        .find(|text| matches!(Parser::new(text).next(), Some(Event::Start(Tag::Paragraph))))?;
+    let block = blocks.filter_map(|b| source.get(b.clone())).find(|text| {
+        matches!(
+            Parser::new_ext(text, MARKDOWN_OPTIONS).next(),
+            Some(Event::Start(Tag::Paragraph))
+        )
+    })?;
     let text = block.trim_start();
     let bytes = text.as_bytes();
     let end = (0..bytes.len())
@@ -291,6 +294,12 @@ mod tests {
         assert_eq!(one("Stop!\nNext line."), "Stop!");
         assert_eq!(one("v1.2 is out. Next"), "v1.2 is out.");
         assert_eq!(one("No terminator"), "No terminator");
+        // A GFM table is a table block, not a paragraph (schema 3).
+        let doc = "| A. b |\n| --- |\n| B |\n\nActual sentence. More.\n";
+        let table = 0..doc.find("\n\n").unwrap();
+        let para = table.end + 2..doc.len() - 1;
+        let r = first_sentence(doc, [table, para].iter()).unwrap();
+        assert_eq!(&doc[r], "Actual sentence.");
         let code = "```\ncode. here\n```";
         assert_eq!(
             first_sentence(code, std::iter::once(&(0..code.len()))),

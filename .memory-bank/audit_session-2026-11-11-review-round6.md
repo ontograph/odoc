@@ -96,3 +96,19 @@ Validation (round 7):
   `git diff --check`: ok.
 - `project_plan_validate`: pass, 55 tasks. FIX-11 was closed through strict
   `reopen` and `complete-local`.
+
+## Owner Approval: Table-Aware First Sentence (FIX-12)
+
+The owner replied "approved" to round-7 option 2.
+- `src/parse.rs` now has a single `MARKDOWN_OPTIONS` const. Sectioning, tier
+  `first_sentence` and graph extraction all use it. This also removed a
+  duplicate options list in `graph.rs`.
+- A table before a paragraph now yields the paragraph's first sentence.
+- `SCHEMA_VERSION` is 3 (ADR revision 12), so older stores refuse to load
+  until a trusted `ontodoc index` rebuilds them.
+- Section and chunk IDs are unchanged, and every ID fixture test stayed green.
+- No dev or held-out measurement exists, so no evaluation result is affected.
+
+Validation: `cargo test --all-targets` exit 0 (lib 214 passed, 1 ignored;
+integration targets unchanged); fmt, clippy `-D warnings` and `git diff --check`
+ok; `project_plan_validate` pass, 56 tasks.

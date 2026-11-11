@@ -332,7 +332,7 @@ fn schema_two_exact_ids_precede_unchanged_anchor_aliases() {
     }
     fs::write(root.path().join("no.md"), "# !!!\n\nbody\n").unwrap();
     ok(&run(root.path(), &["index"]));
-    assert_eq!(ok(&run(root.path(), &["status"]))["schema_version"], 2);
+    assert_eq!(ok(&run(root.path(), &["status"]))["schema_version"], 3);
     for path in paths {
         for suffix in [
             "",
@@ -372,5 +372,5 @@ fn schema_two_exact_ids_precede_unchanged_anchor_aliases() {
     let generation = ontodoc::store::Store::new(root.path().join(".ontodoc"))
         .load()
         .unwrap();
-    assert_eq!(generation.config.schema_version, 2);
+    assert_eq!(generation.config.schema_version, 3);
 }

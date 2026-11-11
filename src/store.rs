@@ -33,7 +33,8 @@ use crate::graph::{self, DocInput, EdgeKind};
 use crate::parse::{self, Span};
 use crate::tiers::{self, L0_CAP, L1_CAP, PSEUDO_DOC_CAP, Tier};
 
-pub const SCHEMA_VERSION: u32 = 2;
+/// 3: table-aware first sentence in L0/L1/pseudo-documents (ADR rev 12).
+pub const SCHEMA_VERSION: u32 = 3;
 pub const TOKENIZER_VERSION: u32 = 1;
 const KEEP_OLD: usize = 2;
 const MAX_POINTER_BYTES: usize = 128;
@@ -3291,7 +3292,7 @@ body
     fn versions_retired_fields_and_false_ids_refuse_without_store_mutation() {
         let root = corpus();
         let good = build(root.path(), &IndexConfig::default()).unwrap();
-        for schema in [1, 3] {
+        for schema in [2, 4] {
             let config = IndexConfig {
                 schema_version: schema,
                 ..IndexConfig::default()
@@ -3330,7 +3331,7 @@ body
 
         for mode in [
             "schema1",
-            "schema3",
+            "schema4",
             "tokenizer",
             "retired",
             "id",
@@ -3342,7 +3343,7 @@ body
                     value["config"]["schema_version"] = serde_json::json!(1);
                     value["files"][0]["mtime_ns"] = serde_json::json!(123);
                 }
-                "schema3" => value["config"]["schema_version"] = serde_json::json!(3),
+                "schema4" => value["config"]["schema_version"] = serde_json::json!(4),
                 "tokenizer" => value["config"]["tokenizer_version"] = serde_json::json!(99),
                 "retired" => value["files"][0]["mtime_ns"] = serde_json::json!(123),
                 "manifest" => value["files"][0]["sha256"] = serde_json::json!("0".repeat(64)),
@@ -3356,7 +3357,7 @@ body
             let error = store.load().unwrap_err().to_string();
             assert!(
                 error.contains(match mode {
-                    "schema1" | "schema3" | "tokenizer" => "unsupported",
+                    "schema1" | "schema4" | "tokenizer" => "unsupported",
                     "retired" => "mtime_ns",
                     _ => "id mismatch",
                 }),

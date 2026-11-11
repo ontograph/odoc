@@ -15,10 +15,10 @@
 
 use std::collections::{HashMap, HashSet};
 
-use pulldown_cmark::{Event, Options, Parser, Tag};
+use pulldown_cmark::{Event, Parser, Tag};
 
 use crate::chunk::Chunk;
-use crate::parse::{LineIndex, Section, Span};
+use crate::parse::{LineIndex, MARKDOWN_OPTIONS, Section, Span};
 
 /// One parsed document as graph input.
 pub struct DocInput<'a> {
@@ -74,13 +74,7 @@ pub fn build(docs: &[DocInput<'_>]) -> Graph {
     for doc in docs {
         structure_edges(doc, &mut edges);
         let lines = LineIndex::new(doc.source);
-        // Same options as `parse` so offsets agree.
-        let options = Options::ENABLE_YAML_STYLE_METADATA_BLOCKS
-            | Options::ENABLE_TABLES
-            | Options::ENABLE_FOOTNOTES
-            | Options::ENABLE_STRIKETHROUGH
-            | Options::ENABLE_TASKLISTS;
-        for (event, range) in Parser::new_ext(doc.source, options).into_offset_iter() {
+        for (event, range) in Parser::new_ext(doc.source, MARKDOWN_OPTIONS).into_offset_iter() {
             let Some(from) = chunk_at(doc.chunks, range.start) else {
                 continue;
             };

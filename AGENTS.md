@@ -109,7 +109,8 @@ or passing unit tests. These rules apply repository-wide.
   section/chunk IDs before publication, including preambles and empty heading
   slugs. Schema 2 is implemented: empty allocated ID components use `@empty`
   only in IDs; Markdown anchors/preambles remain unchanged. Artifacts omit
-  mtime and hash sorted canonical skips; schema 1 requires trusted CLI reindex.
+  mtime and hash sorted canonical skips. Schema 3 (table-aware first
+  sentence) is current; older schemas require trusted CLI reindex.
   Same-ID target reuse requires exact index and metadata bytes, not ID alone.
   Identity changes need ADR/schema review. Ranking changes belong in
   `src/search/` and require dev-split evidence.

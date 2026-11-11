@@ -70,8 +70,8 @@ in the ADR's **Folder-Scoped HTTP MCP Architecture** section.
 | --- | --- | --- |
 | `Cargo.toml` | single package `ontodoc` (lib + bin) | OD-0.0 |
 | `src/corpus.rs` | retained-root openat2 reader, fixed-buffer RawDir traversal, shared accepted-file visitor/collecting wrapper, explicit ignore and residual work budgets; automatic walker is test-only | OD-1.0, EVAL-1.4, OD-3.4/3.6 |
-| `src/parse.rs`, `src/chunk.rs` | pulldown-cmark sections (evaluation unit, budget-independent ids), chunks (section id + ordinal), spans, hashes | OD-1.1 |
-| `src/tiers.rs` | structural L0/L1 tiers and document pseudo-documents, copied from source | OD-1.2 |
+| `src/parse.rs`, `src/chunk.rs` | pulldown-cmark sections (evaluation unit, budget-independent ids), chunks (section id + ordinal), spans, hashes; `MARKDOWN_OPTIONS` shared with tiers and graph | OD-1.1, FIX-12 |
+| `src/tiers.rs` | structural L0/L1 tiers and document pseudo-documents, copied from source; table-aware first sentence (schema 3) | OD-1.2, FIX-12 |
 | `src/graph.rs` | CONTAINS / NEXT / LINKS_TO (projected to first chunks) / MENTIONS edges | OD-1.3 |
 | `src/store.rs` | generations, lock, pointer, shared artifact/captured-byte validation with raw collection preflight; streaming sorted freshness manifest; prune moves to `tmp-<id>` before deletion | OD-1.4, EVAL-1.4, OD-3.6, FIX-11 |
 | `src/search/{tokenize,baseline,bm25}.rs` | tokenizer, B0, B1, pre-fusion abstention on normalised raw BM25 | OD-1.5 |

@@ -30,7 +30,7 @@ limit is 2 MiB; oversized/non-UTF-8 files produce skip diagnostics. Inspect the
 index/status output rather than assuming every file was admitted.
 
 The corpus's `.ontodoc/` directory stores atomic generations and a CURRENT
-pointer. **Schema 2 requires reindexing schema-1 stores** with the trusted
+pointer. **Schema 3 requires reindexing older stores** with the trusted
 `index` command; load never silently migrates them. Generations omit source
 mtimes and use canonical content/configuration/skip identity. The publisher
 retains the current generation and two old ones; retention does not give clients
