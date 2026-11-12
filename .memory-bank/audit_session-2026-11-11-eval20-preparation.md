@@ -94,3 +94,21 @@ multi-hop stratum is the thinnest.
   `ontodoc eval pool`.
 - Limitation: drafter and one judge are the same model family
   (claude-opus-5-5); queries are model-authored and model-reviewed.
+
+## 2026-11-12: Pool And FIX-14
+
+- Owner "1-4": spot-check accepted; `eval/audit_session-query-approval.md`
+  records approval of review digest `94aaeff0…`. Pool: 259 answerable queries,
+  4,004 pairs, `fc5c8a81…`, full grid, byte-reproducible; pools gates passed.
+- FIX-14: `label_provenance: "model-judged"` notes (two distinct model judges,
+  floor((a+b)/2), model adjudicator); manifest and report carry it; H2/H5 and
+  E1 become exploratory with null Holm/decision, H1 unchanged; unknown values
+  refused at manifest verification. Human path unchanged (field omitted).
+- GPT-6-Astra review: P2 u8 overflow (fixed, regression), P2 missing
+  preparation→report test (added; mutation-checked), P3 H1 fixture. A second
+  review's P1 (sweep `confirmatory_family`/promotion) was refuted: no such
+  field or promotion code exists in `src/`.
+- Validation: `CARGO_BUILD_JOBS=4 cargo test --all-targets` exit 0 (lib 217,
+  eval_gates 22, …), fmt and clippy `-D warnings` exit 0.
+- Judge packets (blinded, full section text, seed 20261112): 41 files of 100
+  pairs under gitignored `tmp/judge/`.

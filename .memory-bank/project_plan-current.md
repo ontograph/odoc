@@ -9,7 +9,14 @@ Updated: 2026-11-11
 
 | Canonical plan | State | Active task | Counts |
 | --- | --- | --- | --- |
-| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | none (EVAL-2.0 waits for operator query approval before pooling) | 50 DONE, 6 OPEN, 1 BLOCKED; 57 total |
+| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | in-progress | EVAL-2.1 (model-judged labels, ADR rev 13) | 52 DONE, 6 OPEN; 58 total |
+
+- 2026-11-12 EVAL-2.0 DONE: operator approved review digest 94aaeff0; full-grid
+  pool 4,004 pairs (fc5c8a81), reproducible; pools gates pass. FIX-14 DONE:
+  model-judged notes/records admitted only under ADR rev 13 rules; reports
+  carry `label_provenance` and downgrade H2/H5 to exploratory (Astra review
+  P2s fixed). Next: EVAL-2.1 blinded judging by GPT-6-Astra and
+  claude-opus-5-5 high.
 
 - 2026-11-11 EVAL-2.0 preparation ([audit](audit_session-2026-11-11-eval20-preparation.md)):
   owner decisions; FIX-13 DONE (`.html` links, `src/` corpus root, schema 4,

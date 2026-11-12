@@ -457,6 +457,8 @@ struct CapturedInputs {
     /// Manifest-approved answerable test count (positive qrels); lets dev
     /// freeze/check use test power without loading test labels.
     test_answerable: Option<usize>,
+    /// Manifest label provenance (ADR revision 13); `None` for human labels.
+    label_provenance: Option<String>,
     meta_hashes: BTreeMap<String, String>,
     freshness_failures: Vec<super::gates::GateFailure>,
     pin_failures: Vec<super::gates::GateFailure>,
@@ -663,6 +665,11 @@ impl Preparation {
             })
             || p.partitions.commitment
                 != partition_commitment(&p.partitions.dev, &p.partitions.test)
+            || p.counts
+                .agreement
+                .label_provenance
+                .as_deref()
+                .is_some_and(|v| v != super::gates::MODEL_JUDGED)
         {
             return Err(preparation_error("unsupported version, stage or identity"));
         }
@@ -1170,6 +1177,7 @@ impl Bench {
             c.preparation_partitions = Some(evidence.partition_pairs());
             c.preparation_sha256 = Some(evidence.sha256().into());
             c.test_answerable = evidence.counts.answerable_positive.get("test").copied();
+            c.label_provenance = evidence.counts.agreement.label_provenance.clone();
             c.identity.pool = i.pool.clone();
         }
         Ok(bench)
@@ -1435,6 +1443,7 @@ impl Bench {
             preparation_partitions: None,
             preparation_sha256: None,
             test_answerable: None,
+            label_provenance: None,
             meta_hashes,
             freshness_failures,
             pin_failures: Vec::new(),
@@ -2628,6 +2637,10 @@ pub struct Report {
     /// Non-off-topic queries without any relevant judgement; not scored.
     pub unanswerable: Vec<String>,
     pub model_drafted: usize,
+    /// `model-judged` when labels come from model judges (ADR revision 13):
+    /// every H2/H5 contrast is then exploratory, without Holm or decision.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label_provenance: Option<String>,
     pub systems: BTreeMap<String, SystemSummary>,
     pub comparisons: Vec<Comparison>,
     /// Every pre-registered contrast (H1, H2, H5 and E1) recomputed within
@@ -2700,6 +2713,16 @@ fn per_corpus_comparisons(
         }
     }
     out
+}
+
+/// ADR revision 13: with model-judged labels, every contrast except the H1
+/// pipeline sanity check is exploratory, with no Holm p and no decision.
+fn model_judged_exploratory(comparisons: &mut [Comparison]) {
+    for c in comparisons.iter_mut().filter(|c| c.role != "sanity") {
+        c.role = "exploratory".into();
+        c.holm_p = None;
+        c.decision = None;
+    }
 }
 
 /// Paired comparison of `treatment - baseline` on queries present in both,
@@ -3141,6 +3164,13 @@ fn score_captured(
             _ => Decision::Inconclusive,
         });
     }
+    let label_provenance = bench
+        .captured
+        .as_ref()
+        .and_then(|c| c.label_provenance.clone());
+    if label_provenance.is_some() {
+        model_judged_exploratory(&mut comparisons);
+    }
 
     let s_path = run_dir.join("abstention.tsv");
     let s_text =
@@ -3193,6 +3223,7 @@ fn score_captured(
         off_topic: off_topic.len(),
         unanswerable,
         model_drafted: queries.iter().filter(|q| q.model_drafted).count(),
+        label_provenance,
         systems,
         comparisons,
         per_corpus_comparisons,
@@ -3236,6 +3267,44 @@ mod tests {
         )
         .unwrap();
         (dir, custody)
+    }
+
+    #[test]
+    fn model_judged_labels_downgrade_all_but_the_sanity_check() {
+        let c = |id: &str, role: &str, decision| Comparison {
+            id: id.into(),
+            role: role.into(),
+            treatment: "B2@0.2".into(),
+            baseline: "B1".into(),
+            metric: "ndcg10".into(),
+            stratum: None,
+            n: 3,
+            mean: Some(0.1),
+            ci_lo: Some(0.05),
+            ci_hi: Some(0.2),
+            p: Some(0.01),
+            holm_p: Some(0.02),
+            decision,
+        };
+        let mut all = vec![
+            Comparison {
+                holm_p: None,
+                ..c("H1", "sanity", Some(Decision::Pass))
+            },
+            c("H2", "confirmatory", Some(Decision::Pass)),
+            c("H5", "confirmatory", Some(Decision::Negative)),
+            c("E1", "exploratory", None),
+        ];
+        model_judged_exploratory(&mut all);
+        assert_eq!(all[0].role, "sanity");
+        assert_eq!(all[0].decision, Some(Decision::Pass));
+        assert_eq!(all[0].holm_p, None);
+        for c in &all[1..] {
+            assert_eq!(c.role, "exploratory", "{}", c.id);
+            assert_eq!((c.holm_p, c.decision), (None, None), "{}", c.id);
+            // Effect estimates stay reported.
+            assert_eq!((c.mean, c.ci_lo, c.p), (Some(0.1), Some(0.05), Some(0.01)));
+        }
     }
 
     #[test]

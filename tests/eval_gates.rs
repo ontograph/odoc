@@ -864,3 +864,170 @@ fn annotation_refuses_mismatch_missing_model_only_and_low_agreement() {
         );
     }
 }
+
+/// ADR revision 13: two distinct model judges, fixed floor((a + b) / 2) final
+/// grade, a model adjudicator; preparation records the provenance. The
+/// human-only rules stay unchanged when `label_provenance` is absent.
+#[test]
+fn model_judged_annotation_is_admitted_only_with_its_declared_rules() {
+    let fx = Fixture::new();
+    let files = Some(("annotation.jsonl", "annotation.md"));
+    let notes = fx.model_judge();
+    let records = fx.read_lines("annotation.jsonl");
+    let write_notes = |n: &serde_json::Value| {
+        fs::write(
+            fx.path("annotation.md"),
+            format!("# Synthetic model-judged notes\n\n```annotation-notes\n{n}\n```\n"),
+        )
+        .unwrap();
+    };
+    assert_eq!(check_qrels_with(&fx, files), Vec::<String>::new());
+
+    // Unequal judges floor: raw 2 and 1 admit final 1 (floor(3/2)).
+    let mut unequal = records.clone();
+    let pair = unequal
+        .iter()
+        .position(|r| r["final"]["grade"] == 1)
+        .unwrap();
+    unequal[pair]["grades"][0]["grade"] = json!(2);
+    fx.lines("annotation.jsonl", &unequal);
+    let failures = check_qrels_with(&fx, files);
+    assert!(
+        !failures.iter().any(|f| f.starts_with("annotation_")),
+        "{failures:?}"
+    );
+    // Out-of-range raw grades refuse instead of overflowing (255 + 1).
+    let mut overflow = records.clone();
+    overflow[0]["grades"][0]["grade"] = json!(255);
+    overflow[0]["grades"][1]["grade"] = json!(1);
+    fx.lines("annotation.jsonl", &overflow);
+    let failures = check_qrels_with(&fx, files);
+    assert!(
+        failures.contains(&"annotation_raw_grade_invalid".to_string()),
+        "{failures:?}"
+    );
+    // A model judge record carrying a draft is not the declared rule.
+    let mut drafted = records.clone();
+    drafted[0]["draft"] = json!({"model":"x","grade":1,"evidence":"d"});
+    drafted[0]["draft_review"] = json!({"reviewer":"j1","evidence":"r"});
+    fx.lines("annotation.jsonl", &drafted);
+    assert!(check_qrels_with(&fx, files).contains(&"annotation_model_rule_invalid".to_string()));
+
+    // A final grade off the floor rule, or a missing judge grade, refuses.
+    let mut off_rule = records.clone();
+    let g = off_rule[0]["final"]["grade"].as_u64().unwrap();
+    // floor((g + other) / 2) != g: g=0,o=2 -> 1; g=1,o=0 -> 0; g=2,o=0 -> 1.
+    off_rule[0]["grades"][1]["grade"] = json!(if g == 0 { 2 } else { 0 });
+    fx.lines("annotation.jsonl", &off_rule);
+    assert!(check_qrels_with(&fx, files).contains(&"annotation_model_rule_invalid".to_string()));
+    let mut single = records.clone();
+    single[0]["grades"].as_array_mut().unwrap().pop();
+    fx.lines("annotation.jsonl", &single);
+    assert!(check_qrels_with(&fx, files).contains(&"annotation_model_rule_invalid".to_string()));
+    // A human adjudicator is not the declared model rule.
+    let mut human_adj = records.clone();
+    human_adj[0]["final"]["adjudicator"] = json!({"id":"adj","kind":"human","evidence":"a"});
+    fx.lines("annotation.jsonl", &human_adj);
+    assert!(check_qrels_with(&fx, files).contains(&"annotation_adjudication_invalid".to_string()));
+    fx.lines("annotation.jsonl", &records);
+
+    // Same model twice, a human claimed as model judge, an unknown
+    // provenance, or model judges without the declaration all refuse.
+    let mut same = notes.clone();
+    same["annotators"][1]["model"] = json!("gpt-6-astra");
+    let mut mixed = notes.clone();
+    mixed["annotators"][1] = json!({"id":"j2","kind":"human","evidence":"session/j2"});
+    let mut unknown = notes.clone();
+    unknown["label_provenance"] = json!("crowd");
+    let mut undeclared = notes.clone();
+    undeclared
+        .as_object_mut()
+        .unwrap()
+        .remove("label_provenance");
+    for bad in [same, mixed, unknown, undeclared] {
+        write_notes(&bad);
+        assert_eq!(
+            check_qrels_with(&fx, files),
+            vec!["annotation_notes_invalid"]
+        );
+    }
+    write_notes(&notes);
+
+    // Preparation records the provenance in its agreement counts.
+    fx.partition_inputs();
+    let out = fx.path("preparation.json");
+    common::ok(fx.cli(&[
+        "eval",
+        "check-benchmark",
+        s(&fx.config),
+        "--stage",
+        "qrels",
+        "--query-review",
+        s(&fx.path("query-review.jsonl")),
+        "--query-review-sha256",
+        &fx.review_sha256(),
+        "--annotation",
+        s(&fx.path("annotation.jsonl")),
+        "--annotation-notes",
+        s(&fx.path("annotation.md")),
+        "--preparation-out",
+        s(&out),
+        "--operator",
+        "op",
+        "--operator-evidence",
+        "audit/prep",
+    ]));
+    let manifest = fx.read("preparation.json");
+    assert_eq!(
+        manifest["counts"]["agreement"]["label_provenance"],
+        "model-judged"
+    );
+}
+
+/// End to end (ADR revision 13): a model-judged preparation admits a dev
+/// run whose report carries the provenance; H1 keeps its sanity decision
+/// and every other contrast is exploratory with null Holm p and decision.
+/// The human-label report omits the field.
+#[test]
+fn model_judged_preparation_reaches_the_scored_report() {
+    let report = |model: bool| {
+        let fx = Fixture::new();
+        if model {
+            fx.model_judge();
+        }
+        let pin = fx.prepare();
+        let run = fx.path("dev-run");
+        common::ok(fx.admitted(
+            &[
+                "eval",
+                "run",
+                s(&fx.config),
+                "--split",
+                "dev",
+                "--out",
+                s(&run),
+            ],
+            &pin,
+        ))
+    };
+    let human = report(false);
+    assert!(human.get("label_provenance").is_none());
+    let model = report(true);
+    assert_eq!(model["label_provenance"], "model-judged");
+    let comparisons = model["comparisons"].as_array().unwrap();
+    assert_eq!(comparisons[0]["id"], "H1");
+    assert_eq!(comparisons[0]["role"], "sanity");
+    assert_eq!(
+        comparisons[0]["decision"],
+        human["comparisons"][0]["decision"]
+    );
+    for c in &comparisons[1..] {
+        assert_eq!(c["role"], "exploratory", "{c}");
+        assert!(c["holm_p"].is_null() && c["decision"].is_null(), "{c}");
+    }
+    for c in model["per_corpus_comparisons"].as_array().unwrap() {
+        assert!(c["holm_p"].is_null() && c["decision"].is_null(), "{c}");
+    }
+    // Effect estimates are unchanged by the downgrade (same synthetic labels).
+    assert_eq!(comparisons[1]["mean"], human["comparisons"][1]["mean"]);
+}

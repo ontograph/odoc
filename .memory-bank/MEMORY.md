@@ -14,7 +14,7 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
 
 ## Active Plans
 
-- [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - 50/57 done (FIX-13 schema 4, 2026-11-11); EVAL-2.0 label-free set assembled (341 queries); waits for operator approval before pooling.
+- [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - 52/58 done (EVAL-2.0 pool, FIX-14 model-judged admission, 2026-11-12); EVAL-2.1 model judging active.
 
 ## Recent Evidence
 

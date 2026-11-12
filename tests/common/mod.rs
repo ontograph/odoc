@@ -262,6 +262,39 @@ impl Fixture {
         .unwrap();
     }
 
+    /// ADR revision 13: rewrite annotation as two synthetic model judges that
+    /// agree with the qrel grade (floor rule holds) and model-judged notes.
+    pub fn model_judge(&self) -> Value {
+        let records: Vec<Value> = self
+            .read_lines("qrels.jsonl")
+            .iter()
+            .enumerate()
+            .map(|(i, j)| {
+                json!({"version":1,"query_id":j["query_id"],"section_id":j["section_id"],
+                    "span_sha256":j["span_sha256"],
+                    "grades":[{"annotator":"j1","grade":j["grade"],"evidence":format!("judge/j1/{i}")},
+                        {"annotator":"j2","grade":j["grade"],"evidence":format!("judge/j2/{i}")}],
+                    "final":{"grade":j["grade"],
+                        "adjudicator":{"id":"floor-rule","kind":"model","model":"floor-mean-v1","evidence":"rule"},
+                        "evidence":format!("final/{i}")}})
+            })
+            .collect();
+        self.lines("annotation.jsonl", &records);
+        let notes = json!({"version":1,"guideline_version":"synthetic-g1",
+            "label_provenance":"model-judged",
+            "annotators":[{"id":"j1","kind":"model","model":"gpt-6-astra","evidence":"session/j1"},
+                {"id":"j2","kind":"model","model":"claude-opus-5-5","evidence":"session/j2"}],
+            "assignment_seed":11,"overlap":"corpus-stratum-ceil30-v1",
+            "blinding_evidence":"synthetic: no system identity, scores or ranks shown",
+            "adjudication_rule":"floor((a+b)/2)"});
+        fs::write(
+            self.path("annotation.md"),
+            format!("# Synthetic model-judged notes\n\n```annotation-notes\n{notes}\n```\n"),
+        )
+        .unwrap();
+        notes
+    }
+
     pub fn pool(&self, rel: &str) -> Output {
         let pin = self.review_sha256();
         self.cli(&[

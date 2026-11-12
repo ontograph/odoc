@@ -942,15 +942,18 @@ companion above; human qrels remain the only route to a confirmatory claim.
 - Each judge grades every pooled pair 0–2 from the guideline, the query and
   the source section only, blinded to system identity, scores, rank and the
   other judge. A judge session never drafts, reviews or revises queries.
-- Annotation records use `kind=model` with the exact model id; preparation
-  admits them only when the run declares `label_provenance=model-judged`, and
-  every report, preparation manifest and audit carries that value.
-- Agreement: quadratic-weighted kappa over all pairs with the seeded
-  query-cluster bootstrap CI; point kappa below 0.6 refuses preparation.
-  Final grade is `floor((a + b) / 2)`, fixed before any grading.
-- All hypotheses report effects and CIs with `role=exploratory`, no Holm
-  decision and no pass/negative label. The text must say "model-judged
-  labels"; never "qrels by annotators" or equivalence to human judgement.
+- Notes declare `label_provenance: "model-judged"` with two distinct
+  `kind=model` judges and a model adjudicator (the fixed floor rule);
+  without that field the human-only rules apply unchanged. Preparation and
+  every report carry the value; human manifests keep their bytes.
+- Agreement uses the same predeclared overlap policy and kappa floor as the
+  human path; both judges grade every pooled pair.
+- Final grade is `floor((a + b) / 2)`, fixed before any grading.
+- H2/H5 and every other contrast report effects and CIs with
+  `role=exploratory`, no Holm p and no decision. H1 keeps its sanity
+  decision: it is a pipeline check, and a failing H1 still stops the run.
+  The text must say "model-judged labels"; never "qrels by annotators" or
+  equivalence to human judgement.
   Known limits: the drafting model is also a judge, and model judges share
   biases with model-drafted queries and possibly with the evaluated lexical
   signals.

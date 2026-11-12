@@ -24,7 +24,7 @@ manager_loop:
   authority: true
   status: in-progress
   selection_policy: active_next_task-first
-  active_next_task: FIX-14
+  active_next_task: EVAL-2.1
   max_in_flight: 1
   dispatch_mode: none
   reopen_gate: null
@@ -801,7 +801,7 @@ tasks:
     known_blockers: []
   FIX-14:
     title: Given ADR rev 13, annotation notes may declare label_provenance model-judged with two distinct model judges, preparation records it, and every scored report then carries it with confirmatory comparisons downgraded to exploratory (no Holm, no decision)
-    status: OPEN
+    status: DONE
     classification: implementation-ready
     assurance_profile: full
     complexity: complex
@@ -835,6 +835,14 @@ tasks:
     stop_conditions:
     - Any existing human-path test changes expectation.
     known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-12: "1-4" (decision 2: implement model-judged admission) and "continue"; ADR revision 13 owner decision 1b'
+        validation_summary: 'Local run exit0: cargo test --all-targets (lib 217 passed 1 ignored; cli 8, eval_gates 22, eval_run 14, http 4, mcp 12, ranking_sanity 1); fmt --check ok; clippy --all-targets -D warnings ok; git diff --check ok. End-to-end test fails when the downgrade call is removed (mutation check). GPT-6-Astra review: P2 u8 overflow fixed (widened, regression), P2 missing end-to-end test added, P2 unknown provenance now refused in Preparation::verify, P3 H1 holm fixture fixed; claimed P1 sweep confirmatory_family refuted (no such field or promotion code in src/). Synthetic only.'
+    dod_status: pass
   EVAL-3.0:
     title: Given the dev split, when one `ontodoc eval run` of B0 and B1 executes, then `report.json` exists with every identity field, judged@10 for both systems, and a second run is byte-identical
     status: OPEN

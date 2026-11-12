@@ -309,6 +309,8 @@ pub const AGREEMENT_RESAMPLES: usize = 10_000;
 /// queries, sorted ids shuffled by one SplitMix64 stream seeded with the
 /// notes' assignment seed in sorted group order; the first ceil(30%) overlap.
 pub const OVERLAP_POLICY: &str = "corpus-stratum-ceil30-v1";
+/// ADR revision 13: labels from two independent model judges; exploratory only.
+pub const MODEL_JUDGED: &str = "model-judged";
 const MAX_NOTES_BYTES: usize = 1024 * 1024;
 
 /// Raw annotation bytes for the qrels stage; never self-approving.
@@ -337,6 +339,9 @@ struct AnnotationNotes {
     overlap: String,
     blinding_evidence: String,
     adjudication_rule: String,
+    /// Absent: human annotators (ADR9). [`MODEL_JUDGED`]: ADR revision 13.
+    #[serde(default)]
+    label_provenance: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -403,6 +408,9 @@ pub struct Agreement {
     pub undefined_resamples: usize,
     /// Raw overlap grades 0, 1 and 2 from both annotators.
     pub prevalence: [usize; 3],
+    /// [`MODEL_JUDGED`] for ADR revision 13 labels; absent for human labels.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label_provenance: Option<String>,
 }
 
 /// The single fenced ```annotation-notes JSON block of `annotation.md`.
@@ -431,13 +439,19 @@ fn parse_notes(notes: &[u8]) -> Option<AnnotationNotes> {
         return None;
     }
     let n: AnnotationNotes = serde_json::from_str(notes_block(notes)?).ok()?;
-    let humans = n.annotators.len() == 2
+    let kind = match n.label_provenance.as_deref() {
+        None => PartyKind::Human,
+        Some(MODEL_JUDGED) => PartyKind::Model,
+        Some(_) => return None,
+    };
+    let parties = n.annotators.len() == 2
         && n.annotators
             .iter()
-            .all(|a| a.kind == PartyKind::Human && party_valid(a))
-        && independent(&n.annotators[0], &n.annotators[1]);
+            .all(|a| a.kind == kind && party_valid(a))
+        && independent(&n.annotators[0], &n.annotators[1])
+        && (kind == PartyKind::Human || n.annotators[0].model != n.annotators[1].model);
     (n.version == 1
-        && humans
+        && parties
         && n.overlap == OVERLAP_POLICY
         && bounded(&n.guideline_version, MAX_ID_BYTES)
         && bounded(&n.blinding_evidence, MAX_NOTE_BYTES)
@@ -549,6 +563,7 @@ fn check_annotation(
         })
         .collect();
     let ids: [&str; 2] = [&notes.annotators[0].id, &notes.annotators[1].id];
+    let model_judged = notes.label_provenance.is_some();
     let mut seen = BTreeSet::new();
     // Per query: raw (first, second) annotator grades when both graded.
     let mut double: BTreeMap<&str, Vec<Option<(u8, u8)>>> = BTreeMap::new();
@@ -581,6 +596,20 @@ fn check_annotation(
         if !grades_valid {
             failures.push(fail("annotation_raw_grade_invalid", pair.clone()));
         }
+        if model_judged {
+            // Both judges grade every pair; the final grade is the fixed
+            // floor((a + b) / 2), never a free adjudication.
+            let both = ids.map(|id| r.grades.iter().find(|g| g.annotator == id));
+            let rule = match both {
+                // Widened: out-of-range raw grades already fail above and
+                // must refuse, not overflow.
+                [Some(a), Some(b)] => Some((u16::from(a.grade) + u16::from(b.grade)) / 2),
+                _ => None,
+            };
+            if r.draft.is_some() || rule != Some(u16::from(r.adjudication.grade)) {
+                failures.push(fail("annotation_model_rule_invalid", pair.clone()));
+            }
+        }
         let draft_valid = match (&r.draft, &r.draft_review) {
             (None, None) => true,
             (Some(d), Some(review)) => {
@@ -596,7 +625,14 @@ fn check_annotation(
             failures.push(fail("annotation_draft_unreviewed", pair.clone()));
         }
         let a = &r.adjudication.adjudicator;
-        if a.kind != PartyKind::Human
+        // Model-judged labels use the fixed, pre-declared floor rule; a human
+        // adjudicator is required only for human labels.
+        let adjudicator_kind = if model_judged {
+            PartyKind::Model
+        } else {
+            PartyKind::Human
+        };
+        if a.kind != adjudicator_kind
             || !party_valid(a)
             || !bounded(&r.adjudication.evidence, MAX_NOTE_BYTES)
         {
@@ -676,6 +712,7 @@ fn check_annotation(
             resamples: AGREEMENT_RESAMPLES,
             undefined_resamples,
             prevalence,
+            label_provenance: notes.label_provenance.clone(),
         }),
     ))
 }
