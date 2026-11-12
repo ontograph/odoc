@@ -22,12 +22,12 @@ outcome.
 ```yaml
 manager_loop:
   authority: true
-  status: blocked
+  status: in-progress
   selection_policy: active_next_task-first
-  active_next_task: null
+  active_next_task: FIX-14
   max_in_flight: 1
   dispatch_mode: none
-  reopen_gate: reopen after at least one unfinished task becomes dependency-ready and has no substantive known_blockers
+  reopen_gate: null
 tasks:
   OD-0.0:
     title: Given an empty package, when `cargo check --all-targets` runs at the repository root, then the `ontodoc` lib and bin compile and `ontocode-rs/` is not built
@@ -701,7 +701,7 @@ tasks:
     dod_status: pass
   EVAL-2.0:
     title: Given the pinned corpora, when the benchmark is assembled, then `eval/` holds pinned corpus metadata, stratified queries with operational strata and seeded dev/test split, and grid-wide top-10 pools with the judgement count reported
-    status: BLOCKED
+    status: DONE
     classification: implementation-ready
     assurance_profile: full
     complexity: complex
@@ -738,7 +738,7 @@ tasks:
     - Relevance judgements (EVAL-2.1).
     - Link-derived silver qrels (rejected in the ADR).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo run --release -- eval check-benchmark eval/config.json --stage pools --gates eval/gates.json --query-review eval/query-review.jsonl --query-review-sha256 "$ONTODOC_QUERY_REVIEW_SHA256" --preparation-out eval/preparation.json
+    - CARGO_BUILD_JOBS=4 cargo run --release -- eval check-benchmark eval/config.json --stage pools --gates eval/gates.json --query-review eval/query-review.jsonl --query-review-sha256 "$ONTODOC_QUERY_REVIEW_SHA256"
     expected_evidence:
     - Each corpus entry has URL, 40-character commit, licence and local path.
     - Test split has at least 150 answerable and at least 30 off-topic queries (so at least 270 queries overall at the 1:2 dev:test split); strata assigned by the ADR definitions at writing time; each model-drafted query has a substantive GPT-6-Astra review tied to its final text, with provenance and limitations recorded before pooling.
@@ -750,50 +750,90 @@ tasks:
     stop_conditions:
     - No permissively licensed second corpus is available.
     - Queries cannot be written without copying target text.
-    known_blockers:
-    - 'Owner decisions 2026-11-11 (audit_session-2026-11-11-eval20-preparation.md): corpora pinned (ontoindex d535fe8 root, rust-book 2771df1 root src/); user is the trusted operator; Claude drafts, GPT-6-Astra reviews before pooling, user spot-checks; FIX-13 (schema 4) landed. Label-free preparation done: 341 reviewed queries, test 173 answerable / 55 off-topic, review sha256 94aaeff0; pools-stage gates pass except pool_missing. Remaining gate: operator-supplied eval/audit_session-query-approval.md and query-review digest before the first pool run. Labels follow ADR rev 13 model-judged exploratory track (needs its own admission task before EVAL-2.1 labelling); generic proceed does not supply operator approval.'
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-12: "1-4" approving the spot-check sample and review digest 94aaeff0 (eval/audit_session-query-approval.md); owner decisions 2026-11-11'
+        validation_summary: 'Local run exit0 (release build): ontodoc eval pool -> 259 answerable queries, 4004 pairs (<=6000, full grid), sha256 fc5c8a81; second pool byte-identical (cmp); check-benchmark --stage pools with gates.json and review pin 94aaeff0 passed with no failures. 341 queries, split seed 20261111 reproducible, test 173 answerable / 55 off-topic. --preparation-out is qrels-stage only in the CLI, so no pools manifest is published; required_validation drops that flag. No labels exist.'
+    dod_status: pass
   EVAL-2.1:
-    title: Given approved pools, when two humans independently label every pair for the predeclared overlap of at least 30% of answerable queries, then qrels and provenance pass qrels-stage preparation with raw-grade agreement and trusted approval
+    title: Given approved pools and FIX-14, when two independent model judges (GPT-6-Astra, claude-opus-5-5 high) blindly grade every pooled pair, then model-judged qrels and provenance pass qrels-stage preparation with agreement and trusted operator approval (ADR rev 13, exploratory only)
     status: OPEN
-    classification: proof-only
+    classification: implementation-ready
     assurance_profile: full
     complexity: complex
     depends_on:
     - EVAL-2.0
-    type: inventory
+    - FIX-14
+    type: test
     validation_tier: integration
     impact_risk: high
     owner_files:
     - eval/qrels.jsonl
-    - eval/annotation.md
     - eval/annotation.jsonl
     - eval/preparation.json
-    - eval/audit_session-preparation.md
     - eval/dev-qrels.jsonl
     - eval/test-qrels.jsonl
     allowed_write_set:
     - eval/qrels.jsonl
-    - eval/annotation.md
     - eval/annotation.jsonl
     - eval/preparation.json
-    - eval/audit_session-preparation.md
     - eval/dev-qrels.jsonl
     - eval/test-qrels.jsonl
     non_goals:
-    - Model-only labels counted as human judgements.
+    - Model labels counted or described as human judgements.
     - Judging off-topic queries.
+    - A judge seeing system identity, scores, ranks or the other judge's grade.
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo run --release -- eval check-benchmark eval/config.json --stage qrels --gates eval/gates.json --query-review eval/query-review.jsonl --query-review-sha256 "$ONTODOC_QUERY_REVIEW_SHA256" --annotation eval/annotation.jsonl --annotation-notes eval/annotation.md --preparation-out eval/preparation.json
+    - CARGO_BUILD_JOBS=4 cargo run --release -- eval check-benchmark eval/config.json --stage qrels --gates eval/gates.json --query-review eval/query-review.jsonl --query-review-sha256 "$ONTODOC_QUERY_REVIEW_SHA256" --annotation eval/annotation.jsonl --annotation-notes eval/annotation.md --preparation-out eval/preparation.json --operator "$OPERATOR" --operator-evidence eval/audit_session-preparation.md
     expected_evidence:
-    - Every pooled answerable query/section pair has a label; annotators saw no system identity or score.
-    - '`eval/annotation.md` records the guideline, pseudonymous annotator ids, weighted kappa with 95% CI, prevalence and the adjudication rule.'
-    - Preparation exports separate dev-qrels.jsonl and test-qrels.jsonl committed by config.partitions and EVAL-1.6's exact-byte admission record; combined qrels remain preparation-only.
-    - ADR9 companion records bind each qrel to exact section/span, independent raw human grades, model-draft human review and adjudication; notes record blinded assignments and verified pseudonymous human identities. Derive at least 30% answerable-query overlap, quadratic-weighted kappa >=0.6, seeded query-cluster CI and prevalence. Undefined agreement or fewer than two overlap queries refuses. Operator audits the exact qrels-stage manifest hash and pins it for execution; no model is a human.
+    - Every pooled answerable pair has two raw model grades from blinded judge sessions shown only guideline, query and section text in a seeded order; final grade floor((a+b)/2).
+    - annotation.md declares label_provenance model-judged, both model ids, guideline version, blinding and the adjudication rule; agreement kappa >= 0.6 with seeded query-cluster CI and prevalence.
+    - Preparation records label_provenance model-judged; separate dev/test qrels; operator audits and pins the manifest hash.
     rollback:
     - Delete the listed files.
     stop_conditions:
-    - No second human annotator is available; record the blocker instead of substituting a model.
-    - Weighted kappa below 0.6; revise the guideline and relabel before any run.
+    - Weighted kappa below 0.6; revise the guideline and regrade before any run.
+    - A judge session saw rankings, scores or the other judge's grades.
+    known_blockers: []
+  FIX-14:
+    title: Given ADR rev 13, annotation notes may declare label_provenance model-judged with two distinct model judges, preparation records it, and every scored report then carries it with confirmatory comparisons downgraded to exploratory (no Holm, no decision)
+    status: OPEN
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - FIX-13
+    type: code
+    validation_tier: unit-fast
+    impact_risk: high
+    owner_files:
+    - src/eval/gates.rs
+    - src/eval/run.rs
+    - tests/eval_gates.rs
+    - tests/common/mod.rs
+    allowed_write_set:
+    - src/eval/gates.rs
+    - src/eval/run.rs
+    - tests/eval_gates.rs
+    - tests/common/mod.rs
+    non_goals:
+    - Weakening any human-path check; model parties as human; changes to ranking, metrics or decision rules for human labels.
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval::'
+    - CARGO_BUILD_JOBS=4 cargo test --all-targets
+    - cargo fmt --check
+    expected_evidence:
+    - Notes without label_provenance keep the exact human-only behaviour; model-judged notes require two valid distinct kind=model parties and model adjudicator; mixed or human-claimed model notes refuse.
+    - Preparation manifest serializes label_provenance; human manifests are byte-compatible.
+    - A report from a model-judged preparation has label_provenance model-judged and every comparison role exploratory with holm_p and decision null; a synthetic regression proves it.
+    rollback:
+    - Revert this task's listed changes.
+    stop_conditions:
+    - Any existing human-path test changes expectation.
     known_blockers: []
   EVAL-3.0:
     title: Given the dev split, when one `ontodoc eval run` of B0 and B1 executes, then `report.json` exists with every identity field, judged@10 for both systems, and a second run is byte-identical
@@ -2471,6 +2511,7 @@ tasks:
 | REQ-049 | Round-7 review: interrupted prune recovery via temp namespace; discriminating fusion ties; bounded HTTP test reads | implementation | FIX-11 | store prune regression |
 | REQ-050 | Owner-approved table-aware first sentence; schema 3 | implementation | FIX-12 | tiers first_sentence regression |
 | REQ-051 | Owner-approved `.html`→`.md` link resolution (schema 4); subdirectory corpus-root pin exclusion | implementation | FIX-13 | graph html-link and gates subdirectory-root regressions |
+| REQ-052 | ADR rev 13 model-judged exploratory labels: admission, provenance, exploratory-only reporting | implementation | FIX-14, EVAL-2.1 | gates/run model-judged regressions |
 
 ## Decisions And Non-Goals
 
@@ -2480,6 +2521,10 @@ tasks:
   H5-first defaults or records no-op before final OD-4.0. No ranking, code,
   real benchmark access, listener or guard removal occurs in EVAL-1.6.
 
+- EVAL-2.1's manager may create/update `eval/annotation.md` (guideline,
+  judge identities, blinding, adjudication rule) and
+  `eval/audit_session-preparation.md` (operator manifest audit); the label
+  worker does not write or approve them.
 - EVAL-2.0's manager, separately from the data worker, may create/update exactly
   `eval/audit_session-query-approval.md` to record authentic final-query approval
   and its hash before the first ranking invocation, then append pool/preparation
