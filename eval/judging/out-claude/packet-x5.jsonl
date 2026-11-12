@@ -1,0 +1,7 @@
+{"pair": "oi-mh-025|ontoindex/vendor/tree-sitter-dart/README.md#tree-sitter-dart", "grade": 0, "why": "Dart grammar README; nothing about 2.4.20 install, follow-up commit, or test counts."}
+{"pair": "oi-mh-050|ontoindex/CHANGELOG.md#changelog/2222---2026-10-13/fixed-4", "grade": 0, "why": "Lists 2.2.22 fixes; no contention test clients/rounds or artifact size limit."}
+{"pair": "oi-lk-039|ontoindex/CHANGELOG.md#changelog/253---2026-11-05", "grade": 0, "why": "Covers extension loading and generation retention; no idle eviction threshold or entry cap."}
+{"pair": "oi-cn-020|ontoindex/README.md#ontoindex/mcp-tools", "grade": 0, "why": "MCP tool list and freshness; nothing on type/value binding namespaces."}
+{"pair": "oi-mh-049|ONTOCODE_ONTOINDEX_SESSION_LOG_REVIEW.md#review-of-external-ontocodeontoindex-session-log-report/215-implementation-status", "grade": 0, "why": "2.1.5 status table; no RSS sampling gap or dirty cold p95 budget."}
+{"pair": "oi-cn-016|CHANGELOG.md#changelog/1920---2026-06-20", "grade": 0, "why": "Describes 1.9.20 fixes, not 1.9.8 features or tagged-build verification."}
+{"pair": "oi-cn-038|ADR_STRUCTURAL_CONFORMANCE_AND_EVAL_ORACLES.md#adr-structural-conformance-rules-and-evaluation-oracles/recommended-sequence", "grade": 0, "why": "Structural conformance sequence; unrelated to 2.4.4 repair plan regex or corrections."}

@@ -30,7 +30,7 @@ limit is 2 MiB; oversized/non-UTF-8 files produce skip diagnostics. Inspect the
 index/status output rather than assuming every file was admitted.
 
 The corpus's `.ontodoc/` directory stores atomic generations and a CURRENT
-pointer. **Schema 3 requires reindexing older stores** with the trusted
+pointer. **Schema 4 requires reindexing older stores** with the trusted
 `index` command; load never silently migrates them. Generations omit source
 mtimes and use canonical content/configuration/skip identity. The publisher
 retains the current generation and two old ones; retention does not give clients
@@ -153,8 +153,8 @@ calls can change the active generation; cross-call snapshot pinning is absent.
   administrator.
 - Request inputs, freshness/verification work, store reads and blocking work
   have fixed ceilings, and work permits stay with the work until it stops.
-  These are policies, not measured capacity. Every `search`, `read` and
-  `status` rehashes the corpus to report freshness, so cost grows with corpus
+  These are policies, not measured capacity. Every `search`, `read`,
+  `related` and `status` rehashes the corpus to report freshness, so cost grows with corpus
   size (capped at 128 MiB read per call); avoid tight `status` polling.
 - HTTP limits are conservative policies, not measured capacity. Equal document
   access is not anonymous access: never expose the listener without the
@@ -175,9 +175,11 @@ compiler jobs are serialized through the managed lane. Rust changes require
 formatting and all-target Clippy before completion. Documentation-only tasks
 do not compile Rust. Do not build the donor snapshot.
 
-The harness requires physically split immutable inputs, reviewed queries, human
-annotation, a frozen clean commit/binary identity and a pre-registered powered
-held-out run. Those prerequisites are incomplete. Do not remove evaluation
+The confirmatory harness requires physically split immutable inputs, reviewed
+queries, human annotation, a frozen clean commit/binary identity and a
+pre-registered powered held-out run; human annotation is not done. The current
+track uses model-judged labels and is exploratory only (no Holm decision, no
+promotion). Do not remove evaluation
 refusals, inspect held-out labels during development or claim retrieval gains
 from unit tests. [Pending tasks](.memory-bank/project_pending-tasks.md) records
 the integrity and external annotation gates.

@@ -7,8 +7,8 @@ type: project
 
 Authority: [ADR_ONTODOC_SERVICE.md](ADR_ONTODOC_SERVICE.md). Update this file
 when an owner, flow, or change-home rule changes. All `src/` owners below
-exist (OD-0.0..OD-2.1, EVAL-1.0..EVAL-1.2 done); `eval/` holds only
-`corpora.json` so far.
+exist (OD-0.0..OD-2.1, EVAL-1.0..EVAL-1.2 done); `eval/` holds the benchmark
+inputs, model-judging record (`eval/judging/`) and preparation manifest.
 
 ## Flow
 
@@ -16,10 +16,10 @@ exist (OD-0.0..OD-2.1, EVAL-1.0..EVAL-1.2 done); `eval/` holds only
 `eval (ADR9 target): final-query approval → split → approved grid-wide pools → human qrels/provenance → trusted preparation handoff → selected dev sweep + power → trusted config recapture → freeze (config + code) → one consumed held-out attempt → accepted decisions → separate default promotion/no-op`
 
 [README](../README.md) documents root-package installation, stdio client setup,
-five tools, schema-1 reindexing and current safety/evaluation limits. It does not
-authorize HTTP delivery or claim a measured retrieval/performance result.
+five tools, loopback HTTP, schema-4 reindexing and current safety/evaluation
+limits. It claims no measured retrieval/performance result.
 
-## Accepted Folder-Scoped HTTP Design (Not Implemented)
+## Accepted Folder-Scoped HTTP Design (Implemented)
 
 Implemented 2026-11-11 (heading kept for links): HTTP-1 registry and the
 HTTP-2 loopback listener under ADR revision 10 (owner decision: loopback

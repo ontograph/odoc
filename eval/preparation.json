@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "stage": "qrels",
+  "approval": {
+    "operator": "owner",
+    "evidence": "eval/audit_session-preparation.md"
+  },
+  "inputs": {
+    "config": "b65c79a5424af9efac51dda1b6576b3fb639137d69d2989023fa541d1e548be1",
+    "gates": "1eafa62be310f6215088bf7b6c4761a5e4e2daf729bea7adc1b957241574579f",
+    "splits": "9089d5769430365235855a7dc33ce02876a32ce269d99a7290106864d7fd05a9",
+    "queries": "0854450ef99a63c5912c5f36456edd384e6e6fe9d664a7c3ed05ad841598ef16",
+    "qrels": "2b56fe67d07fa3b52b3fa56b34c9806f9bd1abb300a25a313b8753d4cfa97148",
+    "pool": "13f1b78559618d3367a3cd85fec9ab42fcfc43567d3a6587f88ced63b2c0f2cb",
+    "query_review": "3158eed8b2b763f21776d230912a8ca58a3290432515fefe23198113f088830c",
+    "annotation": "b262a8b6ca9724fc2480d32162e56aded66b228085203d9682af103d8683c606",
+    "annotation_notes": "b7fbb67e9a409363c0469bd3c27fbf51991b14b05c43fd2d34ae650484baffcf"
+  },
+  "corpora": [
+    {
+      "name": "ontoindex",
+      "commit": "d535fe888a88694c524636bed8a7c409594184cb",
+      "generation_id": "4e546b16f9fd4533f597a435487d1ba7175070d33992138f4c4a49889464446b",
+      "index_sha256": "a5c77c58c7657a11f646983d48284bf2cf75babac0a155d3843c50d533d788a3",
+      "meta_sha256": "6fae2017dcffe2c66e69a38835fe9a7a7997fedb1913765c9f6ec050c1a7ccbd"
+    },
+    {
+      "name": "rust-book",
+      "commit": "2771df165f092a4fbb9f46b5b2e7450f19010adb",
+      "generation_id": "375917fc2e8cd756e785fdc118e6f5d12f4967c69963f89469de1b010d38ca95",
+      "index_sha256": "b88c3f33aec4547ecc252a8cb7d255e8f943010cb70c13f3832cca29b7aca7ce",
+      "meta_sha256": "d6ae064623ad8d72a5772621fa576944dabb1f46d8a1b88a597ff0beb1cfdda0"
+    }
+  ],
+  "partitions": {
+    "dev": {
+      "queries": "c0911db7928c32acc91951d5e8c066350048921f5f0d0861ed1a5b173b679538",
+      "qrels": "036c47ccfc93ed547aba7a2ddc30380846cc4e075102e823d65faeb53055b2a3"
+    },
+    "test": {
+      "queries": "bdc414184f57bcb16b8e7ab42d6d2b428efbcaaacd9ff5e41fbedce6a8d147d0",
+      "qrels": "631af07734f8628143f797587d33d7be27e76e3881c89cf1e5f1a91ad8312af6"
+    },
+    "commitment": "7faeae4f80c038cc93adf8e19c049e869916bde31d7e1158fa7fdf1f27fd015b"
+  },
+  "counts": {
+    "queries": {
+      "dev": {
+        "ontoindex": {
+          "conceptual": 14,
+          "lookup": 18,
+          "multi-hop": 5,
+          "off-topic": 14
+        },
+        "rust-book": {
+          "conceptual": 14,
+          "lookup": 18,
+          "multi-hop": 13,
+          "off-topic": 13
+        }
+      },
+      "test": {
+        "ontoindex": {
+          "conceptual": 28,
+          "lookup": 35,
+          "multi-hop": 11,
+          "off-topic": 29
+        },
+        "rust-book": {
+          "conceptual": 28,
+          "lookup": 37,
+          "multi-hop": 26,
+          "off-topic": 26
+        }
+      }
+    },
+    "answerable_positive": {
+      "dev": 82,
+      "test": 165
+    },
+    "pool_pairs": 3938,
+    "reviewed": 329,
+    "model_drafted": 329,
+    "agreement": {
+      "policy": "corpus-stratum-ceil30-v1",
+      "answerable_queries": 247,
+      "overlap_queries": 76,
+      "overlap_pairs": 1172,
+      "kappa": 0.8462354887522385,
+      "ci_lo": 0.8197999925519394,
+      "ci_hi": 0.8713599113293822,
+      "seed": 20261111,
+      "resamples": 10000,
+      "undefined_resamples": 0,
+      "prevalence": [
+        1456,
+        459,
+        429
+      ],
+      "label_provenance": "model-judged"
+    }
+  },
+  "policy": {
+    "promotion_policy": "h5-then-h2-v1",
+    "seed": 20261111,
+    "alpha_grid": [
+      0.0,
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5
+    ],
+    "beta_grid": [
+      0.0,
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5
+    ],
+    "gate_report_sha256": "96e6270a18f6cbba4839fbd2b564b0b8b2ebc868e9968644696bb327007895d3"
+  }
+}

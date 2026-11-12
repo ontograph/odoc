@@ -1,0 +1,100 @@
+{"pair": "oi-lk-022|ARCHITECTURE.md#architecture--ontoindex/language-agnostic-graph-feeding/language-providers", "grade": 0, "why": "Language provider fields; no confidence scores for resolution tiers."}
+{"pair": "oi-cn-045|ADR_WORKSPACE_PREPARATION_DIAGNOSTICS.md#adr-workspace-preparation-limit-diagnostics/validation-and-rollback", "grade": 0, "why": "Diagnostics ADR validation/rollback; not dirty workspace capture or generation publishing."}
+{"pair": "rb-mh-045|ch13-03-improving-our-io-project.md#improving-our-io-project/choosing-between-loops-and-iterators", "grade": 0, "why": "Loops vs iterators; nothing on raw pointers or dangling references."}
+{"pair": "rb-cn-038|ch19-03-pattern-syntax.md#pattern-syntax/matching-multiple-patterns", "grade": 0, "why": "Only match multiple patterns; does not list other pattern locations."}
+{"pair": "oi-mh-028|ONTOCODE_LEAN_CTX_TRANSPORT_LOSS_REPORT.md#ontocode-bug-report-lean-ctx-mcp-server-dies-on-detached-background-launch-and-never-recovers/summary", "grade": 0, "why": "lean-ctx transport bug summary; unrelated to capture ratio or test runs."}
+{"pair": "oi-lk-040|ADR_DUPLICATE_CODE_DISCOVERY.md#adr-duplicate-code-discovery/context", "grade": 0, "why": "Duplicate-code ADR context; unrelated to binding namespace tags."}
+{"pair": "oi-cn-006|ARCHITECTURE.md#architecture--ontoindex/mcp-tools", "grade": 0, "why": "MCP tool list; does not describe analyze pipeline or phase runner."}
+{"pair": "oi-mh-009|MIGRATION.md#migration-guide/overrides--method_overrides-pr-642/what-happens-on-re-index-1", "grade": 0, "why": "Re-index migration note; nothing on index storage, privacy or vulnerability reports."}
+{"pair": "oi-lk-007|MIGRATION.md#migration-guide/overrides--method_overrides-pr-642", "grade": 2, "why": "States alias remains until future major version, announced beforehand; no fixed deadline."}
+{"pair": "oi-cn-041|CHANGELOG.md#changelog/233---2026-10-14/added-1", "grade": 1, "why": "2.3.3 added plugin skill sync test; partial on skill/plugin copy changes."}
+{"pair": "oi-cn-003|ADR_STRUCTURAL_CONFORMANCE_AND_EVAL_ORACLES.md#adr-structural-conformance-rules-and-evaluation-oracles/decision/slice-1-boundary-rule-sets", "grade": 0, "why": "Boundary rule set config; not impact tool or relationship-type compatibility changes."}
+{"pair": "oi-lk-012|ontoindex/skills/ontoindex-cli.md#ontoindex-cli-commands", "grade": 2, "why": "States --api-key is saved in ~/.ontoindex/config.json."}
+{"pair": "rb-cn-037|ch19-03-pattern-syntax.md#pattern-syntax/using--bindings", "grade": 2, "why": "Fully explains @ bindings, one required part of the query."}
+{"pair": "oi-lk-029|CONTRIBUTING.md#contributing-to-ontoindex/branch-and-pull-requests", "grade": 0, "why": "PR title conventions; no tagging or npm publishing steps."}
+{"pair": "rb-cn-004|SUMMARY.md#the-rust-programming-language", "grade": 0, "why": "Table of contents only; no rectangle refactoring explanation."}
+{"pair": "rb-lk-021|ch19-01-all-the-places-for-patterns.md#all-the-places-patterns-can-be-used/for-loops", "grade": 0, "why": "Destructuring in for loops; not early return on pattern failure."}
+{"pair": "oi-cn-011|ontoindex/README.md#ontoindex/mcp-prompts", "grade": 0, "why": "Lists two MCP prompts only; no overview of components or flow."}
+{"pair": "rb-lk-032|ch21-02-multithreaded.md#from-a-single-threaded-to-a-multithreaded-server/improving-throughput-with-a-thread-pool/implementing-the-execute-method", "grade": 0, "why": "Thread pool code using unwrap; no explanation of unwrap vs expect difference."}
+{"pair": "oi-cn-028|ontoindex/vendor/tree-sitter/README.md#node-tree-sitter/basic-usage/further-reading", "grade": 0, "why": "Further reading links; no packages or line-array input info."}
+{"pair": "oi-cn-039|TEST_PLAN_GROK_4_5_ONTOINDEX_MCP.md#test-plan-grok-45-with-ontoindex-mcp-tools/fix-validation-result-2026-07-18", "grade": 0, "why": "Different fix validation results; not 2.4.7 coupling query defaults."}
+{"pair": "rb-mh-049|ch10-03-lifetime-syntax.md#validating-references-with-lifetimes/dangling-references", "grade": 0, "why": "Dangling references and lifetimes; nothing on editions or raw identifiers."}
+{"pair": "oi-lk-023|ARCHITECTURE.md#architecture--ontoindex/embeddings-and-search", "grade": 0, "why": "Embeddings and search overview; no overload node ID suffix."}
+{"pair": "rb-lk-040|ch11-03-test-organization.md#summary", "grade": 1, "why": "Notes integration tests use library public API; supports but does not explain main.rs limitation."}
+{"pair": "oi-mh-003|ontoindex/CHANGELOG.md#changelog/147---2026-03-19/added-29", "grade": 0, "why": "Phase 8/9 changelog entries; no method override edges or compatibility."}
+{"pair": "oi-lk-048|ontoindex/vendor/tree-sitter-swift/README.md#tree-sitter-swift/getting-started/editing-the-grammar", "grade": 0, "why": "Grammar editing workflow; doesn't explain uncommitted parser.c or how to get it."}
+{"pair": "oi-lk-008|CONTRIBUTING.md#contributing-to-ontoindex/before-you-open-a-pr", "grade": 2, "why": "States pre-commit runs formatting and typecheck; tests run in CI only."}
+{"pair": "rb-cn-044|ch21-00-final-project-a-web-server.md#final-project-building-a-multithreaded-web-server", "grade": 0, "why": "Project intro; no graceful thread pool shutdown."}
+{"pair": "rb-mh-049|ch14-03-cargo-workspaces.md#cargo-workspaces/creating-the-second-package-in-the-workspace", "grade": 0, "why": "Workspace second package; no edition or r#try info."}
+{"pair": "rb-mh-012|ch04-03-slices.md#the-slice-type/string-slices/string-slices-as-parameters", "grade": 2, "why": "Explains &str parameter accepts slices, String slices and &String references; runtime cost not covered."}
+{"pair": "oi-cn-008|eval/README.md#ontoindex-swe-bench-evaluation-harness", "grade": 2, "why": "Describes baseline vs OntoIndex modes and resolve rate, cost, efficiency comparison."}
+{"pair": "oi-lk-038|ontoindex/README.md#ontoindex/working-with-uncommitted-code", "grade": 1, "why": "Mentions dirtyCoverage symbol-overlay eligibility and manual overlays; no >50 file coverage answer."}
+{"pair": "rb-cn-018|ch12-04-testing-the-librarys-functionality.md#adding-functionality-with-test-driven-development/writing-a-failing-test", "grade": 1, "why": "Covers failing-test red step of search TDD; green implementation not shown."}
+{"pair": "oi-cn-012|ontoindex/README.md#ontoindex/environment-variables", "grade": 2, "why": "Lists workspace limits: build timeout, preparation deadline, max files, workspace_too_large behavior."}
+{"pair": "rb-mh-002|ch09-02-recoverable-errors-with-result.md#recoverable-errors-with-result/propagating-errors/the--operator-shortcut", "grade": 0, "why": "Explains ? operator; not config builder error choice or panic guidelines."}
+{"pair": "rb-mh-018|ch13-03-improving-our-io-project.md#improving-our-io-project/choosing-between-loops-and-iterators", "grade": 0, "why": "Loops vs iterators style; no E0599 trait import or mut iterator explanation."}
+{"pair": "rb-cn-045|ch02-00-guessing-game-tutorial.md#programming-a-guessing-game/allowing-multiple-guesses-with-looping/handling-invalid-input", "grade": 2, "why": "Fully explains skipping non-numeric input via match and continue, one required step."}
+{"pair": "oi-cn-024|ADR_SEMANTICA_EVIDENCE_AND_GOVERNANCE_ADOPTION.md#adr-semantica-inspired-evidence-and-governance-adoption-boundaries/context", "grade": 0, "why": "Semantica ADR context; nothing on committed read mode."}
+{"pair": "rb-mh-027|appendix-03-derivable-traits.md#appendix-c-derivable-traits/partialeq-and-eq-for-equality-comparisons", "grade": 0, "why": "PartialEq/Eq derivation; not enum constructors in map or variant data."}
+{"pair": "oi-cn-004|TESTING.md#testing--ontoindex", "grade": 2, "why": "Covers packages, local commands, pre-commit hook and CI workflows."}
+{"pair": "oi-lk-023|TEST_PLAN_GROK_4_5_ONTOINDEX_MCP.md#test-plan-grok-45-with-ontoindex-mcp-tools/evidence-to-record", "grade": 0, "why": "Test plan evidence list; unrelated to overload node ID suffixes."}
+{"pair": "rb-lk-055|ch01-03-hello-cargo.md#summary", "grade": 0, "why": "Chapter summary; no stable release support duration."}
+{"pair": "rb-lk-023|ch06-01-defining-an-enum.md#defining-an-enum/enum-values", "grade": 0, "why": "Enum values and data; nothing on pub visibility of fields or variants."}
+{"pair": "oi-lk-047|ontoindex/vendor/tree-sitter-swift/README.md#tree-sitter-swift/getting-started/javascript", "grade": 0, "why": "Swift package usage parses a plain string; no rope or line-array input."}
+{"pair": "rb-lk-048|appendix-07-nightly-rust.md#appendix-g---how-rust-is-made-and-nightly-rust/choo-choo-release-channels-and-riding-the-trains", "grade": 0, "why": "Release channels; not early drop of values."}
+{"pair": "rb-mh-044|ch05-01-defining-structs.md#defining-and-instantiating-structs/creating-different-types-with-tuple-structs", "grade": 0, "why": "Tuple structs and destructuring; no tuple-arity error or _x vs _ ownership."}
+{"pair": "oi-lk-023|ontoindex/CHANGELOG.md#changelog/2318---2026-10-30", "grade": 0, "why": "Closure and container resolution fixes; no overload node ID suffix."}
+{"pair": "rb-mh-005|ch16-01-threads.md#using-threads-to-run-code-simultaneously", "grade": 2, "why": "Shows join before main loop removes interleaving; fully answers the threads part."}
+{"pair": "oi-mh-006|RUNBOOK.md#runbook--ontoindex", "grade": 2, "why": "Docs sidecar chunk BM25 ranking, 0.5 path weights and link bonus fully described."}
+{"pair": "oi-cn-011|RUNBOOK.md#runbook--ontoindex/index-out-of-date--stale-tools", "grade": 0, "why": "Stale index runbook; no overview of tool components."}
+{"pair": "oi-cn-010|CODE_OF_CONDUCT.md#contributor-covenant-code-of-conduct/enforcement-guidelines/3-temporary-ban", "grade": 0, "why": "Code of conduct ban; not contributor setup or PR workflow."}
+{"pair": "rb-lk-015|appendix-02-operators.md#appendix-b-operators-and-symbols/non-operator-symbols", "grade": 0, "why": "Symbol table lists string literal syntax; no type or immutability explanation."}
+{"pair": "oi-cn-023|ontoindex/CHANGELOG.md#changelog/2310---2026-10-29", "grade": 0, "why": "Unrelated 2.3.10 changes; no workspace build failure error sanitization."}
+{"pair": "rb-lk-025|ch07-03-paths-for-referring-to-an-item-in-the-module-tree.md#paths-for-referring-to-an-item-in-the-module-tree", "grade": 0, "why": "Absolute/relative paths and pub; no glob import."}
+{"pair": "oi-cn-015|RELEASE_READINESS_V2.2.0.md#ontoindex-220-release-readiness/release-sequence", "grade": 1, "why": "Gives tag github-release/2.2.0 and asset tgz; not refresh outcome to wait for."}
+{"pair": "rb-lk-045|ch14-02-publishing-to-crates-io.md#publishing-a-crate-to-cratesio/making-useful-documentation-comments/documentation-comments-as-tests", "grade": 2, "why": "States cargo test runs documentation examples as doc tests."}
+{"pair": "oi-lk-023|ontoindex/CHANGELOG.md#changelog/2321---2026-10-30", "grade": 0, "why": "Cypher statement rejection; unrelated to overload node IDs."}
+{"pair": "rb-lk-016|ch12-03-improving-error-handling-and-modularity.md#refactoring-to-improve-modularity-and-error-handling/fixing-the-error-handling/returning-a-result-instead-of-calling-panic", "grade": 0, "why": "Config::build returns Result; not struct update syntax."}
+{"pair": "oi-mh-004|KIMI_K3_ONTOINDEX_MCP_SMOKE_TEST_PLAN.md#kimi-k3---ontoindex-mcp-sub-agent-smoke-test-plan/2-test-shape", "grade": 0, "why": "Smoke test shape; not impact tool computation or ambiguity."}
+{"pair": "oi-lk-016|ontoindex/CHANGELOG.md#changelog/220---2026-08-18/added-3", "grade": 1, "why": "Lists FRESHNESS_UNCONFIRMED as terminal result; does not explain meaning."}
+{"pair": "rb-lk-015|ch08-02-strings.md#storing-utf-8-encoded-text-with-strings/updating-a-string/concatenating-with--or-format", "grade": 0, "why": "String concatenation; doesn't state literal type or immutability reason."}
+{"pair": "oi-mh-022|ADR_WORKSPACE_PREPARATION_DIAGNOSTICS.md#adr-workspace-preparation-limit-diagnostics/remaining-design-decisions", "grade": 0, "why": "Remaining design decisions; no test counts or repair-attempt accounting."}
+{"pair": "oi-lk-046|ADR_DUPLICATE_CODE_DISCOVERY.md#adr-duplicate-code-discovery/mode-2-semantic-duplicate-candidates-gated", "grade": 0, "why": "Semantic duplicate gating; unrelated to overlay search merge."}
+{"pair": "rb-mh-017|ch18-03-oo-design-patterns.md#implementing-an-object-oriented-design-pattern/encoding-states-and-behavior-as-types", "grade": 0, "why": "Type-encoded states; no unwrap safety or expect justification."}
+{"pair": "rb-cn-016|ch11-03-test-organization.md#test-organization/integration-tests/integration-tests-for-binary-crates", "grade": 1, "why": "Explains binary-crate integration test limits; partial on unit vs separate tests layout."}
+{"pair": "rb-mh-025|ch21-03-graceful-shutdown-and-cleanup.md#graceful-shutdown-and-cleanup/signaling-to-the-threads-to-stop-listening-for-jobs", "grade": 0, "why": "Graceful shutdown via dropping sender; no closure trait discussion."}
+{"pair": "oi-lk-005|ontoindex/README.md#ontoindex/why", "grade": 0, "why": "Product motivation; no escalation conditions."}
+{"pair": "rb-lk-055|ch01-03-hello-cargo.md#hello-cargo/building-for-release", "grade": 0, "why": "Release builds; nothing about release support duration."}
+{"pair": "rb-lk-023|ch07-03-paths-for-referring-to-an-item-in-the-module-tree.md#paths-for-referring-to-an-item-in-the-module-tree/starting-relative-paths-with-super", "grade": 0, "why": "super relative paths; no struct field or enum variant visibility."}
+{"pair": "rb-lk-006|appendix-07-nightly-rust.md#appendix-g---how-rust-is-made-and-nightly-rust/choo-choo-release-channels-and-riding-the-trains", "grade": 0, "why": "Release channels; nothing about integer overflow behavior."}
+{"pair": "oi-lk-012|ontoindex/CHANGELOG.md#changelog/150---2026-04-01/added-26", "grade": 0, "why": "Azure wiki support changes; no API key persistence location."}
+{"pair": "rb-mh-006|ch10-02-traits.md#defining-shared-behavior-with-traits/using-traits-as-parameters/clearer-trait-bounds-with-where-clauses", "grade": 0, "why": "where clause syntax; nothing on Screen<T> or ?Sized bounds."}
+{"pair": "rb-mh-037|ch13-02-iterators.md#processing-a-series-of-items-with-iterators/closures-that-capture-their-environment", "grade": 0, "why": "Closures capturing environment; no bool size or integer conditions."}
+{"pair": "oi-lk-002|ontoindex/README.md#ontoindex/mcp-resources", "grade": 0, "why": "MCP resources list; no clean --all --force command."}
+{"pair": "rb-cn-005|ch06-02-match.md#the-match-control-flow-construct/matches-are-exhaustive", "grade": 1, "why": "Covers exhaustiveness and Option None handling; one aspect partially."}
+{"pair": "rb-lk-015|ch17-05-traits-for-async.md#a-closer-look-at-the-traits-for-async/the-pin-type-and-the-unpin-trait", "grade": 0, "why": "Pin and Unpin for futures; unrelated to string literal type."}
+{"pair": "rb-lk-013|ch15-06-reference-cycles.md#reference-cycles-can-leak-memory/creating-a-reference-cycle", "grade": 0, "why": "Rc reference cycles; not dangling-reference prevention."}
+{"pair": "rb-mh-027|ch19-03-pattern-syntax.md#pattern-syntax/destructuring-to-break-apart-values/enums", "grade": 1, "why": "Destructuring enum variants with differing data; supports but not IP or map constructor."}
+{"pair": "rb-mh-048|ch21-03-graceful-shutdown-and-cleanup.md#graceful-shutdown-and-cleanup/signaling-to-the-threads-to-stop-listening-for-jobs", "grade": 0, "why": "Graceful shutdown; no FnOnce/Send/'static explanation."}
+{"pair": "rb-lk-001|ch06-01-defining-an-enum.md#defining-an-enum/the-option-enum", "grade": 0, "why": "Option enum; unrelated to rustup update or uninstall."}
+{"pair": "rb-lk-004|ch10-01-syntax.md#generic-data-types/in-function-definitions", "grade": 0, "why": "Generic functions; nothing on constants."}
+{"pair": "rb-mh-045|ch15-06-reference-cycles.md#summary", "grade": 0, "why": "Smart pointer chapter summary; no raw pointer guarantees or local reference error."}
+{"pair": "oi-mh-019|ADR_STRUCTURAL_CONFORMANCE_AND_EVAL_ORACLES.md#adr-structural-conformance-rules-and-evaluation-oracles/existing-capability-verified/verification-notes-from-the-challenge-pass", "grade": 0, "why": "ADR verification notes; not binding namespace groundwork commands."}
+{"pair": "oi-lk-039|ONTOCODE_LEAN_CTX_TRANSPORT_LOSS_REPORT.md#ontocode-bug-report-lean-ctx-mcp-server-dies-on-detached-background-launch-and-never-recovers/analysis/defect-2-detached-background-launch-kills-the-server", "grade": 0, "why": "lean-ctx crash analysis; no idle eviction thresholds."}
+{"pair": "oi-lk-016|CHANGELOG.md#changelog/220---2026-08-18/added-3", "grade": 1, "why": "Lists FRESHNESS_UNCONFIRMED terminal result; meaning not explained."}
+{"pair": "rb-lk-016|ch13-03-improving-our-io-project.md#improving-our-io-project", "grade": 0, "why": "Iterator refactor of Config::build; no struct update syntax."}
+{"pair": "oi-lk-052|ontoindex/CHANGELOG.md#changelog/190---2026-06-09/performance-1", "grade": 0, "why": "1.9.0 analyze performance; not 2.3.2 skill line cap."}
+{"pair": "rb-lk-011|ch19-01-all-the-places-for-patterns.md#all-the-places-patterns-can-be-used/for-loops", "grade": 0, "why": "for loop patterns; no loop result values."}
+{"pair": "rb-mh-014|ch09-02-recoverable-errors-with-result.md#recoverable-errors-with-result/matching-on-different-errors/shortcuts-for-panic-on-error", "grade": 0, "why": "unwrap/expect shortcuts; no backtrace or panic-vs-Result guidelines."}
+{"pair": "rb-mh-020|ch15-05-interior-mutability.md#refcellt-and-the-interior-mutability-pattern/using-interior-mutability/testing-with-mock-objects", "grade": 0, "why": "RefCell mock objects; no Rc wrapping or automatic referencing explanation."}
+{"pair": "rb-mh-040|ch12-03-improving-error-handling-and-modularity.md#refactoring-to-improve-modularity-and-error-handling/fixing-the-error-handling", "grade": 0, "why": "Config error handling; no arrays or vector get."}
+{"pair": "rb-cn-030|ch20-01-unsafe-rust.md#unsafe-rust/implementing-an-unsafe-trait", "grade": 2, "why": "States Send/Sync auto-implemented when composed of Send/Sync types; meaning briefly given."}
+{"pair": "rb-mh-029|ch15-05-interior-mutability.md#refcellt-and-the-interior-mutability-pattern/using-interior-mutability/testing-with-mock-objects", "grade": 0, "why": "RefCell mock objects; nothing on Sync, Mutex or Arc."}
+{"pair": "oi-lk-030|ADR_SOURCE_SNAPSHOT_GATED_GRAPH_AUTHORITY_REVIEW.md#review-source-snapshot-gated-graph-authority-adr/what-is-sound", "grade": 0, "why": "ADR review soundness list; no web interface URL."}
+{"pair": "oi-lk-015|CODE_OF_CONDUCT.md#contributor-covenant-code-of-conduct/enforcement-guidelines/1-correction", "grade": 0, "why": "Code of conduct; unrelated to tarball size."}
+{"pair": "rb-lk-003|ch02-00-guessing-game-tutorial.md#programming-a-guessing-game/generating-a-secret-number/increasing-functionality-with-a-crate/ensuring-reproducible-builds", "grade": 2, "why": "Explains Cargo.lock records resolved versions for reproducible builds."}
+{"pair": "rb-mh-016|ch03-01-variables-and-mutability.md#variables-and-mutability", "grade": 0, "why": "Variable mutability; not type-based validation or blog draft states."}
+{"pair": "oi-lk-045|IMPLEMENTATION_PLAN_DUPLICATE_CODE_DISCOVERY.md#implementation-plan-duplicate-code-discovery-exact-mode/decisions-confirmed-before-coding", "grade": 0, "why": "jscpd pinned version decisions; nothing on tarball smoke test or ignore-scripts."}
+{"pair": "oi-cn-014|ADR_MCP_UNSUPPORTED_CALL_CLIENT_COMPATIBILITY.md#adr-mcp-unsupported-call-client-compatibility/acceptance", "grade": 2, "why": "Lists concrete flattened-name mappings required for client router acceptance."}
+{"pair": "oi-cn-042|README.md#ontoindex/first-run", "grade": 2, "why": "Gives --embeddings rebuild and ONTOINDEX_MCP_PROJECT_CWD/--repo pinning; tarball part missing."}
+{"pair": "rb-cn-020|ch13-00-functional-features.md#functional-language-features-iterators-and-closures", "grade": 0, "why": "Chapter intro only; no iterator mechanics."}

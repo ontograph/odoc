@@ -1,8 +1,8 @@
 # OntoDoc Implementation Plan
 
 Date: 2026-11-10
-Status: HTTP delivery done; EVAL-2.0 parked by owner (2026-11-11) pending human inputs; see manager_loop
-Authority: `ADR_ONTODOC_SERVICE.md` (Accepted, revision 13); user requirement of
+Status: HTTP delivery done; EVAL-2.1 model-judged qrels prepared (ADR rev 15), awaiting operator pin; see manager_loop
+Authority: `ADR_ONTODOC_SERVICE.md` (Accepted, revision 15); user requirement of
 2026-11-08: new Rust MCP service for documentation in this repository, with
 scientifically provable improvements. Reviews: `audit_session-2026-11-08-prior-attempt-review.md`,
 `audit_session-2026-11-08-donor-ideas-review.md`, `audit_session-2026-11-08-plan-challenge.md`.
@@ -15,7 +15,8 @@ gate. Service repairs and operational documentation do not wait for annotation.
 A single frozen, adequately
 powered held-out run records H1 (sanity gate), H2 and H5 (confirmatory, Holm)
 as pass, negative or inconclusive, with H3, H4 and E1 reported, whatever the
-outcome.
+outcome. The current track uses model-judged labels and is exploratory only
+(ADR revisions 13-15); confirmatory outcomes need human labels.
 
 ## Manager Tracking
 
@@ -740,11 +741,7 @@ tasks:
     required_validation:
     - CARGO_BUILD_JOBS=4 cargo run --release -- eval check-benchmark eval/config.json --stage pools --gates eval/gates.json --query-review eval/query-review.jsonl --query-review-sha256 "$ONTODOC_QUERY_REVIEW_SHA256"
     expected_evidence:
-    - Each corpus entry has URL, 40-character commit, licence and local path.
-    - Test split has at least 150 answerable and at least 30 off-topic queries (so at least 270 queries overall at the 1:2 dev:test split); strata assigned by the ADR definitions at writing time; each model-drafted query has a substantive GPT-6-Astra review tied to its final text, with provenance and limitations recorded before pooling.
-    - Pool judgement count reported; if above 6,000 the pool is regenerated with the pre-registered grid {0.2, 0.4} and both counts are recorded.
-    - Combined authoring inputs are preparation-only; config.partitions binds separate dev/test query payloads and the preparation evidence defined by EVAL-1.6. No execution command falls back to combined inputs.
-    - The trusted operator supplies manager-owned eval/audit_session-query-approval.md with authentic query-review approval and its exact digest before the first pool/ranking invocation; the data worker neither writes nor approves that audit. Pools-stage preparation has no qrels/annotation evidence and never admits measurement. The manager audit records deterministic full-grid/fallback pool regeneration and manifest hash; supplied flags alone do not establish reviewer independence or chronology.
+    - 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#eval-20 (sha256 d183e7f9fe39)'
     rollback:
     - Delete the listed files.
     stop_conditions:
@@ -757,7 +754,7 @@ tasks:
       main_session_evidence:
         authorized_by: user
         authorization_ref: 'User 2026-11-12: "1-4" approving the spot-check sample and review digest 94aaeff0 (eval/audit_session-query-approval.md); owner decisions 2026-11-11'
-        validation_summary: 'Local run exit0 (release build): ontodoc eval pool -> 259 answerable queries, 4004 pairs (<=6000, full grid), sha256 fc5c8a81; second pool byte-identical (cmp); check-benchmark --stage pools with gates.json and review pin 94aaeff0 passed with no failures. 341 queries, split seed 20261111 reproducible, test 173 answerable / 55 off-topic. --preparation-out is qrels-stage only in the CLI, so no pools manifest is published; required_validation drops that flag. No labels exist.'
+        validation_summary: 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#eval-20 (sha256 b5d2f12d9c27)'
     dod_status: pass
   EVAL-2.1:
     title: Given approved pools and FIX-14, when two independent model judges (GPT-6-Astra, claude-opus-5-5 high) blindly grade every pooled pair, then model-judged qrels and provenance pass qrels-stage preparation with agreement and trusted operator approval (ADR rev 13, exploratory only)
@@ -768,6 +765,7 @@ tasks:
     depends_on:
     - EVAL-2.0
     - FIX-14
+    - FIX-15
     type: test
     validation_tier: integration
     impact_risk: high
@@ -777,18 +775,34 @@ tasks:
     - eval/preparation.json
     - eval/dev-qrels.jsonl
     - eval/test-qrels.jsonl
+    - eval/judging/
+    - eval/config.json
+    - eval/pools/pool.jsonl
+    - eval/queries.jsonl
+    - eval/query-review.jsonl
+    - eval/splits.json
+    - eval/dev-queries.jsonl
+    - eval/test-queries.jsonl
     allowed_write_set:
     - eval/qrels.jsonl
     - eval/annotation.jsonl
     - eval/preparation.json
     - eval/dev-qrels.jsonl
     - eval/test-qrels.jsonl
+    - eval/judging/
+    - eval/config.json
+    - eval/pools/pool.jsonl
+    - eval/queries.jsonl
+    - eval/query-review.jsonl
+    - eval/splits.json
+    - eval/dev-queries.jsonl
+    - eval/test-queries.jsonl
     non_goals:
     - Model labels counted or described as human judgements.
     - Judging off-topic queries.
     - A judge seeing system identity, scores, ranks or the other judge's grade.
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo run --release -- eval check-benchmark eval/config.json --stage qrels --gates eval/gates.json --query-review eval/query-review.jsonl --query-review-sha256 "$ONTODOC_QUERY_REVIEW_SHA256" --annotation eval/annotation.jsonl --annotation-notes eval/annotation.md --preparation-out eval/preparation.json --operator "$OPERATOR" --operator-evidence eval/audit_session-preparation.md
+    - CARGO_BUILD_JOBS=4 cargo run --release -- eval check-benchmark eval/config.json --stage qrels --query-review eval/query-review.jsonl --query-review-sha256 "$ONTODOC_QUERY_REVIEW_SHA256" --annotation eval/annotation.jsonl --annotation-notes eval/annotation.md --preparation-out eval/preparation.json --operator "$OPERATOR" --operator-evidence eval/audit_session-preparation.md
     expected_evidence:
     - Every pooled answerable pair has two raw model grades from blinded judge sessions shown only guideline, query and section text in a seeded order; final grade floor((a+b)/2).
     - annotation.md declares label_provenance model-judged, both model ids, guideline version, blinding and the adjudication rule; agreement kappa >= 0.6 with seeded query-cluster CI and prevalence.
@@ -827,9 +841,7 @@ tasks:
     - CARGO_BUILD_JOBS=4 cargo test --all-targets
     - cargo fmt --check
     expected_evidence:
-    - Notes without label_provenance keep the exact human-only behaviour; model-judged notes require two valid distinct kind=model parties and model adjudicator; mixed or human-claimed model notes refuse.
-    - Preparation manifest serializes label_provenance; human manifests are byte-compatible.
-    - A report from a model-judged preparation has label_provenance model-judged and every comparison role exploratory with holm_p and decision null; a synthetic regression proves it.
+    - 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-14 (sha256 2b6c7267e819)'
     rollback:
     - Revert this task's listed changes.
     stop_conditions:
@@ -841,7 +853,46 @@ tasks:
       main_session_evidence:
         authorized_by: user
         authorization_ref: 'User 2026-11-12: "1-4" (decision 2: implement model-judged admission) and "continue"; ADR revision 13 owner decision 1b'
-        validation_summary: 'Local run exit0: cargo test --all-targets (lib 217 passed 1 ignored; cli 8, eval_gates 22, eval_run 14, http 4, mcp 12, ranking_sanity 1); fmt --check ok; clippy --all-targets -D warnings ok; git diff --check ok. End-to-end test fails when the downgrade call is removed (mutation check). GPT-6-Astra review: P2 u8 overflow fixed (widened, regression), P2 missing end-to-end test added, P2 unknown provenance now refused in Preparation::verify, P3 H1 holm fixture fixed; claimed P1 sweep confirmatory_family refuted (no such field or promotion code in src/). Synthetic only.'
+        validation_summary: 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-14 (sha256 e40b3c7ecac8)'
+    dod_status: pass
+  FIX-15:
+    title: Given ADR rev 14-15, config pool_extension deepens the pool for listed answerable queries only, is validated against the whole benchmark at preparation and pooling, and selected dev/test captures never need the other split
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - FIX-14
+    type: code
+    validation_tier: unit-fast
+    impact_risk: high
+    owner_files:
+    - src/eval/run.rs
+    - tests/eval_gates.rs
+    allowed_write_set:
+    - src/eval/run.rs
+    - tests/eval_gates.rs
+    non_goals:
+    - Changing @10 metrics, the base pool, ranking, or any human-path rule.
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval::'
+    - CARGO_BUILD_JOBS=4 cargo test --all-targets
+    - cargo fmt --check
+    expected_evidence:
+    - PoolExtension{depth 11..=30, 1..=64 sorted unique ids}; rank_sections_to keeps the FETCH order and top-10 prefix; only listed queries pool deeper; pool bytes regenerate identically.
+    - validate_pool_extension runs on the complete query set (load, full capture, pooling), not per partition; a regression with ids in both splits passes preparation and a dev-only capture, and fails on the old per-partition check.
+    rollback:
+    - Revert this task's listed changes and remove pool_extension from eval/config.json.
+    stop_conditions:
+    - Any existing pool or human-path test changes expectation.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-12: "B" (ADR rev 14 pool extension) and "proceed" (review round 8, ADR rev 15)'
+        validation_summary: 'Local run exit0: cargo fmt --check; clippy --all-targets -D warnings; cargo test --all-targets 281 passed 0 failed. GPT-6-Astra review P1 (global extension check rejected partitioned preparation) fixed with regression pool_extension_spanning_both_splits_admits_preparation_and_dev_capture, which fails with the old check. Two pool generations byte-identical. Synthetic tests plus the real pool.'
     dod_status: pass
   EVAL-3.0:
     title: Given the dev split, when one `ontodoc eval run` of B0 and B1 executes, then `report.json` exists with every identity field, judged@10 for both systems, and a second run is byte-identical
@@ -953,7 +1004,7 @@ tasks:
     expected_evidence:
     - Identity fields match the frozen config; judged@10 >= 0.95 for every system; condensed nDCG' reported.
     - Pooled and per-corpus results, per-stage miss attribution, and an audit session recording the outcome and marking the test split burned if any later tuning uses its errors.
-    - Report H1, both H2/H5 Holm/CI decisions, H3/H4/E1 and all limitations, regardless of gain. Freeze h5-then-h2-v1 before access; H5 pass recommends hier/frozen beta, else H2 pass graph/frozen alpha, else lexical/no-op. Omitted threshold stays disabled. This task writes no application defaults; OD-4.1 alone implements an accepted recommendation.
+    - Report H1, both H2/H5 Holm/CI decisions, H3/H4/E1 and all limitations, regardless of gain. Freeze h5-then-h2-v1 before access; H5 pass recommends hier/frozen beta, else H2 pass graph/frozen alpha, else lexical/no-op. Under model-judged labels (ADR rev 13) H2/H5 report effects and CIs with role exploratory, no Holm p, no decision and no recommendation; H1 keeps its decision; the report lists the rev 15 withdrawn queries. Omitted threshold stays disabled. This task writes no application defaults; OD-4.1 alone implements an accepted recommendation.
     - Audit binds canonical external snapshot, preparation approval, frozen export/registration and started/completed hashes. Reserve before test payload access; every failure consumes the attempt. Visible output without matching completed custody is unaccepted, including publication/completion failure; preserve and audit it, never retry/reset.
     rollback:
     - None for the run itself; a superseding run requires a new pre-registered configuration, a fresh test split and its own audit record.
@@ -989,7 +1040,7 @@ tasks:
     - cargo fmt --check
     - just --justfile ../ontocode/justfile compiler-lane-detached "$ONTODOC_PROMOTION_JOB" sh -c "CARGO_BUILD_JOBS=4 cargo clippy --all-targets -- -D warnings"
     expected_evidence:
-    - Verify the accepted completed report, publication, frozen identity and audited recommendation. Apply H5-first mode plus frozen beta, else H2 mode plus frozen alpha, else record no code change through manager-owned closeout. Invalid or H1-failing output authorizes no promotion.
+    - Verify the accepted completed report, publication, frozen identity and audited recommendation. Apply H5-first mode plus frozen beta, else H2 mode plus frozen alpha, else record no code change through manager-owned closeout. Invalid or H1-failing output authorizes no promotion. A model-judged (exploratory) report authorizes no promotion: record the no-op.
     - Shared SearchMode/SearchRequest in src/cli.rs owns clap and serde defaulting and omitted weights; src/mcp.rs consumes it and src/search/mod.rs requires explicit mode, so neither needs production edits. Preserve explicit requests and zero weights; absent threshold remains None. Generated MCP schema, CLI and serde omissions agree, and implicit ranking matches explicit approved parameters on synthetic fixtures.
     - Manager-owned audit records the exact recommendation and default constants, or the no-op reason; no second held-out run or post-result tuning. No-op may use unchanged compatibility checks and needs no source edit.
     - Run the no-cd external compiler-lane wrapper from this package root only, with a manager-assigned unique absent ONTODOC_PROMOTION_JOB. Harvest its terminal result with `just --justfile ../ontocode/justfile lane-result "$ONTODOC_PROMOTION_JOB"`; startup exit0 is not lint success. Never build the donor snapshot.
@@ -1030,7 +1081,7 @@ tasks:
     required_validation:
     - CARGO_BUILD_JOBS=4 cargo test
     expected_evidence:
-    - README states each H2/H5 outcome as pass, negative or inconclusive with its CI and links the pinned external held-out report/audit identity under ADR6.
+    - README states each H2/H5 outcome as pass, negative or inconclusive with its CI and links the pinned external held-out report/audit identity under ADR6. Model-judged runs state effects and CIs as exploratory, say \"model-judged labels\", and claim no outcome.
     - Memory bank updated; this plan closed.
     rollback:
     - Revert the documentation edits.
@@ -2231,9 +2282,7 @@ tasks:
     - 'CARGO_BUILD_JOBS=4 cargo test --lib eval::'
     - cargo fmt --check
     expected_evidence:
-    - run_reserved takes Option<StagingDir>; held-out stages before reservation, dev stages after its budget checks (pre-FIX-8 order).
-    - Privileged-host skip of the read-only-parent test prints SKIPPED.
-    - tests/ranking_sanity.rs, ADR discrimination check: oracle beats a seeded shuffle with p < 0.01, self-comparison gives p = 1, B1/B2/B3 find planted sections above shuffle, and B0 cites the first section.
+    - 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-9 (sha256 2651549cf6f5)'
     rollback:
     - Revert this task's listed changes.
     stop_conditions:
@@ -2245,7 +2294,7 @@ tasks:
       main_session_evidence:
         authorized_by: user
         authorization_ref: 'User 2026-11-11: review/challenge/consolidate and proceed (round 5); audit_session-2026-11-11-review-round5.md'
-        validation_summary: 'Local run exit0: cargo test --all-targets (lib 210 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4, mcp 12, ranking_sanity 1); fmt --check ok; clippy --all-targets -D warnings ok. Astra P2 (dev staging moved before ranking) and P3 (silent privileged skip) fixed. The first run of ranking_sanity showed that B0 cannot reach planted later sections. This is the ADR-defined baseline behaviour; it is asserted, not changed. Synthetic only.'
+        validation_summary: 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-9 (sha256 58517f790daa)'
     dod_status: pass
   FIX-10:
     title: Given round-6 review, numeric scorers have hand-computed edge tests, hash crates build optimized in dev
@@ -2275,9 +2324,7 @@ tasks:
     - CARGO_BUILD_JOBS=4 cargo test --all-targets
     - cargo fmt --check
     expected_evidence:
-    - BM25 empty-document avgdl, PPR iteration-cap and fusion tie/drop/singleton tests with hand computations in comments.
-    - Dev profile opt-level 3 for sha2, digest and block-buffer only.
-    - README usability notes are documentation-only and recorded in the round-6 audit, outside this card.
+    - 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-10 (sha256 66b4920b2630)'
     rollback:
     - Revert this task's listed changes.
     stop_conditions:
@@ -2289,7 +2336,7 @@ tasks:
       main_session_evidence:
         authorized_by: user
         authorization_ref: 'User 2026-11-11: review/challenge/consolidate and proceed (round 6); audit_session-2026-11-11-review-round6.md'
-        validation_summary: 'Local run exit0: cargo test --all-targets (lib 213 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4, mcp 12, ranking_sanity 1) in 17.8 s wall; fmt --check ok; clippy --all-targets -D warnings ok; git diff --check ok. Synthetic only.'
+        validation_summary: 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-10 (sha256 ae1a67e2bd05)'
     dod_status: pass
   FIX-11:
     title: Given round-7 review, an interrupted prune no longer disables pruning, fusion tie-break tests discriminate, and HTTP socket tests have deadlines
@@ -2319,9 +2366,7 @@ tasks:
     - CARGO_BUILD_JOBS=4 cargo test --all-targets
     - cargo fmt --check
     expected_evidence:
-    - record_and_prune renames each validated complete pruned generation to tmp-<id> (refusing an occupied name), syncs generations/ and the store dir, then deletes; new PruneMove phase.
-    - Regression - failing on the second prune file leaves one file in tmp-<id>; the next publish removes it and prunes to three generations.
-    - Fusion shuffled-input raw-BM25 and chunk-id tie tests; HTTP reads bounded by a deadline and accumulated to the header terminator.
+    - 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-11 (sha256 48e0934a4042)'
     rollback:
     - Revert this task's listed changes.
     stop_conditions:
@@ -2333,7 +2378,7 @@ tasks:
       main_session_evidence:
         authorized_by: user
         authorization_ref: 'User 2026-11-11: review/challenge/consolidate and proceed (round 7); audit_session-2026-11-11-review-round6.md#round-7'
-        validation_summary: 'Local run exit0: cargo test --all-targets (lib 214 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4, mcp 12, ranking_sanity 1); fmt --check ok; clippy --all-targets -D warnings ok; git diff --check ok. ADR revision 11. Two GPT-6-Astra reviews, no P1; P2 store-dir sync and P3 partial-file coverage fixed. Synthetic only.'
+        validation_summary: 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-11 (sha256 ab47ca5d36cf)'
     dod_status: pass
   FIX-12:
     title: Given owner approval, the first-sentence rule parses with the sectioning GFM extensions so tables are never first sentences, and the stored schema becomes 3
@@ -2365,9 +2410,7 @@ tasks:
     - CARGO_BUILD_JOBS=4 cargo test --all-targets
     - cargo fmt --check
     expected_evidence:
-    - One pub(crate) MARKDOWN_OPTIONS const in parse.rs used by parse, tiers first_sentence and graph.
-    - Regression - a table before a paragraph yields first sentence "Actual sentence.".
-    - SCHEMA_VERSION 3; schema 2 and 4 artifacts refuse as unsupported; CLI status reports 3.
+    - 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-12 (sha256 bf20e290692d)'
     rollback:
     - Revert this task's listed changes; schema-3 stores then need a reindex under schema 2.
     stop_conditions:
@@ -2379,7 +2422,7 @@ tasks:
       main_session_evidence:
         authorized_by: user
         authorization_ref: 'User 2026-11-11: "approved" (round-7 option 2, table-aware first sentence); ADR revision 12'
-        validation_summary: 'Local run exit0: cargo test --all-targets (lib 214 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4, mcp 12, ranking_sanity 1); fmt --check ok; clippy --all-targets -D warnings ok; git diff --check ok. All section/chunk-id fixture tests unchanged and green. No dev or held-out data exists or was read.'
+        validation_summary: 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-12 (sha256 f574fa3ae4ac)'
     dod_status: pass
   FIX-13:
     title: Given owner approval, relative `.html` links resolve to an existing sibling `.md` source (schema 4) and a corpus rooted in a checkout subdirectory excludes only its own store from the pin dirty check
@@ -2409,9 +2452,7 @@ tasks:
     - CARGO_BUILD_JOBS=4 cargo test --all-targets
     - cargo fmt --check
     expected_evidence:
-    - '`x.html`/`x.htm` (any case, optional anchor) links to an existing `x.md` become LINKS_TO edges; a missing `x.md` stays ignored without diagnostics; a missing anchor on a resolved page is a MissingAnchor diagnostic.'
-    - SCHEMA_VERSION 4; schema 3 and 5 artifacts refuse as unsupported; CLI status reports 4.
-    - git_state on a `src/` root ignores `src/.ontodoc` but not other untracked files; code identity is unchanged.
+    - 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-13 (sha256 3500e691d969)'
     rollback:
     - Revert this task's listed changes; schema-4 stores then need a reindex.
     stop_conditions:
@@ -2423,7 +2464,7 @@ tasks:
       main_session_evidence:
         authorized_by: user
         authorization_ref: 'User 2026-11-11: "1 b ... 2 i 3 ok" (html link mapping, rust-book/src root, model-judged exploratory track); ADR revision 13'
-        validation_summary: 'Local run exit0: cargo test --all-targets (lib 216 passed 1 ignored; cli 8, eval_gates 20, eval_run 14, http 4, mcp 12, ranking_sanity 1); fmt --check ok; clippy --all-targets -D warnings ok. Pinned rust-book/src reindexed: 112 docs, 276 LINKS_TO (was 0 from reference .html links), 17 MissingAnchor diagnostics. Synthetic tests only; no dev or held-out data.'
+        validation_summary: 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-13 (sha256 a899c69ab1bf)'
     dod_status: pass
   PERF-1:
     title: Given concurrent MCP clients, requests snapshot the shared immutable index under a short lock and run with bounded configurable permits owned by the actual work
@@ -2520,6 +2561,7 @@ tasks:
 | REQ-050 | Owner-approved table-aware first sentence; schema 3 | implementation | FIX-12 | tiers first_sentence regression |
 | REQ-051 | Owner-approved `.html`→`.md` link resolution (schema 4); subdirectory corpus-root pin exclusion | implementation | FIX-13 | graph html-link and gates subdirectory-root regressions |
 | REQ-052 | ADR rev 13 model-judged exploratory labels: admission, provenance, exploratory-only reporting | implementation | FIX-14, EVAL-2.1 | gates/run model-judged regressions |
+| REQ-053 | ADR rev 14-15 pool extension and one-time withdrawal of still-unanswered queries | implementation | FIX-15, EVAL-2.1 | pool-extension regressions; qrels gate |
 
 ## Decisions And Non-Goals
 
@@ -2602,8 +2644,8 @@ tasks:
 - Task ids were renumbered in revision 3 before any task started; no state was lost.
 - The section is the evaluation unit; the chunk budget is frozen at 1,200 bytes
   and is not tuned in v1.
-- EVAL-2.1 needs two humans. A model may draft queries, but its output is
-  marked and never counted as a human label.
+- EVAL-2.1 uses two model judges (ADR rev 13), exploratory only. A confirmatory
+  claim still needs two humans; no model counts as a human label.
 - Parallel work: EVAL-1.0 depends only on OD-0.0; OD-1.2 and OD-1.3 both
   depend only on OD-1.1; OD-1.7 and OD-1.8 can run beside OD-1.6.
 - Donor ideas are adopted as ideas only; licences (AGPL-3.0, none) forbid

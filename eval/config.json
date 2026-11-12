@@ -42,5 +42,14 @@
   ],
   "alpha": 0.0,
   "beta": 0.0,
-  "threshold": 0.0
+  "threshold": 0.0,
+  "pool_extension": {
+    "depth": 30,
+    "queries": [
+      "oi-cn-016",
+      "oi-cn-038",
+      "oi-mh-037",
+      "rb-lk-005"
+    ]
+  }
 }

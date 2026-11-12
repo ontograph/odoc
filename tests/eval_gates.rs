@@ -140,6 +140,60 @@ fn dev_capture_admission_never_opens_heldout_payloads_or_combined_fallback() {
 }
 
 #[test]
+fn pool_extension_spanning_both_splits_admits_preparation_and_dev_capture() {
+    let fx = Fixture::new();
+    let splits = fx.read("splits.json");
+    let answerable: std::collections::BTreeSet<String> = fx
+        .read_lines("queries.jsonl")
+        .into_iter()
+        .filter(|q| q["stratum"] != "off-topic")
+        .map(|q| q["id"].as_str().unwrap().to_owned())
+        .collect();
+    let pick = |name: &str| {
+        splits[name]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap().to_owned())
+            .find(|id| answerable.contains(id))
+            .unwrap()
+    };
+    let mut ids = vec![pick("dev"), pick("test")];
+    ids.sort();
+    let mut config = fx.read("config.json");
+    config["pool_extension"] = json!({"depth": 30, "queries": ids});
+    fx.write("config.json", &config);
+    fx.partition_inputs();
+    let pin = fx.review_sha256();
+    let (review, annotation, notes) = (
+        fx.path("query-review.jsonl"),
+        fx.path("annotation.jsonl"),
+        fx.path("annotation.md"),
+    );
+    // Full preparation validates the extension against the whole benchmark.
+    let evidence = Bench::prepare(
+        &fx.config,
+        &TrustedInputs {
+            query_review: &review,
+            query_review_sha256: &pin,
+            annotation: &annotation,
+            annotation_notes: &notes,
+            operator: "op",
+            operator_evidence: "audit/prep",
+        },
+    )
+    .unwrap();
+    let manifest = fx.path("preparation.json");
+    let pin_prep = evidence.publish(&manifest).unwrap();
+    // The selected dev capture must not need the test-split extension id.
+    for name in ["test-queries.jsonl", "test-qrels.jsonl", "queries.jsonl"] {
+        fs::remove_file(fx.path(name)).unwrap();
+        fs::create_dir(fx.path(name)).unwrap();
+    }
+    assert!(Bench::load_dev_pinned(&fx.config, &manifest, &pin_prep).is_ok());
+}
+
+#[test]
 fn in_memory_pool_check_never_writes_files() {
     let fx = Fixture::new();
     let original = fx.path("pool.regenerated.jsonl");
@@ -1030,4 +1084,27 @@ fn model_judged_preparation_reaches_the_scored_report() {
     }
     // Effect estimates are unchanged by the downgrade (same synthetic labels).
     assert_eq!(comparisons[1]["mean"], human["comparisons"][1]["mean"]);
+}
+
+#[test]
+fn pool_extension_is_part_of_the_reproducible_pool_contract() {
+    let fx = Fixture::new();
+    let original = fx.read("config.json");
+    let answerable = fx
+        .read_lines("queries.jsonl")
+        .into_iter()
+        .find(|q| q["stratum"] != "off-topic")
+        .unwrap();
+    // A valid extension keeps the pool regenerable (tiny corpus: no new pairs).
+    let mut config = original.clone();
+    config["pool_extension"] = json!({"depth": 30, "queries": [answerable["id"]]});
+    fx.write("config.json", &config);
+    assert_eq!(fx.check("pools"), Vec::<String>::new());
+    // Off-topic or unknown ids are refused before any ranking.
+    for id in ["a-off-topic-000", "unknown"] {
+        config["pool_extension"]["queries"] = json!([id]);
+        fx.write("config.json", &config);
+        assert!(!fx.pool("pool.ext.jsonl").status.success(), "{id}");
+    }
+    fx.write("config.json", &original);
 }

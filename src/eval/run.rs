@@ -126,7 +126,23 @@ pub struct EvalConfig {
     pub alpha: f64,
     pub beta: f64,
     pub threshold: f64,
+    /// ADR rev 14: explicitly listed answerable queries also pool ranks
+    /// `CUTOFF+1..=depth` of every system. Absent keeps the top-10 pool.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pool_extension: Option<PoolExtension>,
 }
+
+/// Owner-approved pool deepening for named queries (ADR rev 14).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PoolExtension {
+    pub depth: usize,
+    pub queries: Vec<String>,
+}
+
+/// Largest extension depth; sections come from [`FETCH`] chunks.
+pub const MAX_POOL_DEPTH: usize = 30;
+const MAX_EXTENDED_QUERIES: usize = 64;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartitionFiles {
@@ -342,6 +358,7 @@ impl Bench {
         let (queries, queries_sha256): (Vec<Query>, String) =
             read_jsonl(&dir.join(&config.queries))?;
         validate_queries(&queries, &config)?;
+        validate_pool_extension(&queries, &config)?;
         let names: BTreeSet<&str> = config.corpora.iter().map(|c| c.name.as_str()).collect();
         let mut ids = BTreeSet::new();
         for q in &queries {
@@ -799,6 +816,19 @@ fn validate_config(config: &EvalConfig) -> Result<(), EvalError> {
             "invalid or oversized corpus/grid/resamples configuration".into(),
         ));
     }
+    if let Some(ext) = &config.pool_extension {
+        let unique: BTreeSet<_> = ext.queries.iter().collect();
+        if !(CUTOFF + 1..=MAX_POOL_DEPTH).contains(&ext.depth)
+            || ext.queries.is_empty()
+            || ext.queries.len() > MAX_EXTENDED_QUERIES
+            || unique.len() != ext.queries.len()
+            || ext.queries.windows(2).any(|w| w[0] >= w[1])
+        {
+            return Err(EvalError::Invalid(
+                "pool_extension needs depth 11..=30 and 1..=64 sorted unique query ids".into(),
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -821,6 +851,29 @@ fn validate_queries(queries: &[Query], config: &EvalConfig) -> Result<(), EvalEr
     }
     if queries.len() * (2 + config.alpha_grid.len() + config.beta_grid.len()) > MAX_RANKINGS {
         return Err(EvalError::Invalid("ranking work limit exceeded".into()));
+    }
+    Ok(())
+}
+
+/// Extension ids must name answerable queries of the *whole* benchmark, so
+/// this runs only on the complete query set (load, full capture, pooling);
+/// selected dev/test captures rely on the preparation-pinned config bytes.
+fn validate_pool_extension(queries: &[Query], config: &EvalConfig) -> Result<(), EvalError> {
+    if let Some(ext) = &config.pool_extension {
+        let answerable: BTreeSet<&str> = queries
+            .iter()
+            .filter(|q| q.stratum != Stratum::OffTopic)
+            .map(|q| q.id.as_str())
+            .collect();
+        if ext
+            .queries
+            .iter()
+            .any(|id| !answerable.contains(id.as_str()))
+        {
+            return Err(EvalError::Invalid(
+                "pool_extension names an unknown or off-topic query".into(),
+            ));
+        }
     }
     Ok(())
 }
@@ -1403,6 +1456,9 @@ impl Bench {
             judgements.extend(js);
         }
         validate_queries(&queries, &config)?;
+        if selected.is_none() {
+            validate_pool_extension(&queries, &config)?;
+        }
         let qrels = validate_judgements(&judgements)?;
         let (indexes, hashes) = capture_indexes(&dir, &config, &mut budget)?;
         let meta_hashes = hashes
@@ -1523,6 +1579,16 @@ pub fn split(queries: &[Query], seed: u64) -> Splits {
 
 /// Top-[`CUTOFF`] sections with the score of their first chunk.
 pub fn rank_sections(index: &SearchIndex, system: System, query: &str) -> Vec<(String, f64)> {
+    rank_sections_to(index, system, query, CUTOFF)
+}
+
+/// Top-`depth` distinct sections from the [`FETCH`] ranked chunks.
+fn rank_sections_to(
+    index: &SearchIndex,
+    system: System,
+    query: &str,
+    depth: usize,
+) -> Vec<(String, f64)> {
     let hits = match system {
         System::B0 => index.b0(query, FETCH),
         System::B1 => index.search(query, &Params::new(Mode::Lexical, FETCH)).hits,
@@ -1540,7 +1606,7 @@ pub fn rank_sections(index: &SearchIndex, system: System, query: &str) -> Vec<(S
     let mut out: Vec<(String, f64)> = Vec::new();
     for hit in hits {
         let id = &index.generation.chunks[hit.chunk].section_id;
-        if out.len() == CUTOFF {
+        if out.len() == depth {
             break;
         }
         if !out.iter().any(|(s, _)| s == id) {
@@ -1558,7 +1624,8 @@ pub struct PoolSummary {
 }
 
 /// Writes the judgement pool: the top-10 sections of every system at every
-/// grid point for every non-off-topic query, deduplicated and sorted.
+/// grid point for every non-off-topic query (top-`depth` for queries named by
+/// `pool_extension`), deduplicated and sorted.
 /// Refuses before ranking unless every final query has an accepted review.
 pub fn pool(
     bench: &Bench,
@@ -1587,6 +1654,7 @@ pub(crate) fn pool_captured(
 ) -> Result<(Vec<u8>, usize, usize), EvalError> {
     validate_config(&bench.config)?;
     validate_queries(&bench.queries, &bench.config)?;
+    validate_pool_extension(&bench.queries, &bench.config)?;
     if !approval.covers(&bench.queries) {
         return Err(EvalError::Invalid(
             "query review does not cover pool".into(),
@@ -1606,8 +1674,12 @@ pub(crate) fn pool_captured(
         let index = indexes
             .get(&q.corpus)
             .ok_or_else(|| EvalError::Invalid("missing corpus index".into()))?;
+        let depth = match &bench.config.pool_extension {
+            Some(ext) if ext.queries.binary_search(&q.id).is_ok() => ext.depth,
+            _ => CUTOFF,
+        };
         for &system in &systems {
-            for (section, _) in rank_sections(index, system, &q.text) {
+            for (section, _) in rank_sections_to(index, system, &q.text, depth) {
                 pairs.insert((q.id.clone(), section));
                 if pairs.len() > MAX_RECORDS {
                     return Err(EvalError::Invalid("pool pair limit exceeded".into()));
@@ -4698,5 +4770,67 @@ mod tests {
                 .to_string()
                 .contains("changed since the run")
         );
+    }
+
+    #[test]
+    fn pool_extension_deepens_only_named_queries_and_is_bounded() {
+        // 40 one-paragraph sections all matching "shared"; ranks 11..=30 exist.
+        let dir = tempfile::tempdir().unwrap();
+        let body: String = (0..40)
+            .map(|n| format!("# S{n:02}\n\nshared term {n}\n\n"))
+            .collect();
+        fs::write(dir.path().join("a.md"), body).unwrap();
+        let generation =
+            crate::store::build(dir.path(), &crate::store::IndexConfig::default()).unwrap();
+        let index = SearchIndex::new(generation);
+        let top = rank_sections(&index, System::B1, "shared");
+        let deep = rank_sections_to(&index, System::B1, "shared", 30);
+        assert_eq!(top.len(), CUTOFF);
+        assert_eq!(deep.len(), 30);
+        // The extension only appends: its first CUTOFF entries are the pool.
+        assert_eq!(&deep[..CUTOFF], &top[..]);
+        let mut config: EvalConfig = serde_json::from_value(json!({
+            "corpora":[{"name":"c","root":"r"}],"queries":"q","qrels":"j","splits":"s",
+            "seed":1,"resamples":1,"alpha_grid":[0.0],"beta_grid":[0.0],
+            "alpha":0.0,"beta":0.0,"threshold":0.0}))
+        .unwrap();
+        assert!(validate_config(&config).is_ok());
+        // Absent extension serializes to the original bytes.
+        assert!(
+            !serde_json::to_string(&config)
+                .unwrap()
+                .contains("pool_extension")
+        );
+        for (depth, ids, ok) in [
+            (30, vec!["a", "b"], true),
+            (10, vec!["a"], false), // not deeper than CUTOFF
+            (31, vec!["a"], false), // above MAX_POOL_DEPTH
+            (20, vec![], false),
+            (20, vec!["b", "a"], false), // unsorted
+            (20, vec!["a", "a"], false), // duplicate
+        ] {
+            config.pool_extension = Some(PoolExtension {
+                depth,
+                queries: ids.into_iter().map(String::from).collect(),
+            });
+            assert_eq!(validate_config(&config).is_ok(), ok, "{depth}");
+        }
+        // Named queries must be known answerable queries.
+        config.pool_extension = Some(PoolExtension {
+            depth: 20,
+            queries: vec!["a".into()],
+        });
+        let q = |id: &str, stratum| Query {
+            id: id.into(),
+            text: "t".into(),
+            stratum,
+            corpus: "c".into(),
+            model_drafted: true,
+        };
+        assert!(validate_pool_extension(&[q("a", Stratum::Lookup)], &config).is_ok());
+        assert!(validate_pool_extension(&[q("a", Stratum::OffTopic)], &config).is_err());
+        assert!(validate_pool_extension(&[q("b", Stratum::Lookup)], &config).is_err());
+        // Per-partition validation never needs the opposite split's ids.
+        assert!(validate_queries(&[q("b", Stratum::Lookup)], &config).is_ok());
     }
 }

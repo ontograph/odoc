@@ -1,7 +1,7 @@
 # ADR: OntoDoc — Measurable Documentation Graph-RAG MCP Service
 
 Date: 2026-11-08
-Revision: 13 (2026-11-11). Revision 2 added donor ideas
+Revision: 15 (2026-11-12). Revision 2 added donor ideas
 (`audit_session-2026-11-08-donor-ideas-review.md`); revision 3 applies the plan
 challenge (`audit_session-2026-11-08-plan-challenge.md`): section-level
 evaluation unit, frozen chunk budget, raw-score abstention, specified PPR, power
@@ -40,6 +40,18 @@ link to the sibling `x.md` when that document exists (rendered-book
 reference links), schema 4; makes the corpus pin's dirty check exclude the
 store of a corpus rooted in a checkout subdirectory (`rust-book/src`); and adds
 the model-judged exploratory track below. No measurement exists.
+Revision 14 (2026-11-12, owner-approved "B") adds a targeted pool
+extension: after full judging, answerable queries with no final grade >=1 are
+listed in `config.pool_extension` and pooled to depth 30 (all systems, full
+grid); only the new pairs are judged, under the same blinding, guideline and
+floor rule. Decided before any ranking metric or run; no measurement exists.
+Revision 15 (2026-11-12, owner reply "proceed" to the review-round-8
+recommendation) withdraws the 12 answerable queries that still had no final
+grade >=1 after the extension (`oi-cn-020/021/044`, `oi-lk-039/040`,
+`oi-mh-019/023/025/028/029/049/050`): their records leave queries, review,
+splits, pool and qrels, the seeded split is recomputed over the remaining 329
+queries, and the list is disclosed in every report. Decided from labels alone,
+before any run; no measurement exists.
 Owner: OntoDoc maintainers
 
 ## Status
@@ -829,16 +841,34 @@ the default until the separately scoped promotion task validates that change.
     splits, so tuned systems surface no unjudged sections.
   - If the pool exceeds 6,000 judgements, the grid falls back to the
     pre-registered `{0.2, 0.4}` before labelling.
+  - Pool extension (revision 14): if, after judging, an answerable query has
+    no final grade >=1, the owner may list it once in `config.pool_extension`
+    (`depth` 11..=30, sorted ids). Listed queries pool ranks 1..depth of every
+    system at every grid point; the pool still regenerates byte for byte, and
+    only new pairs are judged with the original guideline and blinding. The
+    list is fixed from labels alone, before any run, ranking metric or score
+    is seen; a query still unanswered afterwards fails `answerable_unjudged`
+    and is reported, never silently dropped. Metrics stay @10.
+  - Withdrawal (revision 15): the owner may withdraw such reported queries
+    once, by name, before any run. A withdrawn query leaves every benchmark
+    file and the split is recomputed with the same seed; reports list the
+    withdrawn ids and state that no pooled system found a relevant section for
+    them. Their judged pairs stay in the judging record. A query with no
+    relevant section scores 0 for every system, so over a fixed query set
+    withdrawal only rescales paired means. Recomputing the split changes
+    partition membership, so per-split means, their signs and any dev-tuned
+    choice may differ; no invariance is claimed. Withdrawal raises absolute
+    scores.
   - Gate: judged@10 ≥ 0.95 for every system in every reported run. Condensed-list
     nDCG' (unjudged items removed) is reported as a sensitivity check.
   - A second annotator labels at least 30% of the queries.
     Quadratic-weighted kappa with a bootstrap CI is reported, together with the
     label prevalence.
-  - A model-drafted label must be marked as such and reviewed by a human.
-    Model output never counts as a human annotator. EVAL-2.1 retains its two
-    human annotators, blinding and agreement requirements.
-    The separate model-judged exploratory track (revision 13) never feeds
-    human qrels or confirmatory decisions.
+  - Human/confirmatory track: a model-drafted label must be marked as such
+    and reviewed by a human. Model output never counts as a human annotator;
+    two human annotators, blinding and agreement are required.
+    The current EVAL-2.1 labels follow the model-judged exploratory exception
+    (revision 13): they never feed human qrels, Holm decisions or promotion.
 - **Integrity gates** (each must pass before any run):
   - Every judged section id exists in the pinned generation, and its stored
     span hash matches.

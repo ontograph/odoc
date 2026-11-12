@@ -1,0 +1,100 @@
+{"pair": "oi-mh-019|ontoindex/README.md#ontoindex/requirements", "grade": 0, "why": "Requirements list only; nothing about binding commands or space choice."}
+{"pair": "oi-mh-029|ADR_SOURCE_SNAPSHOT_GATED_GRAPH_AUTHORITY_REVIEW.md#review-source-snapshot-gated-graph-authority-adr/what-is-sound", "grade": 0, "why": "Lists sound design points; no emitter coverage or test counts."}
+{"pair": "oi-cn-044|ADR_SOURCE_SNAPSHOT_GATED_GRAPH_AUTHORITY.md#adr-source-snapshot-gated-graph-authority/context", "grade": 0, "why": "ADR context on source identity; no startup identity guard details."}
+{"pair": "oi-mh-025|IMPLEMENTATION_PLAN_DUPLICATE_CODE_DISCOVERY.md#implementation-plan-duplicate-code-discovery-exact-mode/tests-focused-no-framework-beyond-existing-vitest", "grade": 0, "why": "Duplicate-code test plan; unrelated to 2.4.20 follow-up or test count."}
+{"pair": "oi-mh-050|ontoindex-cursor-integration/skills/ontoindex-exploring/SKILL.md#", "grade": 0, "why": "Navigation pointer only; no contention test or size limit."}
+{"pair": "oi-mh-023|GLM_5_2_MAX_ONTOINDEX_MCP_TEST_PLAN.md#glm-52-max---ontoindex-mcp-test-plan-and-results/11-ranked-solution-options/solution-4---instrument-child-mcp-and-provider-requests", "grade": 0, "why": "MCP diagnostics option; no symbol scan cap or namespace bounds."}
+{"pair": "oi-cn-020|ADR_SOURCE_SNAPSHOT_GATED_GRAPH_AUTHORITY.md#adr-source-snapshot-gated-graph-authority/pre-commit-verdict-policy", "grade": 0, "why": "Pre-commit verdict policy; unrelated to type/value namespaces."}
+{"pair": "oi-mh-037|ADR_SOURCE_SNAPSHOT_GATED_GRAPH_AUTHORITY_REVIEW.md#review-source-snapshot-gated-graph-authority-adr/challenged-decision", "grade": 0, "why": "Review defects list; no 2.5.1 commit or js-yaml option."}
+{"pair": "oi-mh-023|ontoindex/skills/ontoindex-pr-review.md#establish-the-review-scope", "grade": 0, "why": "PR review scope guidance; no scan cap or namespace bounds."}
+{"pair": "oi-cn-020|ADR_SOURCE_SNAPSHOT_GATED_GRAPH_AUTHORITY_REVIEW.md#review-source-snapshot-gated-graph-authority-adr/implementation-order", "grade": 0, "why": "Implementation order for review tasks; unrelated to binding namespaces."}
+{"pair": "oi-lk-039|KIMI_K3_ONTOINDEX_MCP_SMOKE_TEST_EVIDENCE.md#kimi-k3---ontoindex-mcp-smoke-test-evidence/review-addendum", "grade": 0, "why": "MCP repo flag addendum; no idle eviction thresholds."}
+{"pair": "oi-lk-040|ontoindex/CHANGELOG.md#changelog/2322---2026-10-31", "grade": 0, "why": "Changelog on inherited-method binding; no namespace tag values."}
+{"pair": "oi-cn-038|REFACTORING_PLAN_ONTOCODE_SYSTEM_WARNINGS.md#refactoring-plan-ontocode-system-warning-floods/release-criteria", "grade": 0, "why": "Warning-flood release criteria; unrelated to 2.4.4 regex decision."}
+{"pair": "oi-cn-044|ADR_DUPLICATE_CODE_DISCOVERY.md#adr-duplicate-code-discovery/mode-2-semantic-duplicate-candidates-gated", "grade": 0, "why": "Semantic duplicate mode; unrelated to startup identity guard."}
+{"pair": "rb-lk-005|ch01-03-hello-cargo.md#hello-cargo/building-for-release", "grade": 0, "why": "Cargo release builds; nothing about shadowing bindings."}
+{"pair": "oi-lk-039|ENTIRE_GRAPH_100_APPROACHES.md#entire-graph-review-challenged-additive-shortlist/retained-extensions", "grade": 0, "why": "Graph extension shortlist; no idle eviction duration or count."}
+{"pair": "oi-lk-040|ADR_STRUCTURAL_CONFORMANCE_AND_EVAL_ORACLES.md#adr-structural-conformance-rules-and-evaluation-oracles/decision/slice-2-structural-oracle-stage-in-evaluation", "grade": 0, "why": "Structural oracle stage; no binding namespace tag."}
+{"pair": "oi-cn-038|RT_OVERLAY_REVIEW.md#dirty-overlay-search-review/decision", "grade": 0, "why": "Overlay search ranking decision; unrelated to regex version detection."}
+{"pair": "oi-mh-023|ADR_STRUCTURAL_CONFORMANCE_AND_EVAL_ORACLES.md#adr-structural-conformance-rules-and-evaluation-oracles/acceptance-criteria", "grade": 0, "why": "Acceptance criteria for oracles; no scan cap or namespace bounds."}
+{"pair": "oi-cn-021|GLM_5_2_MAX_ONTOINDEX_MCP_TEST_PLAN.md#glm-52-max---ontoindex-mcp-test-plan-and-results/3-runner-contract/current-live-runner", "grade": 0, "why": "Live runner description; no LadybugDB handle pitfalls or files."}
+{"pair": "oi-lk-040|ADR_MCP_ARGUMENT_ALIAS_VALIDATION.md#adr-mcp-argument-alias-validation/decision", "grade": 0, "why": "MCP argument alias validation; not binding namespace tags."}
+{"pair": "oi-mh-019|RT_OVERLAY_REVIEW.md#dirty-overlay-search-review/historical-verified-state--2026-10-16", "grade": 0, "why": "Overlay review historical state; no binding-separation commands or rationale."}
+{"pair": "oi-cn-016|release-notes-v1.9.8.md#ontoindex-v198/install", "grade": 0, "why": "Install commands only; no feature list or tagged build verification."}
+{"pair": "oi-cn-020|ontoindex/CHANGELOG.md#changelog/245---2026-11-01", "grade": 0, "why": "TS namespace inheritance changelog; different sense, no type/value binding rationale."}
+{"pair": "oi-mh-028|MCP_REPORT_FOLLOWUP_VALIDATION.md#mcp-report-follow-up-validation/earlier-validation-limitations-superseded-above", "grade": 0, "why": "Validation limitations; no capture ratio or 33-suite run."}
+{"pair": "oi-mh-028|MCP_REPORT_FOLLOWUP_VALIDATION.md#mcp-report-follow-up-validation/validation", "grade": 0, "why": "Other validation counts; no frozen capture ratio or 33-suite run."}
+{"pair": "oi-cn-021|ontoindex/CHANGELOG.md#changelog/2222---2026-10-13/fixed-4", "grade": 0, "why": "Unrelated fixes changelog; no overlay reader LadybugDB pitfalls."}
+{"pair": "oi-mh-050|ontoindex/CHANGELOG.md#changelog/2422---2026-11-05", "grade": 0, "why": "Overlay fallback fix; no contention test clients/rounds or size limit."}
+{"pair": "oi-cn-021|RUNBOOK.md#runbook--ontoindex/ladybugdb--lock-errors", "grade": 0, "why": "General lock guidance; no singleton, pool ID, LRU details or files."}
+{"pair": "oi-mh-029|ONTOCODE_ONTOINDEX_SESSION_LOG_REVIEW.md#review-of-external-ontocodeontoindex-session-log-report/review-boundary", "grade": 0, "why": "Review boundary of session log; no emitter coverage or test counts."}
+{"pair": "oi-cn-016|ADR_DUPLICATE_CODE_DISCOVERY.md#adr-duplicate-code-discovery/context", "grade": 0, "why": "Duplicate-code ADR context; nothing about 1.9.8 features or verification."}
+{"pair": "oi-cn-016|TEST_PLAN_GROK_4_5_ONTOINDEX_MCP.md#test-plan-grok-45-with-ontoindex-mcp-tools/focused-test-sequence/1-single-call-tool-discovery", "grade": 0, "why": "Grok test plan step; not 1.9.8 release features."}
+{"pair": "oi-cn-044|MIGRATION.md#migration-guide/impact-tool-may-now-return--status-ambiguous--pr-888-issue-470/what-happens-on-re-index", "grade": 0, "why": "Impact ambiguous status migration; unrelated to startup identity guard."}
+{"pair": "oi-mh-049|ONTOCODE_ONTOINDEX_SESSION_LOG_REVIEW.md#review-of-external-ontocodeontoindex-session-log-report/findings/p1-dirty-worktree-symbol-resolution-is-graph-only-and-untyped", "grade": 0, "why": "Dirty symbol resolution finding; no RSS gap or p95 budget."}
+{"pair": "oi-cn-044|ONTOCODE_ONTOINDEX_SESSION_LOG_REVIEW.md#review-of-external-ontocodeontoindex-session-log-report/findings/p0-response-corruption-is-real-but-the-report-does-not-isolate-ownership", "grade": 0, "why": "Response corruption finding; not the startup identity guard."}
+{"pair": "oi-cn-020|ARCHITECTURE.md#architecture--ontoindex/where-to-change-what", "grade": 0, "why": "Change-location table; no type/value namespace rationale."}
+{"pair": "oi-mh-019|KIMI_K3_ONTOINDEX_MCP_SMOKE_TEST_PLAN.md#kimi-k3---ontoindex-mcp-sub-agent-smoke-test-plan/6-result-record", "grade": 0, "why": "Smoke test result template; unrelated to binding separation."}
+{"pair": "oi-mh-023|README.md#ontoindex/first-run/mcp-client-call-shape", "grade": 0, "why": "MCP call namespace shape; different meaning, no scan cap."}
+{"pair": "oi-lk-039|ontoindex/CHANGELOG.md#changelog/2222---2026-10-13/fixed-4", "grade": 0, "why": "Unrelated fixes; no idle eviction duration or count."}
+{"pair": "oi-lk-040|ontoindex/CHANGELOG.md#changelog/2224---2026-10-13/fixed-2", "grade": 0, "why": "Pin sweeps and arg limits; no binding namespace tag."}
+{"pair": "oi-mh-029|ONTOCODE_ONTOINDEX_SESSION_LOG_REVIEW.md#review-of-external-ontocodeontoindex-session-log-report/215-implementation-status", "grade": 0, "why": "2.1.5 status and release counts; no emitter coverage or capture blocker review."}
+{"pair": "oi-mh-028|IMPLEMENTATION_PLAN_GLM_5_2_MAX_ONTOINDEX_MCP.md#glm-52-max-ontoindex-mcp-compatibility-project-plan/current-source-evidence", "grade": 0, "why": "GLM plan source evidence; no capture ratio or 33-suite run."}
+{"pair": "oi-mh-019|ADR_DUPLICATE_CODE_DISCOVERY.md#adr-duplicate-code-discovery/mode-1-exact-duplicate-code-detection", "grade": 0, "why": "Duplicate detection mode; unrelated to type/value bindings."}
+{"pair": "oi-mh-023|GLM_5_2_MAX_ONTOINDEX_MCP_TEST_PLAN.md#glm-52-max---ontoindex-mcp-test-plan-and-results/11-ranked-solution-options/solution-2---add-provider-specific-capability-configuration", "grade": 0, "why": "Provider namespace encoding option; different meaning, no scan cap."}
+{"pair": "oi-cn-016|ontoindex/CHANGELOG.md#changelog/2228---2026-10-14", "grade": 0, "why": "2.2.28 changelog; nothing about 1.9.8 release."}
+{"pair": "oi-mh-023|GLM_5_2_MAX_ONTOINDEX_MCP_TEST_PLAN.md#glm-52-max---ontoindex-mcp-test-plan-and-results/2-verified-integration-facts", "grade": 0, "why": "GLM integration facts; no scan cap or namespace lookup bounds."}
+{"pair": "oi-lk-039|CHANGELOG.md#changelog/214---2026-07-26/fixed-3", "grade": 0, "why": "2.1.4 fixes; no idle eviction thresholds."}
+{"pair": "oi-lk-040|GLM_5_2_MAX_ONTOINDEX_MCP_TEST_PLAN.md#glm-52-max---ontoindex-mcp-test-plan-and-results/14-optional-eval-harness-follow-up", "grade": 0, "why": "Eval harness follow-up; unrelated to binding namespace tag."}
+{"pair": "oi-mh-037|eval/README.md#ontoindex-swe-bench-evaluation-harness/how-it-works/per-instance-flow", "grade": 0, "why": "SWE-bench flow; no 2.5.1 commit or js-yaml option."}
+{"pair": "oi-cn-044|IMPLEMENTATION_PLAN_GLM_5_2_MAX_ONTOINDEX_MCP.md#glm-52-max-ontoindex-mcp-compatibility-project-plan/planning-principles", "grade": 0, "why": "GLM planning principles; not startup identity guard."}
+{"pair": "oi-mh-050|ontoindex-claude-plugin/skills/ontoindex-exploring/SKILL.md#", "grade": 0, "why": "Navigation pointer only; no contention test or size limit."}
+{"pair": "oi-mh-037|ontoindex/CHANGELOG.md#changelog/235---2026-10-28", "grade": 0, "why": "2.3.5 changelog; no 2.5.1 commit or js-yaml option."}
+{"pair": "oi-mh-029|ontoindex/skills/ontoindex-pr-review.md#establish-the-review-scope", "grade": 0, "why": "PR review scope guidance; no emitter coverage or test counts."}
+{"pair": "oi-mh-019|ontoindex/CHANGELOG.md#changelog/2317---2026-10-30", "grade": 0, "why": "Rust receiver binding fix; not type/value namespace groundwork."}
+{"pair": "oi-lk-039|ontoindex/CHANGELOG.md#changelog/2231---2026-10-14", "grade": 0, "why": "Idle server exit setting, not repository idle eviction thresholds."}
+{"pair": "oi-cn-016|release-notes-v1.9.11.md#ontoindex-v1911/validation", "grade": 0, "why": "1.9.11 validation, not 1.9.8."}
+{"pair": "oi-mh-050|ADR_SOURCE_SNAPSHOT_GATED_GRAPH_AUTHORITY_REVIEW.md#review-source-snapshot-gated-graph-authority-adr/release-gate-findings", "grade": 0, "why": "Release-gate findings; no contention test clients/rounds or size limit."}
+{"pair": "oi-mh-049|eval/README.md#ontoindex-swe-bench-evaluation-harness/how-it-works/index-caching", "grade": 0, "why": "Eval index caching; no RSS gap or p95 budget."}
+{"pair": "oi-cn-021|ontoindex/CHANGELOG.md#changelog/2227---2026-10-13", "grade": 0, "why": "Buffer and host fixes; no overlay reader pitfalls or files."}
+{"pair": "oi-mh-037|ontoindex/CHANGELOG.md#changelog/255---2026-11-06", "grade": 0, "why": "2.5.5 changelog; no 2.5.1 commit or js-yaml option."}
+{"pair": "oi-cn-021|ADR_SOURCE_SNAPSHOT_GATED_GRAPH_AUTHORITY.md#adr-source-snapshot-gated-graph-authority/rejected-alternatives", "grade": 0, "why": "Graph authority rejected alternatives; no overlay reader handle pitfalls or files."}
+{"pair": "oi-cn-044|ONTOCODE_LEAN_CTX_TRANSPORT_LOSS_REPORT.md#ontocode-bug-report-lean-ctx-mcp-server-dies-on-detached-background-launch-and-never-recovers/release-work-blocked-by-this-incident", "grade": 0, "why": "lean-ctx release blockage; not startup identity guard."}
+{"pair": "oi-mh-029|KIMI_K3_ONTOINDEX_MCP_SMOKE_TEST_EVIDENCE.md#kimi-k3---ontoindex-mcp-smoke-test-evidence/review-addendum", "grade": 0, "why": "MCP repo flag addendum; no emitter coverage or test counts."}
+{"pair": "oi-mh-028|ONTOCODE_LEAN_CTX_TRANSPORT_LOSS_REPORT.md#ontocode-bug-report-lean-ctx-mcp-server-dies-on-detached-background-launch-and-never-recovers/analysis/defect-3-no-supervision-or-auto-restart", "grade": 0, "why": "lean-ctx supervision defect; unrelated to capture ratio."}
+{"pair": "oi-lk-039|ONTOCODE_LEAN_CTX_TRANSPORT_LOSS_REPORT.md#ontocode-bug-report-lean-ctx-mcp-server-dies-on-detached-background-launch-and-never-recovers/release-work-blocked-by-this-incident", "grade": 0, "why": "lean-ctx release blockage; no idle eviction thresholds."}
+{"pair": "oi-lk-040|CONTRIBUTING.md#contributing-to-ontoindex/releases/cutting-a-stable-release", "grade": 0, "why": "Release procedure; unrelated to binding namespace tag."}
+{"pair": "oi-mh-037|GLM_5_2_MAX_ONTOINDEX_MCP_TEST_PLAN.md#glm-52-max---ontoindex-mcp-test-plan-and-results/14-optional-eval-harness-follow-up", "grade": 0, "why": "Eval harness follow-up; no 2.5.1 commit or js-yaml option."}
+{"pair": "oi-mh-049|RT_OVERLAY_REVIEW.md#dirty-overlay-search-review/decision", "grade": 0, "why": "Overlay ranking decision; no RSS gap or p95 budget."}
+{"pair": "oi-mh-019|ontoindex/CHANGELOG.md#changelog/2322---2026-10-31", "grade": 0, "why": "Inherited-method binding fix; not type/value namespace groundwork."}
+{"pair": "rb-lk-005|ch11-00-testing.md#writing-automated-tests", "grade": 0, "why": "Testing chapter intro; nothing about shadowing."}
+{"pair": "oi-mh-037|ontoindex/CHANGELOG.md#changelog/251---2026-11-05", "grade": 1, "why": "2.5.1 changelog notes js-yaml 5.5 update but not commit or renamed dump option."}
+{"pair": "oi-cn-044|ADR_WORKSPACE_PREPARATION_DIAGNOSTICS.md#adr-workspace-preparation-limit-diagnostics/decision", "grade": 0, "why": "Workspace preparation diagnostics; not startup identity guard."}
+{"pair": "oi-lk-040|release-notes-v2.2.0.md#ontoindex-220/distribution", "grade": 0, "why": "2.2.0 distribution; nothing about namespace tag."}
+{"pair": "oi-mh-028|ontoindex/README.md#ontoindex/agent-skills", "grade": 0, "why": "Agent skills list; unrelated to capture ratio or test run."}
+{"pair": "oi-mh-019|ontoindex/vendor/tree-sitter-dart/README.md#getting-started", "grade": 0, "why": "Dart grammar build steps; unrelated to binding separation."}
+{"pair": "oi-cn-044|ontoindex/skills/ontoindex-pr-review.md#establish-the-review-scope", "grade": 0, "why": "PR review guidance; not startup identity guard."}
+{"pair": "oi-mh-028|ONTOCODE_LEAN_CTX_TRANSPORT_LOSS_REPORT.md#ontocode-bug-report-lean-ctx-mcp-server-dies-on-detached-background-launch-and-never-recovers/impact", "grade": 0, "why": "lean-ctx impact; unrelated to capture ratio."}
+{"pair": "oi-mh-049|ontoindex/CHANGELOG.md#changelog/1911---2026-06-16/changed-16", "grade": 0, "why": "1.9.11 diff-impact change; no RSS gap or p95 budget."}
+{"pair": "oi-mh-029|RT_OVERLAY_REVIEW.md#dirty-overlay-search-review/historical-verified-state--2026-10-16", "grade": 0, "why": "Overlay historical state; no emitter coverage or test counts."}
+{"pair": "oi-mh-028|ONTOCODE_LEAN_CTX_TRANSPORT_LOSS_REPORT.md#ontocode-bug-report-lean-ctx-mcp-server-dies-on-detached-background-launch-and-never-recovers", "grade": 0, "why": "lean-ctx bug report; no capture ratio or 33-suite result."}
+{"pair": "oi-mh-028|GLM_5_2_MAX_ONTOINDEX_MCP_TEST_PLAN.md#glm-52-max---ontoindex-mcp-test-plan-and-results/14-optional-eval-harness-follow-up", "grade": 0, "why": "Eval harness follow-up; unrelated to capture ratio."}
+{"pair": "oi-cn-016|CHANGELOG.md#changelog/190---2026-06-09/added-20", "grade": 0, "why": "1.9.0 added features, not 1.9.8."}
+{"pair": "oi-mh-019|ontoindex/CHANGELOG.md#changelog/252---2026-11-05", "grade": 0, "why": "Shadowing scope changelog; no type/value binding verification commands."}
+{"pair": "oi-mh-050|ADR_WORKSPACE_REPAIR_FOLLOWUP.md#workspace-repair-follow-up/alternatives-and-second-challenge", "grade": 0, "why": "Workspace repair alternatives; no contention clients/rounds or size limit."}
+{"pair": "oi-cn-044|ontoindex/CHANGELOG.md#changelog/2222---2026-10-13/fixed-4", "grade": 0, "why": "Unrelated fixes; not startup identity guard."}
+{"pair": "oi-cn-016|TEST_PLAN_GROK_4_5_ONTOINDEX_MCP.md#test-plan-grok-45-with-ontoindex-mcp-tools/verified-setup-facts", "grade": 0, "why": "Grok setup facts; not 1.9.8 release."}
+{"pair": "oi-lk-039|ADR_REMOVE_MCP_REPO_ENV.md#adr-remove-the-mcp-repository-environment-selector/decision", "grade": 0, "why": "Repo env selector removal; no idle eviction thresholds."}
+{"pair": "oi-mh-025|CONTRIBUTING.md#contributing-to-ontoindex/releases/cutting-a-stable-release", "grade": 0, "why": "Generic release steps; no 2.4.20 follow-up fix or test count."}
+{"pair": "oi-cn-020|ONTOCODE_ONTOINDEX_SESSION_LOG_REVIEW.md#review-of-external-ontocodeontoindex-session-log-report/recommended-implementation-order", "grade": 0, "why": "Implementation order for log review; unrelated to binding namespaces."}
+{"pair": "oi-mh-023|TEST_PLAN_GROK_4_5_ONTOINDEX_MCP.md#test-plan-grok-45-with-ontoindex-mcp-tools/focused-test-sequence/3-two-call-history-check", "grade": 0, "why": "Grok history check; no scan cap or namespace bounds."}
+{"pair": "oi-cn-016|ontoindex/CHANGELOG.md#changelog/228---2026-10-12/fixed-10", "grade": 0, "why": "2.2.8 fixes; nothing about 1.9.8."}
+{"pair": "oi-lk-040|CHANGELOG.md#changelog/205---2026-07-04/added-10", "grade": 0, "why": "Setup guidance addition; unrelated to namespace tag."}
+{"pair": "oi-cn-016|ontoindex/CHANGELOG.md#changelog/2224---2026-10-13/fixed-2", "grade": 0, "why": "2.2.24 fixes; nothing about 1.9.8."}
+{"pair": "oi-cn-020|ADR_SOURCE_SNAPSHOT_GATED_GRAPH_AUTHORITY_REVIEW.md#review-source-snapshot-gated-graph-authority-adr/implementation-update", "grade": 0, "why": "Graph authority implementation update; unrelated to binding namespaces."}
+{"pair": "oi-cn-020|ontoindex/vendor/tree-sitter-dart/README.md#tree-sitter-dart", "grade": 0, "why": "Dart grammar description; unrelated."}
+{"pair": "oi-mh-023|CONTRIBUTING.md#contributing-to-ontoindex/branch-and-pull-requests/pull-request-titles", "grade": 0, "why": "PR title convention; no scan cap or namespace bounds."}
+{"pair": "oi-cn-016|ontoindex/CHANGELOG.md#changelog/251---2026-11-05", "grade": 0, "why": "2.5.1 changelog; nothing about 1.9.8."}
+{"pair": "oi-mh-019|CONTRIBUTING.md#contributing-to-ontoindex/branch-and-pull-requests", "grade": 0, "why": "PR guidance; unrelated to binding separation."}
+{"pair": "oi-cn-016|ADR_STRUCTURAL_CONFORMANCE_AND_EVAL_ORACLES.md#adr-structural-conformance-rules-and-evaluation-oracles/context", "grade": 0, "why": "Structural conformance context; not 1.9.8 release."}
+{"pair": "oi-mh-050|ontoindex-claude-plugin/skills/ontoindex-refactoring/SKILL.md#refactoring-with-ontoindex", "grade": 0, "why": "Refactoring skill steps; no contention test or size limit."}

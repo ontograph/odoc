@@ -5,12 +5,17 @@ type: project
 
 # Pending Tasks
 
-Updated: 2026-11-11. The structured
+Updated: 2026-11-12. The structured
 [canonical plan](ONTODOC_IMPLEMENTATION_PLAN.md) controls status and ordering;
 this file routes blockers, not a second queue.
 
-## Current (2026-11-11)
+## Current (2026-11-12)
 
+- EVAL-2.1: model-judged qrels prepared under ADR rev 13-15 (12 unanswered
+  queries withdrawn); `eval/preparation.json` awaits the owner's hash pin
+  ([audit](../eval/audit_session-preparation.md)). Then EVAL-3.0 dev proof.
+- Unplanned service gaps (review round 8): no latency/RSS baseline; index
+  caps checked after parsing every file.
 - Service work is complete: HTTP-2 loopback listener, FIX-7, SIMPL-3, FIX-8 and
   FIX-9 (round 5), FIX-10 (round 6) FIX-11 (round 7) and FIX-12 (schema 3) DONE ([owner decisions](audit_session-2026-11-11-owner-decisions.md)).
 - EVAL-2.0 (BLOCKED): label-free preparation in progress per owner decisions
@@ -95,8 +100,8 @@ this file routes blockers, not a second queue.
   manager-owned query-approval audit before pooling. At least 270 reviewed stratified queries,
   including >=150 answerable and >=30 off-topic held-out queries, are still needed.
   GPT-6-Astra query review is authorized; model review is never human annotation.
-- EVAL-2.1 requires two human annotators and annotation provenance; no substitution
-  with agents. Subsequent dev/power/freeze/held-out tasks retain every ADR gate.
+- EVAL-2.1 (superseded 2026-11-11 by ADR rev 13): model judges for the
+  exploratory track; a confirmatory claim still needs two human annotators. Subsequent dev/power/freeze/held-out tasks retain every ADR gate.
 - EVAL-3.2 recommends only under preregistered h5-then-h2-v1; new OD-4.1
   implements the audited default or records no-op before OD-4.0. Omitted
   threshold stays disabled, explicit modes/weights remain supported, and no

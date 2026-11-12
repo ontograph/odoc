@@ -168,8 +168,9 @@ The project's claims are worth only as much as this protocol. Do not bend it.
 - Model-drafted queries must be marked; the EVAL-2.0 query-review exception
   requires GPT-6-Astra review and provenance as specified in the ADR.
   Review must precede pooling and access to retrieval rankings or scores.
-  Model-drafted labels require human review. No model counts as a human
-  annotator.
+  On the human/confirmatory track, model-drafted labels require human review
+  and no model counts as a human annotator. Model-judged labels (ADR revision
+  13 exception) are exploratory only: no Holm decision, no promotion.
 - Do not derive qrels from document links; that leaks the graph signal into the
   labels.
 - Run the integrity gates before every run: qrels self-check, dev/test leakage
@@ -189,7 +190,8 @@ own approved dev evaluation and preregistration, not a changed confirmatory fami
 
 ## Memory Bank
 
-- Keep `MEMORY.md` at or below 100 lines and active-only.
+- Keep `MEMORY.md` at or below 100 lines and active-only; move closed entries
+  verbatim to `archive/` and check that nothing was lost.
 - Update `project_plan-current.md` when task status or order changes, and
   `project_architecture.md` when an owner or flow changes.
 - Add `audit_session-YYYY-MM-DD-*.md` for closures, benchmark runs and decisions.

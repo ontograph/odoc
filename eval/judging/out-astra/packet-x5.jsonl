@@ -1,0 +1,7 @@
+{"pair": "oi-mh-025|ontoindex/vendor/tree-sitter-dart/README.md#tree-sitter-dart", "grade": 0, "why": "Dart grammar description does not discuss the release follow-up or verification test counts."}
+{"pair": "oi-mh-050|ontoindex/CHANGELOG.md#changelog/2222---2026-10-13/fixed-4", "grade": 0, "why": "Unrelated fixes provide neither contention client and round counts nor artifact size limits."}
+{"pair": "oi-lk-039|ontoindex/CHANGELOG.md#changelog/253---2026-11-05", "grade": 0, "why": "Generation retention and extension fixes do not describe idle runtime eviction thresholds or entry limits."}
+{"pair": "oi-cn-020|ontoindex/README.md#ontoindex/mcp-tools", "grade": 0, "why": "MCP tools and freshness recovery do not explain binding namespaces or lexical lookup."}
+{"pair": "oi-mh-049|ONTOCODE_ONTOINDEX_SESSION_LOG_REVIEW.md#review-of-external-ontocodeontoindex-session-log-report/215-implementation-status", "grade": 0, "why": "Implementation status and test counts provide neither RSS sampling gaps nor dirty cold latency budgets."}
+{"pair": "oi-cn-016|CHANGELOG.md#changelog/1920---2026-06-20", "grade": 0, "why": "This section describes version 1.9.20 fixes, not version 1.9.8 features or build verification."}
+{"pair": "oi-cn-038|ADR_STRUCTURAL_CONFORMANCE_AND_EVAL_ORACLES.md#adr-structural-conformance-rules-and-evaluation-oracles/recommended-sequence", "grade": 0, "why": "Structural conformance implementation sequence does not explain release 2.4.4 version detection or correction rounds."}
