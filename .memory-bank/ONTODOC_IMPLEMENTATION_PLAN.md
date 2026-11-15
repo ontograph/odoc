@@ -1,7 +1,7 @@
 # OntoDoc Implementation Plan
 
 Date: 2026-11-10
-Status: Corrected candidate locally validated and packaged; publication remains gated
+Status: Closed (2026-11-15). The corrected 0.1.0 candidate is installed locally by owner decision; there is no public release. See [local release audit](audit_session-2026-11-15-local-release.md)
 Authority: `ADR_ONTODOC_SERVICE.md` (Accepted, revision 16); user requirement of
 2026-11-08: new Rust MCP service for documentation in this repository, with
 scientifically provable improvements. Reviews: `audit_session-2026-11-08-prior-attempt-review.md`,
@@ -23,12 +23,12 @@ outcome. The current track uses model-judged labels and is exploratory only
 ```yaml
 manager_loop:
   authority: true
-  status: blocked
+  status: closed
   selection_policy: active_next_task-first
   active_next_task: null
   max_in_flight: 1
   dispatch_mode: none
-  reopen_gate: reopen after at least one unfinished task becomes dependency-ready and has no substantive known_blockers
+  reopen_gate: null
 tasks:
   CORR-0:
     title: Preserve completed cards and register approved corrected-candidate work
@@ -3036,7 +3036,7 @@ tasks:
     dod_status: pass
   REL-6:
     title: Given accepted evaluation closeout and release inputs, package the exact measured binary, verify installation, then tag and publish to the owner-selected destination
-    status: BLOCKED
+    status: DONE
     classification: architecture-paperwork
     assurance_profile: full
     complexity: complex
@@ -3070,11 +3070,15 @@ tasks:
     stop_conditions:
     - An unresolved owner decision, ADR conflict or write outside the declared scope is required.
     - Publication requires selected candidate/tag identity, destination/exposure and embedded-path decisions. Preserve measured binary and consumed custody.
-    known_blockers:
-    - Corrected candidate locally validated separately; destination, package-only versus repository/history exposure and embedded-path acceptance remain undecided. No tag/upload. See audit_session-2026-11-13-corrected-candidate.md.
+    known_blockers: []
     closeout:
+      main_session_evidence:
+        authorized_by: owner
+        authorization_ref: owner reply make only local install approved on 2026-11-15, replacing publication with a local install; see audit_session-2026-11-15-local-release.md
+        validation_summary: Owner scope change to local install only, so no tag, upload or destination applies; corrected package SHA256SUMS check OK for both archives; corrected binary 2fc26f15 installed under the user local opt directory with a 0.1.0 symlink and version 0.1.0; scratch index, search and stdio tools list passed; git diff --check exit 0; verify_release.py exit 1 at source identity because it pins candidate F source while the tree is now 0.1.1, with its package check of the preserved original archive passing; embedded home paths accepted.
       role_results:
         coder-manager: null
+    dod_status: pass
 ```
 
 ## Required Traceability

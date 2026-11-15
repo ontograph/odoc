@@ -19,7 +19,7 @@ The [donor candidates plan](../docs/DONOR_CANDIDATES_PLAN.md) completed ADR18, c
 | [REFACTORING_PLAN.md](../docs/REFACTORING_PLAN.md) | closed | None | 7 DONE (revision 3 added RF-5, RF-CLOSE2) |
 | [GRAPHRAG_REVIEW_PLAN.md](../docs/GRAPHRAG_REVIEW_PLAN.md) | closed | None in selected scope | 2 DONE |
 | [GRAPHRAG_REFERENCES_PLAN.md](../docs/GRAPHRAG_REFERENCES_PLAN.md) | closed | None in approved scope | 4 DONE |
-| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | blocked | REL-6 publication decisions | 73 DONE, 0 OPEN, 1 BLOCKED; 74 total |
+| [ONTODOC_IMPLEMENTATION_PLAN.md](ONTODOC_IMPLEMENTATION_PLAN.md) | closed | None | 74 DONE; REL-6 closed as a local install by owner decision, no public release; [audit](audit_session-2026-11-15-local-release.md) |
 
 EVAL-3.2 completed the single registered held-out attempt and saved-score verification, both exit 0. H1 passed. With model-judged labels, H2 difference +0.032912 (95% CI [0.016128, 0.049996]) and H5 +0.032709 ([0.012113, 0.053406]) are exploratory and authorize no default promotion. The [held-out audit](audit_session-2026-11-13-held-out.md) records all hypotheses, per-corpus intervals, custody hashes and limitations. The owner approved unavailable held-out miss attribution (ADR16). Custody is consumed; preserve it.
 

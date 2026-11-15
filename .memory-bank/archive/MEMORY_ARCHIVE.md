@@ -75,3 +75,7 @@ Moved verbatim from `MEMORY.md`; links rewritten one level up.
   OD-0.0..EVAL-1.2 closeouts, commands, exit codes, deviations, EVAL-2.0 blocker.
 - [Astra query-review amendment 2026-11-08](../audit_session-2026-11-08-astra-query-review.md) -
   query-review exception, remaining human annotation gate and integrity findings.
+
+## Replaced 2026-11-15 (REL-6 local install closeout)
+
+- [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - 73 done, REL-6 publication blocked; corrected candidate locally validated/packaged; original artifacts/custody preserved; destination/exposure and embedded-path decisions pending.
