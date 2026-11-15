@@ -47,3 +47,14 @@ The owner asked how OntoDoc helps an agent and whether that can be measured. The
 - MCP search: 163 ms on the first call, then a median of 4.9 ms.
 - The MCP frame is about 34 KB per 10-result search, because `CallToolResult::structured` duplicates the JSON in `content` and `structuredContent`. This is recorded and nothing was changed.
 - There is no quality or general claim, and no end-to-end agent task was run.
+- Exclusion rerun (2026-11-16): `/opt/d2/ontodoc-agent-cost-20261115/exclusion/results.json`. Excluding `review/` and `plans/` moved Q1–Q8 hit@1/5/10 from 3/4/5 to 4/5/5. Q1, Q6 and Q8 still miss at rank 10, so those misses come from query wording.
+
+## Agent Task Test (2026-11-16)
+
+An end-to-end test of 24 agent runs: 12 questions (Q1–Q8 answerable, G1–G2 gaps, N1–N2 negative), each answered by a new agent without OntoDoc (arm A: grep and cat) and with it (arm B: adds `ontodoc search` and `read`). The protocol was frozen before any run: `/opt/d2/ontodoc-agent-task-20261116/PROTOCOL.md`, SHA-256 prefix `ebd9e319`. The results are in `RESULTS.md` beside it, SHA-256 prefix `df970147`. A separate agent graded blind under shuffled labels: `tmp/agent-task-grading-20261116/grades.json` (`a472d41d`).
+
+- Grades: identical per arm. 7 correct, 1 partial and 4/4 correct abstentions, with no wrong or invented answers. The partials were Q1-A and Q8-B.
+- Calls: A 44, B 47, with a median of 3 in both arms. No run hit the 15-call cap.
+- Tool output bytes, adjusted for a `docs-grep` wrapper fault: A 298,578, B 389,039. On answerable questions B read fewer (190,769 against 228,862). On gap and negative questions it read more (198,270 against 69,716).
+- OntoDoc saved work when its first search hit: Q7 took 1 call against 6, and Q1 took 2 calls against 4, and only arm B cited ADR 0016. When the search missed, agents fell back to grep.
+- Limits: non-blind questions, one run per pair, the same model answering and grading, one grader, three answers reveal "ranked search" to the grader, the wrapper fault, and no visible model tokens. The result is descriptive, with no significance test and no quality claim.
