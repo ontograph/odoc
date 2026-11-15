@@ -9,7 +9,7 @@ use std::sync::Arc;
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full};
 use hyper_util::rt::TokioIo;
-use ontodoc::cli::App;
+use ontodoc::cli::{App, MAX_RESPONSE_BYTES};
 use ontodoc::http::{MAX_REQUEST_BYTES, Router, encode_segment, run};
 use serde_json::{Value, json};
 use tokio::net::{TcpListener, TcpStream};
@@ -161,6 +161,261 @@ async fn folders_are_isolated_endpoints_with_stdio_parity() {
     .await;
     assert_eq!(empty["error"]["data"]["error"], "no_index", "{empty}");
 
+    server.shutdown.cancel();
+    server.task.await.unwrap();
+}
+
+#[tokio::test]
+async fn complete_http_responses_match_stdio_for_large_and_escaped_ids() {
+    let share = share();
+    let root = share.path().join("empty");
+    fs::write(
+        root.join("large.md"),
+        format!("# Large\n\n```text\n{}\n```\n", "needle ".repeat(12000)),
+    )
+    .unwrap();
+    fs::write(root.join("small.md"), "# Small\n\nneedle supporting text\n").unwrap();
+    App::new(&root).index().unwrap();
+    let server = start(share.path()).await;
+    let cap = json!({"jsonrpc":"2.0","id":"","error":{
+        "code":-32603,"message":"Response exceeds the byte limit",
+        "data":{"error":"cap_exceeded"}}});
+    let room = MAX_RESPONSE_BYTES - 1 - cap.to_string().len();
+    let escaped = format!("{}{}", "\u{1}".repeat(room / 6), "a".repeat(room % 6));
+    let requests = vec![
+        json!({"jsonrpc":"2.0","id":7,"method":"ping"}),
+        json!({"jsonrpc":"2.0","id":"ordinary","method":"tools/call",
+            "params":{"name":"status","arguments":{}}}),
+        json!({"jsonrpc":"2.0","id":"a".repeat(room),"method":"tools/list"}),
+        json!({"jsonrpc":"2.0","id":escaped,"method":"tools/list"}),
+        json!({"jsonrpc":"2.0","id":escaped,"method":"tools/call",
+            "params":{"name":"status","arguments":{}}}),
+        json!({"jsonrpc":"2.0","id":"search","method":"tools/call",
+            "params":{"name":"search","arguments":{"query":"needle"}}}),
+        json!({"jsonrpc":"2.0","id":escaped,"method":"tools/call",
+            "params":{"name":"search","arguments":{"query":"needle"}}}),
+    ];
+    // Exercise the actual stdio boundary, including its reserved newline.
+    let native_requests = requests.clone();
+    let native = tokio::task::spawn_blocking(move || {
+        use std::io::{BufRead, BufReader, Write};
+        use std::process::{Command, Stdio};
+        let mut child = Command::new(env!("CARGO_BIN_EXE_ontodoc"))
+            .arg("--root")
+            .arg(root)
+            .arg("serve")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let mut input = child.stdin.take().unwrap();
+        let mut output = BufReader::new(child.stdout.take().unwrap());
+        let init = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{
+            "protocolVersion":"2025-06-18","capabilities":{},
+            "clientInfo":{"name":"http-parity","version":"0"}}});
+        writeln!(input, "{init}").unwrap();
+        input.flush().unwrap();
+        let mut line = String::new();
+        assert!(output.read_line(&mut line).unwrap() > 0);
+        assert!(serde_json::from_str::<Value>(&line).unwrap()["result"].is_object());
+        writeln!(
+            input,
+            "{}",
+            json!({"jsonrpc":"2.0","method":"notifications/initialized"})
+        )
+        .unwrap();
+        let mut replies = Vec::new();
+        for request in native_requests {
+            writeln!(input, "{request}").unwrap();
+            input.flush().unwrap();
+            let mut line = String::new();
+            assert!(output.read_line(&mut line).unwrap() > 0);
+            assert!(line.len() <= MAX_RESPONSE_BYTES);
+            replies.push(serde_json::from_str::<Value>(&line).unwrap());
+        }
+        drop(input);
+        assert!(child.wait().unwrap().success());
+        replies
+    })
+    .await
+    .unwrap();
+    for (index, (request, expected)) in requests.iter().zip(native).enumerate() {
+        let body = request.to_string().into_bytes();
+        assert!(body.len() <= MAX_REQUEST_BYTES);
+        let (status, text) = send(server.addr, "POST", "/empty/mcp", &[], body).await;
+        assert_eq!(status, 200);
+        assert!(text.len() < MAX_RESPONSE_BYTES);
+        let response: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(response, expected);
+        assert_eq!(response["id"], request["id"]);
+        if (2..=4).contains(&index) || index == 6 {
+            let mut expected_cap = cap.clone();
+            expected_cap["id"] = request["id"].clone();
+            assert_eq!(response, expected_cap);
+            assert_eq!(text.len() + 1, MAX_RESPONSE_BYTES);
+        }
+        if index == 5 {
+            let search = &response["result"]["structuredContent"];
+            assert_eq!(search["truncated"], false);
+            let hits = search["results"].as_array().unwrap();
+            assert_eq!(hits.len(), 2);
+            assert_eq!(hits[0]["tier"], Value::Null);
+            assert_eq!(hits[1]["tier"], "l2");
+        }
+    }
+    server.shutdown.cancel();
+    server.task.await.unwrap();
+}
+
+#[tokio::test]
+async fn cited_related_overflow_truncates_identically_over_stdio_and_http() {
+    let share = share();
+    let root = share.path().join("empty");
+    let mut links = String::from("# Source\n\n");
+    // Punctuation keeps anchors short while citations retain the full heading.
+    // All 49 neighbours fit the item cap; their citations exceed the byte cap.
+    for i in 0..48 {
+        let path = format!("t{i:02}.md");
+        fs::write(
+            root.join(&path),
+            format!("# Target{i}{}\n\nbody\n", "!".repeat(3000)),
+        )
+        .unwrap();
+        links.push_str(&format!("[t]({path}) "));
+    }
+    fs::write(root.join("source.md"), links).unwrap();
+    App::new(&root).index().unwrap();
+    let generation = ontodoc::store::Store::new(root.join(".ontodoc"))
+        .load()
+        .unwrap();
+    let citations: Vec<_> = generation
+        .chunks
+        .iter()
+        .enumerate()
+        .filter(|(_, chunk)| chunk.path != "source.md" && chunk.ordinal == 0)
+        .map(|(index, _)| ontodoc::cite::Citation::for_chunk(&generation, index).unwrap())
+        .collect();
+    assert_eq!(citations.len(), 48);
+    assert!(serde_json::to_vec(&citations).unwrap().len() > MAX_RESPONSE_BYTES);
+    let server = start(share.path()).await;
+    let request = json!({"jsonrpc":"2.0","id":2,"method":"tools/call",
+        "params":{"name":"related","arguments":{"chunk_id":"source.md#source~0"}}});
+    let native_request = request.clone();
+    let native = tokio::task::spawn_blocking(move || {
+        use std::io::{BufRead, BufReader, Write};
+        use std::process::{Command, Stdio};
+        let mut child = Command::new(env!("CARGO_BIN_EXE_ontodoc"))
+            .arg("--root")
+            .arg(root)
+            .arg("serve")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let mut input = child.stdin.take().unwrap();
+        let mut output = BufReader::new(child.stdout.take().unwrap());
+        let init = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{
+            "protocolVersion":"2025-06-18","capabilities":{},
+            "clientInfo":{"name":"related-parity","version":"0"}}});
+        writeln!(input, "{init}").unwrap();
+        input.flush().unwrap();
+        let mut line = String::new();
+        assert!(output.read_line(&mut line).unwrap() > 0);
+        assert!(serde_json::from_str::<Value>(&line).unwrap()["result"].is_object());
+        writeln!(
+            input,
+            "{}",
+            json!({"jsonrpc":"2.0","method":"notifications/initialized"})
+        )
+        .unwrap();
+        writeln!(input, "{native_request}").unwrap();
+        input.flush().unwrap();
+        line.clear();
+        assert!(output.read_line(&mut line).unwrap() > 0);
+        assert!(line.ends_with('\n'));
+        assert!(line.len() <= MAX_RESPONSE_BYTES);
+        let reply: Value = serde_json::from_str(&line).unwrap();
+        drop(input);
+        assert!(child.wait().unwrap().success());
+        reply
+    })
+    .await
+    .unwrap();
+    let body = request.to_string().into_bytes();
+    assert!(body.len() <= MAX_REQUEST_BYTES);
+    let (status, text) = send(server.addr, "POST", "/empty/mcp", &[], body).await;
+    assert_eq!(status, 200);
+    assert!(text.len() < MAX_RESPONSE_BYTES);
+    let remote: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(remote, native);
+    assert_eq!(remote["id"], request["id"]);
+    assert_ne!(remote["result"]["isError"], true);
+    let related = &remote["result"]["structuredContent"];
+    assert_eq!(related["truncated"], true);
+    let neighbours = related["neighbours"].as_array().unwrap();
+    assert!(!neighbours.is_empty());
+    assert!(neighbours.len() < 49);
+    assert_eq!(
+        neighbours.len() + related["omitted"].as_u64().unwrap() as usize,
+        49
+    );
+    for neighbour in neighbours {
+        let citation = neighbour.get("citation").unwrap();
+        let verified = tool(
+            server.addr,
+            "/empty/mcp",
+            "verify",
+            json!({"citations":[citation]}),
+        )
+        .await;
+        assert_eq!(verified["results"][0]["state"], "valid");
+    }
+    server.shutdown.cancel();
+    server.task.await.unwrap();
+}
+
+#[tokio::test]
+async fn malformed_native_ids_keep_rmcp_handling() {
+    let share = share();
+    let server = start(share.path()).await;
+    for body in [
+        r#"{"jsonrpc":"2.0","id":null,"method":"ping"}"#,
+        r#"{"jsonrpc":"2.0","id":{},"method":"ping"}"#,
+        r#"{"jsonrpc":"2.0","id":1,"id":2,"method":"ping"}"#,
+        r#"{"jsonrpc":"2.0","id":{},"method":{}}"#,
+        "{broken",
+    ] {
+        // rmcp may classify an invalid request as a custom notification.
+        // Preserve that native classification instead of inventing ID rules.
+        let expected = match serde_json::from_reader::<_, rmcp::model::ClientJsonRpcMessage>(
+            body.as_bytes(),
+        ) {
+            Ok(rmcp::model::ClientJsonRpcMessage::Request(_)) => {
+                panic!("invalid ID became a native request")
+            }
+            Ok(_) => 202,
+            Err(_) => 415,
+        };
+        let (status, text) = send(
+            server.addr,
+            "POST",
+            "/empty/mcp",
+            &[],
+            body.as_bytes().to_vec(),
+        )
+        .await;
+        assert_eq!(status, expected);
+        assert_eq!(
+            text,
+            if expected == 415 {
+                "request refused"
+            } else {
+                ""
+            }
+        );
+    }
     server.shutdown.cancel();
     server.task.await.unwrap();
 }

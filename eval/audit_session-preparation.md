@@ -1,9 +1,7 @@
 # Preparation (EVAL-2.1, qrels stage)
 
 - Date: 2026-11-12
-- Trusted operator: repository owner (the user). The manifest below was
-  produced by the EVAL-2.1 manager; it is **not approved** until the owner
-  pins its hash (see "Approval").
+- Trusted operator: repository owner (the user). The manifest below was produced by the EVAL-2.1 manager and approved by the owner on 2026-11-12 (see "Approval").
 - Labels: **model-judged**, exploratory only (ADR revision 13). Judges `j1`
   GPT-6-Astra and `j2` claude-opus-5-5 (reasoning high); final grade
   `floor((a+b)/2)`. Judging record and hashes: `eval/judging/`.
@@ -68,9 +66,11 @@ code.
 
 ## Approval
 
-Pending. Execution commands use `--preparation eval/preparation.json
---preparation-sha256 <pin>`; the owner supplies the pin out of band after
-reviewing this file. Until then EVAL-2.1 stays open and no run starts.
+Approved on 2026-11-12: the owner's reply **"1 2 3"** accepts item 1 of the preceding next-step proposal, approval of this preparation manifest. The approved SHA-256 is `1e4835cd994a799b136fcf7c095567e43ae9bbaafd800a6bdbc51d69b1cf5125`.
+
+Execution commands use `--preparation eval/preparation.json --preparation-sha256 1e4835cd994a799b136fcf7c095567e43ae9bbaafd800a6bdbc51d69b1cf5125`. This approval closes the pending operator decision; candidate validation, capacity measurement, dev selection, power and the selected-config second pin retain their separate gates.
+
+The commands above are historical preparation evidence. The approval closeout checks the existing manifest and its bound payload hashes without exposing labels or repeating preparation. No build, qrels-stage preparation, benchmark, freeze or held-out attempt was run for this approval. The manifest bytes remain unchanged; this audit is referenced by path, not bound by its own hash.
 
 ## Limits
 

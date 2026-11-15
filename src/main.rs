@@ -6,8 +6,8 @@ use ontodoc::cli::{Cli, Command, run};
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    if matches!(cli.command, Command::Serve) {
-        return serve(&cli.root);
+    if let Command::Serve { auto_index } = cli.command {
+        return serve(&cli.root, auto_index);
     }
     if let Command::ServeHttp { docs_share, listen } = &cli.command {
         return serve_http(docs_share, *listen);
@@ -24,11 +24,11 @@ fn main() -> ExitCode {
     }
 }
 
-fn serve(root: &std::path::Path) -> ExitCode {
+fn serve(root: &std::path::Path, auto_index: bool) -> ExitCode {
     let result = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
-        .and_then(|rt| rt.block_on(ontodoc::mcp::serve_stdio(root)));
+        .and_then(|rt| rt.block_on(ontodoc::mcp::serve_stdio(root, auto_index)));
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {

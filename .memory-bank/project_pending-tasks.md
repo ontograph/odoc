@@ -5,114 +5,24 @@ type: project
 
 # Pending Tasks
 
-Updated: 2026-11-12. The structured
-[canonical plan](ONTODOC_IMPLEMENTATION_PLAN.md) controls status and ordering;
-this file routes blockers, not a second queue.
+The [refactoring plan](../docs/REFACTORING_PLAN.md) is closed with 5 DONE: research-document corrections, `section_ranking` removal and the pinned `eval misses` move. [Audit](audit_session-2026-11-15-refactoring.md) records commands and limits. No ranking, schema or default changed.
 
-## Current (2026-11-12)
+[OntoIndex ideas](../docs/ONTOINDEX_IDEAS_PLAN.md) has no remaining tasks in the authorized scope. ADR19 refusal/recovery, calibrated census, capacity measurement and documentation are complete; [evidence](audit_session-2026-11-14-ontoindex-ideas.md) records validation. Additional load cost, new link-resolution rules and a capacity acceptance target remain deferred; release and evaluation gates are unchanged.
 
-- EVAL-2.1: model-judged qrels prepared under ADR rev 13-15 (12 unanswered
-  queries withdrawn); `eval/preparation.json` awaits the owner's hash pin
-  ([audit](../eval/audit_session-preparation.md)). Then EVAL-3.0 dev proof.
-- Unplanned service gaps (review round 8): no latency/RSS baseline; index
-  caps checked after parsing every file.
-- Service work is complete: HTTP-2 loopback listener, FIX-7, SIMPL-3, FIX-8 and
-  FIX-9 (round 5), FIX-10 (round 6) FIX-11 (round 7) and FIX-12 (schema 3) DONE ([owner decisions](audit_session-2026-11-11-owner-decisions.md)).
-- EVAL-2.0 (BLOCKED): label-free preparation in progress per owner decisions
-  ([audit](audit_session-2026-11-11-eval20-preparation.md)); pooling needs the
-  operator's query-approval audit; labels need a model-judged admission task; EVAL-2.1 → EVAL-3.x → OD-4.1 → OD-4.0
-  follow it. Delivery item outside code: the operator's authenticated TLS
-  ingress in front of `serve-http`.
-- Rounds 6-7 owner items resolved ([audit](audit_session-2026-11-11-review-round6.md)):
-  slug closed as no bug; prune self-heal (FIX-11); table-aware first sentence
-  approved and done (FIX-12, schema 3). Operators must reindex existing stores.
-- Entries below are history.
+The [donor follow-up review](../docs/DONOR_REVIEW_PLAN.md) completed DR-1 documentation and evidence repairs after GPT source review found no runtime blocker. Original donor tasks stay closed; ranking, calibration, release and evaluation gates are unchanged.
 
-## Active Service Repair
+[Donor candidates](../docs/DONOR_CANDIDATES_PLAN.md) completed its four authorized tasks. Ranking and link-resolution candidates remain deferred; the census scanner was uncalibrated and no edge-gain claim follows. No ranking experiment, test-split access or reindex is authorized.
 
-- SAFETY-0 and OD-3.4 are DONE: ADR8 local contracts and
-  [rooted read/membership implementation](audit_session-2026-11-10-od34-rooted-membership.md).
-  OD-3.6 is also DONE ([streaming/admission audit](audit_session-2026-11-10-od36-streaming-admission.md));
-  OD-3.5 input/verification/actual-work budgets are DONE ([closure audit](audit_session-2026-11-10-od35-input-work-budgets.md)).
-  OD-3.9 is DONE ([publication/lock audit](audit_session-2026-11-11-od39-publication-outcomes.md)).
-  EVAL-1.3 is DONE. HTTP-0 still needs the owner exposure/admission choice; completed
-  local work is not multi-user readiness or measured capacity.
+The [GraphRAG review](../docs/GRAPHRAG_REVIEW_PLAN.md) is closed: GRR-1 and GRR-2 DONE. Typed mention lookup is corrected and covered by fresh focused tests; the recommended GR-5 descriptive protocol still requires approval before payload access. See [review evidence](audit_session-2026-11-14-graphrag-review.md). The original completed tracker remains closed.
 
-- OD-3.8 bounded store reads/publication is DONE: final managed job d passed
-  store23 plus integration32, formatting and Clippy, exit0. Initial admission
-  denials and the corrected Clippy expression remain recorded; no lock bypass.
-  [Current review/audit](audit_session-2026-11-10-review-safety-priorities.md)
-  records exact results, source-review limits and the next local safety sequence.
+The [GraphRAG references plan](../docs/GRAPHRAG_REFERENCES_PLAN.md) is closed with 4 DONE; ADR17 and unreleased 0.1.1 neighbour citations are implemented and documented. [Closeout evidence](audit_session-2026-11-13-graphrag-references.md) records validation and limits. GR-5 remains deferred pending its diagnosis-rule decision; REL-6 publication gates remain unchanged.
 
-- OD-3.0 is DONE: duplicate section/chunk publication and load reject. Store
-  tests (12 passed), formatting and managed all-target Clippy exited 0. Existing
-  malformed generations reject, not migrate; empty-slug IDs landed in OD-3.1/3.2.
-- OD-3.3 is DONE: complete native MCP frame/error bounds and generic internal
-  messages. Exact escaped IDs preserved or connection rejected before dispatch;
-  85 library + 4 CLI + 7 MCP tests, formatting and all-target Clippy exit 0.
-- OD-3.1 is DONE: service ADR revision 5 accepts ID-only `@empty`, canonical skip
-  records/identity, no persisted mtime, same-ID byte conflicts and unchanged
-  current-byte freshness. Document checks passed; no implementation claimed.
-- OD-3.2 is DONE: schema 2, unique empty-slug IDs, canonical bytes and strict
-  version/ID/conflict rejection; 92 library + 5 CLI tests, formatting and Clippy
-  passed. [Audit](audit_session-2026-11-10-schema2-implementation.md) records Astra review and limits.
-- HTTP-0 is BLOCKED: owner exposure/admission choice remains unsupplied. Pick
-  local loopback-only use or authenticated trusted-ingress remote delivery and
-  accept the admission/session trust boundary. [Review](audit_session-2026-11-10-http0-authority-gate.md)
-  records proposals only. HTTP-1 (registry, no listener) is DONE; HTTP-2 depends on HTTP-0;
-  no listener or automatic indexing. Local safety decisions no longer depend on
-  HTTP-0: OD-3.8 → SAFETY-0 → OD-3.4 → OD-3.6 → OD-3.5 → OD-3.9 are DONE.
-  Publication/process-lock tests pass; the historical parallel Locked cause
-  remains unknown rather than claimed fixed.
-- OD-3.7 is DONE: service-use and agent documentation now matches the implemented
-  stdio/schema-2 service and its unresolved safety/HTTP/evaluation limits.
+Updated: 2026-11-13. The [canonical plan](ONTODOC_IMPLEMENTATION_PLAN.md) controls status and order: 73 DONE, REL-6 BLOCKED. CORR-0..4 and CORR-LOCK complete; corrected binary/source archives and validation receipts are under `tmp/release-010/corrected/`. Default-parallel tests, Clippy, formatting, build and native smoke pass. Original measured artifacts/custody remain unchanged. Publication destination, exposure and embedded-path decisions remain.
 
-## Evaluation: Guarded, Not Complete
-
-- EVAL-1.6 is DONE through strict complete-local: trusted preparation/provenance
-  handoff and deterministic default-promotion policy before EVAL-1.3.
-  ADR9 decision is documented and Astra-reviewed; historical tracker evidence is
-  compacted with exact scalar/hash preservation. EVAL-1.3 later DONE.
-- EVAL-1.4 is DONE: immutable physical split capture, current freshness/pins and
-  shared indexes; pre-filter traversal and explicit ignore-input budgets close
-  the earlier gap. Final 139 tests and Clippy/formatting passed; Astra reviewed.
-  Unsafe/unreadable controls refuse; OD-3.4 now supplies shared rooted reads,
-  and OD-3.6 now supplies streaming/load admission.
-  [Closure](audit_session-2026-11-10-eval14-bounded-traversal.md).
-- EVAL-1.5 is DONE: ADR revision6 resolves fixed common-dir custody/external
-  exports and audits; exact completed metadata/report binds saved-run hashes.
-  [Audit](audit_session-2026-11-10-eval15-attempt-identity.md) records Astra review and validation.
-- EVAL-1.3 is DONE: preparation-pinned measurement commands, selected-only
-  capture, held-out admission before reservation and synthetic end-to-end
-  dev-then-one-held-out success. [Audit](audit_session-2026-11-11-eval13-progress.md).
-- Dev loading must not open held-out query/label payloads. Validate and compute
-  from identical captured bytes; full preparation has a different evidence scope.
-  ADR9 also excludes combined/full-pool/full-provenance payloads from ordinary
-  dev run/sweep/freeze/check/misses/score; trusted preparation recaptures and
-  reapproves dev-selected config before freeze. Metadata/hash pins alone do not
-  authenticate humans, reviewers or pre-pool chronology.
-- Reuse audit preregistration and an exclusive durable attempt record; a new
-  registry service is not required. A mutable local record is not external custody.
-- EVAL-3.x external benchmark/binary/custody/audit commands are rebound under
-  ADR6; EVAL-1.3 must validate them before measurement. Registration is one-shot,
-  with no delete/reset workflow; superseding custody needs fresh approval.
-- EVAL-2.0 remains BLOCKED on the trusted operator: pinned permissive corpora,
-  manager-owned query-approval audit before pooling. At least 270 reviewed stratified queries,
-  including >=150 answerable and >=30 off-topic held-out queries, are still needed.
-  GPT-6-Astra query review is authorized; model review is never human annotation.
-- EVAL-2.1 (superseded 2026-11-11 by ADR rev 13): model judges for the
-  exploratory track; a confirmatory claim still needs two human annotators. Subsequent dev/power/freeze/held-out tasks retain every ADR gate.
-- EVAL-3.2 recommends only under preregistered h5-then-h2-v1; new OD-4.1
-  implements the audited default or records no-op before OD-4.0. Omitted
-  threshold stays disabled, explicit modes/weights remain supported, and no
-  mutable evaluation artifact enters retrieval.
-- Baseline commits exist (2026-11-11, see `git log`). A clean, matching commit
-  and binary identity at freeze time remain a prerequisite the operator
-  supplies; they are not manufactured during review.
-
-## Deferred Decisions
-
-- Evidence/diagnostics ADR remains Proposed. No new fields, tools, persistent
-  provenance, topology command or publication-workflow API is accepted here.
-- No ranking change, donor-code adoption or retrieval-quality claim is justified
-  by this source review. Service safety tests use only synthetic fixtures.
+- REL-6 original package is preserved under `tmp/release-010/package/`; archive/install smoke evidence remains. The corrected package passed separate source identity, deterministic archive, extracted install/index/search and synthetic transport/artifact checks. See [corrected-candidate evidence](audit_session-2026-11-13-corrected-candidate.md).
+- [Corrected candidate closure](audit_session-2026-11-13-corrected-candidate.md) records transport parity, response allocation, graph/tier scans, lock lifetime and local validation/package. Tracker descriptions were compacted with exact archive and state comparison. Current validation is recorded; final task is publication only.
+- REVIEW-9-DOC completed release/deployment corrections and the [all-outcomes companion](../docs/EVALUATION_0.1.0.md). Distribute that companion and corrected deployment guide alongside the preserved archive; its embedded documentation has not changed.
+- Publication requires a destination and exposure decision: package only, or repository with history. The latter also exposes eval/judging data, internal plans, snapshot provenance and commit identities. The unchanged binary contains recorded home build paths; owner acceptance remains needed. No remote, tag or upload was created. Source identity against the eventual tag and public install smoke remain unperformed.
+- Evaluation is complete. Preserve registration and the completed sole attempt in shared Git-common custody. [Accepted audit](audit_session-2026-11-13-held-out.md) reports model-judged exploratory effects only; defaults remain lexical with abstention off. No retry, relabeling or post-test tuning is authorized; future human-label confirmation needs fresh test queries.
+- Native target: Linux x86_64 GNU, glibc 2.39+, kernel 5.6+. No ingress installation is planned; the deployment example remains untested. [Capacity observations](audit_session-2026-11-13-capacity.md) have no latency acceptance target.
+- Proposed evidence/diagnostics extensions and additional retrieval changes remain deferred. No new tool, default promotion, built-in authentication or donor editing is authorized.

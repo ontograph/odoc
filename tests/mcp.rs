@@ -69,6 +69,158 @@ async fn ok(client: &RunningService<RoleClient, ()>, name: &'static str, args: V
 }
 
 #[tokio::test]
+async fn oversized_first_hit_preserves_citations() {
+    let dir = tempfile::tempdir().unwrap();
+    // Repetition makes the indivisible code block rank ahead of small matches.
+    let large = format!("# Large\n\n```text\n{}\n```\n", "needle ".repeat(12_000));
+    fs::write(dir.path().join("large.md"), large).unwrap();
+    for i in 0..3 {
+        fs::write(
+            dir.path().join(format!("small{i}.md")),
+            format!("# Small {i}\n\nneedle small supporting text.\n"),
+        )
+        .unwrap();
+    }
+    let app = App::new(dir.path());
+    app.index().unwrap();
+    let index = app.load_index().unwrap();
+    let ranked = index.search(
+        "needle",
+        &ontodoc::search::Params::new(ontodoc::search::Mode::Lexical, 4),
+    );
+    assert_eq!(ranked.hits.len(), 4);
+    assert_eq!(
+        index.generation.chunks[ranked.hits[0].chunk].path,
+        "large.md"
+    );
+    let client = client(dir.path()).await;
+    let response = ok(&client, "search", json!({"query": "needle", "top_k": 4})).await;
+    let results = response["results"].as_array().unwrap();
+    assert_eq!(results.len(), 4);
+    assert_eq!(results[0]["citation"]["path"], "large.md");
+    assert_eq!(results[0]["tier"], Value::Null);
+    assert_eq!(results[0]["text"], "");
+    assert_eq!(results[0]["text_truncated"], false);
+    assert_eq!(response["truncated"], false);
+    for hit in &results[1..] {
+        assert_eq!(hit["tier"], "l2");
+        assert!(!hit["text"].as_str().unwrap().is_empty());
+    }
+    let verified = ok(
+        &client,
+        "verify",
+        json!({"citations":[results[0]["citation"]]}),
+    )
+    .await;
+    assert_eq!(verified["results"][0]["state"], "valid");
+    let read = ok(&client, "read", json!({"id":results[0]["chunk_id"]})).await;
+    assert_eq!(read["truncated"], true);
+    assert!(!read["text"].as_str().unwrap().is_empty());
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn oversized_third_hit_preserves_every_rank() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("large.md"),
+        format!(
+            "# Large\n\n```text\nneedle {}\n```\n",
+            "padding ".repeat(10000)
+        ),
+    )
+    .unwrap();
+    for i in 0..2 {
+        fs::write(
+            dir.path().join(format!("small{i}.md")),
+            "# Small\n\nneedle needle\n",
+        )
+        .unwrap();
+    }
+    App::new(dir.path()).index().unwrap();
+    let client = client(dir.path()).await;
+    let response = ok(&client, "search", json!({"query":"needle", "top_k":3})).await;
+    let hits = response["results"].as_array().unwrap();
+    assert_eq!(hits.len(), 3);
+    assert_eq!(hits[2]["citation"]["path"], "large.md");
+    for (i, hit) in hits.iter().enumerate() {
+        assert_eq!(hit["rank"], i + 1);
+        assert_eq!(hit["tier"], if i == 2 { Value::Null } else { json!("l2") });
+    }
+    assert_eq!(response["truncated"], false);
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn rank_order_text_fit_keeps_later_small_hits() {
+    let dir = tempfile::tempdir().unwrap();
+    for i in 0..2 {
+        fs::write(
+            dir.path().join(format!("large{i}.md")),
+            format!("# Large {i}\n\n```text\n{}\n```\n", "needle ".repeat(5800)),
+        )
+        .unwrap();
+    }
+    for i in 0..3 {
+        fs::write(
+            dir.path().join(format!("small{i}.md")),
+            format!("# Small {i}\n\nneedle supporting text.\n"),
+        )
+        .unwrap();
+    }
+    let app = App::new(dir.path());
+    app.index().unwrap();
+    let client = client(dir.path()).await;
+    let response = ok(&client, "search", json!({"query":"needle", "top_k":5})).await;
+    let hits = response["results"].as_array().unwrap();
+    assert_eq!(hits.len(), 5);
+    assert!(
+        hits[0]["citation"]["path"]
+            .as_str()
+            .unwrap()
+            .starts_with("large")
+    );
+    assert!(
+        hits[1]["citation"]["path"]
+            .as_str()
+            .unwrap()
+            .starts_with("large")
+    );
+    assert_eq!(hits[0]["tier"], "l2");
+    assert!(hits[0]["text"].as_str().unwrap().len() > 40_000);
+    assert_eq!(hits[1]["tier"], Value::Null);
+    assert_eq!(hits[1]["text"], "");
+    for hit in &hits[2..] {
+        assert_eq!(hit["tier"], "l2");
+    }
+    assert_eq!(response["truncated"], false);
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn citations_alone_overflow_removes_trailing_hits() {
+    let dir = tempfile::tempdir().unwrap();
+    for i in 0..50 {
+        fs::write(
+            dir.path().join(format!("doc{i:02}.md")),
+            format!("# Topic{i}{}\n\nneedle\n", "!".repeat(3000)),
+        )
+        .unwrap();
+    }
+    App::new(dir.path()).index().unwrap();
+    let client = client(dir.path()).await;
+    let response = ok(&client, "search", json!({"query":"needle", "top_k":50})).await;
+    let hits = response["results"].as_array().unwrap();
+    assert_eq!(response["truncated"], true);
+    assert!(!hits.is_empty());
+    assert!(hits.len() < 50);
+    for (i, hit) in hits.iter().enumerate() {
+        assert_eq!(hit["rank"], i + 1);
+    }
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn lists_exactly_five_read_only_tools_with_schemas() {
     let dir = fixture();
     let client = client(dir.path()).await;
@@ -150,6 +302,46 @@ async fn tools_return_bounded_cited_fresh_json() {
     let verify = ok(&client, "verify", json!({ "citations": [b_citation] })).await;
     assert_eq!(verify["results"][0]["state"], "stale");
 
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn related_citations_verify_chunks_and_parent_but_omit_mentions() {
+    let dir = fixture();
+    let client = client(dir.path()).await;
+    let related = ok(&client, "related", json!({"chunk_id":"a.md#alpha~0"})).await;
+    assert_eq!(related["truncated"], false);
+    let mut kinds = std::collections::BTreeSet::new();
+    for neighbour in related["neighbours"].as_array().unwrap() {
+        let kind = neighbour["kind"].as_str().unwrap();
+        kinds.insert(kind.to_string());
+        if kind == "MENTIONS" {
+            assert_eq!(neighbour["id"], "code:run_all");
+            assert!(neighbour.get("citation").is_none());
+            continue;
+        }
+        let citation = neighbour.get("citation").unwrap();
+        let read = ok(&client, "read", json!({"id":neighbour["id"]})).await;
+        assert_eq!(citation, &read["citation"]);
+        assert_eq!(
+            read["kind"],
+            if kind == "CONTAINS" {
+                assert_eq!(neighbour["id"], "a.md#alpha");
+                "section"
+            } else {
+                "chunk"
+            }
+        );
+        let verified = ok(&client, "verify", json!({"citations":[citation]})).await;
+        assert_eq!(verified["results"][0]["state"], "valid");
+    }
+    assert_eq!(
+        kinds,
+        ["CONTAINS", "NEXT", "LINKS_TO", "MENTIONS"]
+            .into_iter()
+            .map(String::from)
+            .collect()
+    );
     client.cancel().await.unwrap();
 }
 
@@ -308,10 +500,13 @@ async fn invalid_arguments_are_mcp_errors_and_large_results_truncate() {
     }
 
     let search = ok(&client, "search", json!({ "query": "needle", "top_k": 50 })).await;
-    assert_eq!(search["truncated"], true);
+    assert_eq!(search["truncated"], false);
     let len = serde_json::to_vec(&search).unwrap().len();
     assert!(len <= MAX_RESPONSE_BYTES, "{len}");
-    assert!(!search["results"].as_array().unwrap().is_empty());
+    let hits = search["results"].as_array().unwrap();
+    assert_eq!(hits.len(), 50);
+    assert_eq!(hits[0]["tier"], "l2");
+    assert!(hits.iter().any(|hit| hit["tier"].is_null()));
     client.cancel().await.unwrap();
 }
 
@@ -362,6 +557,58 @@ fn stdio_server_writes_only_protocol_frames() {
     let mut rest = String::new();
     std::io::Read::read_to_string(&mut stdout, &mut rest).unwrap();
     assert!(rest.trim().is_empty(), "unexpected stdout: {rest}");
+}
+
+#[test]
+fn stdio_auto_index_builds_on_first_call_and_writes_only_frames() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("a.md"), "# A\n\nalpha\n").unwrap();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_ontodoc"))
+        .arg("--root")
+        .arg(dir.path())
+        .args(["serve", "--auto-index"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    let mut stdout = BufReader::new(child.stdout.take().unwrap());
+    let mut send = move |v: Value| {
+        writeln!(stdin, "{v}").unwrap();
+        stdin.flush().unwrap();
+    };
+    let mut recv = || {
+        let mut line = String::new();
+        stdout.read_line(&mut line).unwrap();
+        serde_json::from_str::<Value>(&line).unwrap()
+    };
+    send(
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+        "protocolVersion": "2025-06-18", "capabilities": {},
+        "clientInfo": { "name": "test", "version": "0" } } }),
+    );
+    let init = recv();
+    assert!(
+        init["result"]["instructions"]
+            .as_str()
+            .unwrap()
+            .contains("maintains its own index store")
+    );
+    send(json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }));
+    send(json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": { "name": "status", "arguments": {} } }));
+    let status = recv();
+    let content = &status["result"]["structuredContent"];
+    assert_eq!(content["fresh"], true, "{status}");
+    assert_eq!(content["documents"], 1);
+    drop(send);
+    let mut tail = String::new();
+    std::io::Read::read_to_string(&mut stdout, &mut tail).unwrap();
+    assert!(tail.is_empty(), "unexpected stdout: {tail}");
+    assert!(child.wait().unwrap().success());
+    let cli_id = App::new(dir.path()).index().unwrap().generation_id;
+    assert_eq!(content["generation_id"], cli_id.as_str());
 }
 
 /// Observe the native codec's complete lines, not just structuredContent.
@@ -487,8 +734,15 @@ fn complete_wire_frames_bound_escaped_tools_and_recover_after_errors() {
             serde_json::from_str(result["content"][0]["text"].as_str().unwrap()).unwrap();
         assert_eq!(text, result["structuredContent"], "text/structured parity");
         if name == "search" {
-            assert_eq!(text["truncated"], true);
-            assert!(!text["results"].as_array().unwrap().is_empty());
+            assert_eq!(text["truncated"], false);
+            assert_eq!(text["results"].as_array().unwrap().len(), 50);
+            assert!(
+                text["results"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|hit| hit["tier"].is_null())
+            );
         }
     }
     // A single large section makes escaped read truncation necessary.
@@ -544,9 +798,14 @@ fn escaped_ids_fit_exact_refusal_or_close_before_dispatch() {
     expected["id"] = json!(id);
     assert_eq!(expected.to_string().len() + 1, MAX_RESPONSE_BYTES);
     // A successful tool response must use the same fallback, not just errors.
-    wire.send(json!({"jsonrpc":"2.0","id":id,"method":"tools/call",
-        "params":{"name":"status","arguments":{}}}));
-    assert_eq!(wire.recv(), expected);
+    for request_id in [id.clone(), "a".repeat(available)] {
+        wire.send(
+            json!({"jsonrpc":"2.0","id":request_id,"method":"tools/call",
+            "params":{"name":"status","arguments":{}}}),
+        );
+        expected["id"] = json!(request_id);
+        assert_eq!(wire.recv(), expected);
+    }
     wire.send(json!({"jsonrpc":"2.0","id":9,"method":"ping"}));
     assert_eq!(wire.recv()["id"], 9);
     // A smaller ping can carry an ID whose refusal would exceed the outbound

@@ -18,7 +18,7 @@
 //! canonical skip diagnostics. Filesystem mtimes are not persisted.
 //! Query-time parameters are not inputs, so they cannot change it.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::mem::MaybeUninit;
@@ -289,6 +289,7 @@ impl Generation {
     fn validate(&self) -> Result<(), StoreError> {
         self.config.validate()?;
         self.validate_unique_ids()?;
+        self.validate_edges_and_documents()?;
         if self.files.windows(2).any(|p| p[0].path >= p[1].path)
             || self
                 .skipped
@@ -323,6 +324,49 @@ impl Generation {
                     id: self.generation_id.clone(),
                     reason: format!("duplicate {kind} id"),
                 });
+            }
+        }
+        Ok(())
+    }
+
+    /// Validate typed graph endpoints before readers construct lookup maps.
+    fn validate_edges_and_documents(&self) -> Result<(), StoreError> {
+        let chunks: HashMap<_, _> = self
+            .chunks
+            .iter()
+            .map(|chunk| (chunk.id.as_str(), chunk.path.as_str()))
+            .collect();
+        let sections: HashSet<_> = self.sections.iter().map(|s| s.id.as_str()).collect();
+        let mut documents = HashSet::new();
+        for document in &self.documents {
+            if !documents.insert(document.path.as_str()) {
+                return Err(invalid_store(
+                    "duplicate document path",
+                    &self.generation_id,
+                ));
+            }
+        }
+        for edge in &self.edges {
+            let from = edge.from.as_str();
+            let to = edge.to.as_str();
+            let reason = match edge.kind.as_str() {
+                "LINKS_TO" | "NEXT" => match (chunks.get(from), chunks.get(to)) {
+                    (Some(a), Some(b)) if edge.kind == "NEXT" && a != b => {
+                        Some("NEXT edge crosses documents")
+                    }
+                    (Some(_), Some(_)) => None,
+                    _ => Some("edge endpoint is not a chunk"),
+                },
+                "MENTIONS" => (!chunks.contains_key(from) || !to.starts_with("code:"))
+                    .then_some("invalid MENTIONS edge"),
+                "CONTAINS" => (!(documents.contains(from) && sections.contains(to)
+                    || sections.contains(from)
+                        && (sections.contains(to) || chunks.contains_key(to))))
+                .then_some("invalid CONTAINS edge"),
+                _ => Some("unsupported edge kind"),
+            };
+            if let Some(reason) = reason {
+                return Err(invalid_store(reason, &self.generation_id));
             }
         }
         Ok(())
@@ -684,6 +728,15 @@ pub struct Store {
     dir: PathBuf,
 }
 
+/// Releases at the logical owner's scope even if its descriptor was duplicated.
+struct IndexLock(File);
+
+impl Drop for IndexLock {
+    fn drop(&mut self) {
+        let _ = self.0.unlock();
+    }
+}
+
 impl Store {
     pub fn new(dir: impl Into<PathBuf>) -> Self {
         Self { dir: dir.into() }
@@ -927,7 +980,7 @@ impl Store {
         Ok((artifact, meta_bytes))
     }
 
-    fn lock(&self) -> Result<File, StoreError> {
+    fn lock(&self) -> Result<IndexLock, StoreError> {
         let path = self.dir.join("index.lock");
         let file = OpenOptions::new()
             .create(true)
@@ -936,7 +989,7 @@ impl Store {
             .open(&path)
             .map_err(io_err(&path))?;
         match file.try_lock() {
-            Ok(()) => Ok(file),
+            Ok(()) => Ok(IndexLock(file)),
             Err(fs::TryLockError::WouldBlock) => Err(StoreError::Locked),
             Err(fs::TryLockError::Error(e)) => Err(io_err(&path)(e)),
         }
@@ -1690,7 +1743,7 @@ mod tests {
         if mode == "lock" {
             let held = store.lock().unwrap();
             // This is the actual held descriptor, unlike publication's path metadata.
-            let metadata = held.metadata().unwrap();
+            let metadata = held.0.metadata().unwrap();
             child_emit(&format!(
                 "READY Lock {} {} {}",
                 std::process::id(),
@@ -2967,11 +3020,26 @@ mod tests {
         fs::create_dir_all(&store.dir).unwrap();
 
         let holder = store.lock().unwrap();
+        let retained_duplicate = holder.0.try_clone().unwrap();
         assert!(matches!(
             store.publish(&generation),
             Err(StoreError::Locked)
         ));
         drop(holder);
+
+        // A duplicate descriptor must not extend the logical owner's lock.
+        let successor = store.lock().unwrap();
+        assert!(matches!(
+            store.publish(&generation),
+            Err(StoreError::Locked)
+        ));
+        drop(retained_duplicate);
+        // Closing the old descriptor must not release the successor's lock.
+        assert!(matches!(
+            store.publish(&generation),
+            Err(StoreError::Locked)
+        ));
+        drop(successor);
 
         // A lock file left behind (as by a crashed process) is not held.
         assert!(store.dir.join("index.lock").exists());
@@ -3465,6 +3533,200 @@ body
                 Err(StoreError::Corrupt { reason, .. })
                     if reason == format!("duplicate {kind} id")
             ));
+        }
+    }
+
+    fn invariant_fixture() -> (tempfile::TempDir, Generation) {
+        let root = corpus();
+        fs::write(
+            root.path().join("a.md"),
+            "# A\n\nAlpha `unresolved_symbol`. See [b](b.md).\n",
+        )
+        .unwrap();
+        let generation = build(root.path(), &IndexConfig::default()).unwrap();
+        for kind in ["CONTAINS", "NEXT", "LINKS_TO", "MENTIONS"] {
+            assert!(generation.edges.iter().any(|edge| edge.kind == kind));
+        }
+        (root, generation)
+    }
+
+    #[test]
+    fn malformed_edge_and_document_rules_refuse_matching_artifacts() {
+        let (root, good) = invariant_fixture();
+        let store = store_of(root.path());
+        store.publish(&good).unwrap();
+        let reader = corpus::RootedCorpus::open(root.path()).unwrap();
+        // Each case changes exactly one field; hashes and lengths are repaired
+        // so the asserted invariant, rather than artifact integrity, refuses it.
+        let cases = [
+            ("CONTAINS", "kind", "unknown", "unsupported edge kind"),
+            (
+                "LINKS_TO",
+                "from",
+                "unknown",
+                "edge endpoint is not a chunk",
+            ),
+            ("LINKS_TO", "to", "unknown", "edge endpoint is not a chunk"),
+            ("NEXT", "from", "unknown", "edge endpoint is not a chunk"),
+            ("NEXT", "to", "unknown", "edge endpoint is not a chunk"),
+            (
+                "NEXT",
+                "to",
+                "other-document-chunk",
+                "NEXT edge crosses documents",
+            ),
+            ("MENTIONS", "from", "unknown", "invalid MENTIONS edge"),
+            ("MENTIONS", "to", "unknown", "invalid MENTIONS edge"),
+            ("CONTAINS", "from", "unknown", "invalid CONTAINS edge"),
+            ("CONTAINS", "from", "chunk", "invalid CONTAINS edge"),
+            ("CONTAINS", "to", "chunk", "invalid CONTAINS edge"),
+            ("CONTAINS", "to", "unknown", "invalid CONTAINS edge"),
+            ("document", "path", "duplicate", "duplicate document path"),
+        ];
+        for (kind, field, value, reason) in cases {
+            let mut bad = good.clone();
+            if kind == "document" {
+                bad.documents[1].path = bad.documents[0].path.clone();
+            } else {
+                let edge = bad.edges.iter_mut().find(|edge| edge.kind == kind).unwrap();
+                let replacement = match value {
+                    "chunk" => good.chunks[0].id.clone(),
+                    "other-document-chunk" => {
+                        let source = good.chunks.iter().find(|c| c.id == edge.from).unwrap();
+                        good.chunks
+                            .iter()
+                            .find(|c| c.path != source.path)
+                            .unwrap()
+                            .id
+                            .clone()
+                    }
+                    _ => value.into(),
+                };
+                match field {
+                    "kind" => edge.kind = replacement,
+                    "from" => edge.from = replacement,
+                    "to" => edge.to = replacement,
+                    _ => unreachable!(),
+                }
+            }
+            let bytes = serde_json::to_vec(&bad).unwrap();
+            replace_artifact(&store, &good.generation_id, &bytes);
+            let meta = fs::read(
+                store
+                    .dir
+                    .join("generations")
+                    .join(&good.generation_id)
+                    .join("meta.json"),
+            )
+            .unwrap();
+            for result in [
+                store.load(),
+                store.load_id_rooted(&reader, &good.generation_id),
+                decode_captured_generation(&good.generation_id, &meta, &bytes),
+            ] {
+                assert!(
+                    matches!(result, Err(StoreError::Corrupt { reason: ref actual, .. }) if actual == reason),
+                    "{kind}/{field}/{value}: {result:?}"
+                );
+            }
+        }
+    }
+
+    fn invariant_store_bytes(store: &Store, id: &str) -> [Vec<u8>; 4] {
+        let dir = store.dir.join("generations").join(id);
+        [
+            store.dir.join("CURRENT"),
+            store.dir.join("HISTORY"),
+            dir.join("index.json"),
+            dir.join("meta.json"),
+        ]
+        .map(|path| fs::read(path).unwrap())
+    }
+
+    #[test]
+    fn malformed_edge_publication_preserves_empty_and_active_stores() {
+        let (root, good) = invariant_fixture();
+        let store = store_of(root.path());
+        store.publish(&good).unwrap();
+        let before = invariant_store_bytes(&store, &good.generation_id);
+        let dirs = generation_dirs(&store);
+        let mut bad = good.clone();
+        bad.edges[0].kind = "unknown".into();
+        let empty = tempfile::tempdir().unwrap();
+        let empty_store = store_of(empty.path());
+        for target in [&store, &empty_store] {
+            assert!(
+                matches!(target.publish(&bad), Err(StoreError::Corrupt { reason, .. }) if reason == "unsupported edge kind")
+            );
+        }
+        assert!(!empty_store.dir.exists());
+        assert_eq!(invariant_store_bytes(&store, &good.generation_id), before);
+        assert_eq!(generation_dirs(&store), dirs);
+        assert_eq!(store.load().unwrap(), good);
+    }
+
+    #[test]
+    fn refused_active_generation_recovers_after_directory_removal() {
+        // The same operator recovery also covers the existing duplicate-ID refusal.
+        for duplicate_id in [false, true] {
+            let (root, good) = invariant_fixture();
+            let store = store_of(root.path());
+            store.publish(&good).unwrap();
+            let mut bad = good.clone();
+            let reason = if duplicate_id {
+                bad.chunks.push(bad.chunks[0].clone());
+                "duplicate chunk id"
+            } else {
+                bad.edges[0].kind = "unknown".into();
+                "unsupported edge kind"
+            };
+            replace_artifact(
+                &store,
+                &good.generation_id,
+                &serde_json::to_vec(&bad).unwrap(),
+            );
+            assert!(
+                matches!(store.load(), Err(StoreError::Corrupt { reason: actual, .. }) if actual == reason)
+            );
+            let before = invariant_store_bytes(&store, &good.generation_id);
+            let dirs = generation_dirs(&store);
+            let rebuilt = build(root.path(), &IndexConfig::default()).unwrap();
+            assert_eq!(rebuilt, good);
+            assert!(
+                matches!(store.publish(&rebuilt), Err(StoreError::Corrupt { reason, .. }) if reason == "same-id artifact conflict")
+            );
+            assert_eq!(invariant_store_bytes(&store, &good.generation_id), before);
+            assert_eq!(generation_dirs(&store), dirs);
+            fs::remove_dir_all(store.dir.join("generations").join(&good.generation_id)).unwrap();
+            store.publish(&rebuilt).unwrap();
+            assert_eq!(store.load().unwrap(), good);
+        }
+    }
+
+    #[test]
+    fn typed_edges_and_empty_generation_roundtrip_without_byte_changes() {
+        let (root, good) = invariant_fixture();
+        let empty_root = tempfile::tempdir().unwrap();
+        let empty = build(empty_root.path(), &IndexConfig::default()).unwrap();
+        assert!(empty.edges.is_empty());
+        for (root, generation) in [(root, good), (empty_root, empty)] {
+            let bytes = serialize_artifact(&generation).unwrap();
+            let store = store_of(root.path());
+            store.publish(&generation).unwrap();
+            let loaded = store.load().unwrap();
+            assert_eq!(loaded, generation);
+            assert_eq!(serialize_artifact(&loaded).unwrap(), bytes);
+            assert_eq!(
+                fs::read(
+                    store
+                        .dir
+                        .join("generations")
+                        .join(&generation.generation_id)
+                        .join("index.json")
+                )
+                .unwrap(),
+                bytes
+            );
         }
     }
 

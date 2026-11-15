@@ -51,6 +51,37 @@ fn err(out: &Output) -> Value {
 }
 
 #[test]
+fn budget_withholds_text_and_preserves_verifiable_citations() {
+    let dir = fixture();
+    ok(&run(dir.path(), &["index"]));
+    let response = ok(&run(dir.path(), &["search", "beta", "--budget-bytes", "1"]));
+    let hits = response["results"].as_array().unwrap();
+    assert!(!hits.is_empty());
+    assert_eq!(response["truncated"], false);
+    for hit in hits {
+        assert_eq!(hit["tier"], Value::Null);
+        assert_eq!(hit["text"], "");
+        assert_eq!(hit["text_truncated"], false);
+        let read = ok(&run(
+            dir.path(),
+            &["read", hit["chunk_id"].as_str().unwrap()],
+        ));
+        assert!(!read["text"].as_str().unwrap().is_empty());
+    }
+    let citations =
+        serde_json::to_string(&hits.iter().map(|hit| &hit["citation"]).collect::<Vec<_>>())
+            .unwrap();
+    let verify = ok(&run(dir.path(), &["verify", &citations]));
+    assert!(
+        verify["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|hit| hit["state"] == "valid")
+    );
+}
+
+#[test]
 fn missing_index_is_a_typed_error() {
     let dir = fixture();
     for args in [

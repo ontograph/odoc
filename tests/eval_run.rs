@@ -317,7 +317,95 @@ fn admitted_protocol_runs_dev_then_one_held_out_attempt() {
     );
     let rescored = ok(fx.admitted(&["eval", "score", config, s(&dev_run)], &pin));
     assert_eq!(rescored, report);
-    ok(fx.admitted(&["eval", "misses", config, s(&dev_run)], &pin));
+    let misses = ok(fx.admitted(&["eval", "misses", config, s(&dev_run)], &pin));
+    let expected_misses: Vec<_> = [
+        ("a-lookup-003", "indexing.md#indexing"),
+        ("a-lookup-007", "indexing.md#indexing"),
+        ("a-lookup-009", "indexing.md#indexing"),
+        ("a-lookup-013", "indexing.md#indexing"),
+        ("a-lookup-016", "indexing.md#indexing"),
+        ("a-lookup-018", "indexing.md#indexing"),
+        ("a-lookup-027", "indexing.md#indexing"),
+        ("a-lookup-028", "indexing.md#indexing"),
+        ("a-lookup-029", "indexing.md#indexing"),
+        ("a-lookup-030", "indexing.md#indexing"),
+        ("a-lookup-033", "indexing.md#indexing"),
+        ("a-lookup-035", "indexing.md#indexing"),
+        ("a-lookup-036", "indexing.md#indexing"),
+        ("a-conceptual-000", "indexing.md#indexing"),
+        ("a-conceptual-002", "indexing.md#indexing"),
+        ("a-conceptual-003", "indexing.md#indexing"),
+        ("a-conceptual-010", "indexing.md#indexing"),
+        ("a-conceptual-011", "indexing.md#indexing"),
+        ("a-conceptual-013", "indexing.md#indexing"),
+        ("a-conceptual-017", "indexing.md#indexing"),
+        ("a-conceptual-019", "indexing.md#indexing"),
+        ("a-conceptual-020", "indexing.md#indexing"),
+        ("a-conceptual-026", "indexing.md#indexing"),
+        ("a-conceptual-027", "indexing.md#indexing"),
+        ("a-conceptual-028", "indexing.md#indexing"),
+        ("a-conceptual-036", "indexing.md#indexing"),
+        ("a-multi-hop-002", "indexing.md#indexing"),
+        ("a-multi-hop-003", "indexing.md#indexing"),
+        ("a-multi-hop-006", "indexing.md#indexing"),
+        ("a-multi-hop-010", "indexing.md#indexing"),
+        ("a-multi-hop-014", "indexing.md#indexing"),
+        ("a-multi-hop-016", "indexing.md#indexing"),
+        ("a-multi-hop-018", "indexing.md#indexing"),
+        ("a-multi-hop-021", "indexing.md#indexing"),
+        ("a-multi-hop-023", "indexing.md#indexing"),
+        ("a-multi-hop-025", "indexing.md#indexing"),
+        ("a-multi-hop-026", "indexing.md#indexing"),
+        ("a-multi-hop-036", "indexing.md#indexing"),
+        ("b-lookup-000", "search.md#search"),
+        ("b-lookup-005", "search.md#search"),
+        ("b-lookup-006", "search.md#search"),
+        ("b-lookup-012", "search.md#search"),
+        ("b-lookup-018", "search.md#search"),
+        ("b-lookup-021", "search.md#search"),
+        ("b-lookup-022", "search.md#search"),
+        ("b-lookup-024", "search.md#search"),
+        ("b-lookup-027", "search.md#search"),
+        ("b-lookup-032", "search.md#search"),
+        ("b-lookup-033", "search.md#search"),
+        ("b-lookup-034", "search.md#search"),
+        ("b-conceptual-003", "search.md#search"),
+        ("b-conceptual-004", "search.md#search"),
+        ("b-conceptual-005", "search.md#search"),
+        ("b-conceptual-017", "search.md#search"),
+        ("b-conceptual-022", "search.md#search"),
+        ("b-conceptual-024", "search.md#search"),
+        ("b-conceptual-025", "search.md#search"),
+        ("b-conceptual-026", "search.md#search"),
+        ("b-conceptual-030", "search.md#search"),
+        ("b-conceptual-032", "search.md#search"),
+        ("b-conceptual-035", "search.md#search"),
+        ("b-conceptual-036", "search.md#search"),
+        ("b-multi-hop-001", "search.md#search"),
+        ("b-multi-hop-002", "search.md#search"),
+        ("b-multi-hop-004", "search.md#search"),
+        ("b-multi-hop-006", "search.md#search"),
+        ("b-multi-hop-011", "search.md#search"),
+        ("b-multi-hop-014", "search.md#search"),
+        ("b-multi-hop-016", "search.md#search"),
+        ("b-multi-hop-021", "search.md#search"),
+        ("b-multi-hop-023", "search.md#search"),
+        ("b-multi-hop-025", "search.md#search"),
+        ("b-multi-hop-026", "search.md#search"),
+        ("b-multi-hop-031", "search.md#search"),
+        ("b-multi-hop-037", "search.md#search"),
+    ]
+    .into_iter()
+    .map(|(query_id, section_id)| {
+        json!({
+            "query_id": query_id,
+            "section_id": section_id,
+            "stage": "truncated",
+            "system": "B0"
+        })
+    })
+    .collect();
+    assert_eq!(misses, json!(expected_misses));
     let frozen_path = fx.path("frozen-config.toml");
     let frozen = ok(fx.admitted(
         &[

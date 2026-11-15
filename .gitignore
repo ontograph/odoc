@@ -2,3 +2,4 @@
 /.ontodoc/
 .ontoindex
 /tmp/
+*.integrate.lock

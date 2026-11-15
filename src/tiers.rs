@@ -39,6 +39,7 @@ pub struct ChunkTiers {
 
 /// Tiers for `chunks` (same order), which must come from `sections` of `source`.
 pub fn chunk_tiers(source: &str, sections: &[Section], chunks: &[Chunk]) -> Vec<ChunkTiers> {
+    let paths = heading_paths(source, sections);
     let by_id: HashMap<&str, usize> = sections
         .iter()
         .enumerate()
@@ -52,8 +53,8 @@ pub fn chunk_tiers(source: &str, sections: &[Section], chunks: &[Chunk]) -> Vec<
         .filter_map(|chunk| {
             let i = *by_id.get(chunk.section_id.as_str())?;
             let mut l0 = Builder::new(source, L0_CAP);
-            for h in ancestor_headings(source, sections, i) {
-                l0.push(h);
+            for h in &paths[i] {
+                l0.push(h.clone());
             }
             let own = sections[i]
                 .blocks
@@ -100,18 +101,29 @@ fn push_outline_entry(out: &mut Builder<'_>, source: &str, section: &Section) {
     }
 }
 
-/// Heading texts of the ancestors of `sections[i]` and of the section itself.
-fn ancestor_headings(source: &str, sections: &[Section], i: usize) -> Vec<Range<usize>> {
-    let mut path = Vec::new();
-    let mut level = u8::MAX;
-    for section in sections[..=i].iter().rev() {
-        if section.level > 0 && section.level < level {
-            level = section.level;
-            path.extend(heading_text(source, section));
-        }
-    }
-    path.reverse();
-    path
+/// Cache ancestry once per section, including levels whose heading is absent.
+fn heading_paths(source: &str, sections: &[Section]) -> Vec<Vec<Range<usize>>> {
+    let mut stack: Vec<(u8, Option<Range<usize>>)> = Vec::new();
+    sections
+        .iter()
+        .map(|section| {
+            // The old reverse scan ignored both zero and u8::MAX. Neither may
+            // clear ancestry; a missing heading still shadows its earlier level.
+            if section.level > 0 && section.level < u8::MAX {
+                while stack
+                    .last()
+                    .is_some_and(|(level, _)| *level >= section.level)
+                {
+                    stack.pop();
+                }
+                stack.push((section.level, heading_text(source, section)));
+            }
+            stack
+                .iter()
+                .filter_map(|(_, heading)| heading.clone())
+                .collect()
+        })
+        .collect()
 }
 
 /// Source range of the heading text, without ATX markers or setext underline.
@@ -213,6 +225,87 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     const SAMPLE: &str = include_str!("../tests/fixtures/markdown/sample.md");
+
+    fn old_chunk_tiers(source: &str, sections: &[Section], chunks: &[Chunk]) -> Vec<ChunkTiers> {
+        let by_id: HashMap<_, _> = sections
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (s.id.as_str(), i))
+            .collect();
+        let l1: Vec<_> = (0..sections.len())
+            .map(|i| section_l1(source, sections, i))
+            .collect();
+        chunks
+            .iter()
+            .filter_map(|chunk| {
+                let i = *by_id.get(chunk.section_id.as_str())?;
+                let mut path = Vec::new();
+                let mut level = u8::MAX;
+                for section in sections[..=i].iter().rev() {
+                    if section.level > 0 && section.level < level {
+                        level = section.level;
+                        path.extend(heading_text(source, section));
+                    }
+                }
+                path.reverse();
+                let mut l0 = Builder::new(source, L0_CAP);
+                for h in path {
+                    l0.push(h);
+                }
+                let own = sections[i]
+                    .blocks
+                    .iter()
+                    .filter(|b| b.start >= chunk.span.byte_start && b.end <= chunk.span.byte_end);
+                if let Some(s) = first_sentence(source, own) {
+                    l0.push(s);
+                }
+                Some(ChunkTiers {
+                    l0: l0.finish(),
+                    l1: l1[i].clone(),
+                })
+            })
+            .collect()
+    }
+
+    #[test]
+    fn cached_heading_paths_preserve_complete_tiers_for_public_inputs() {
+        let source = "Preamble.\n\n# A\n\nBody.\n\n## B\n\nBody b.\n\n### C\n\nBody c.\n\n# D\n\nBody d.\n\nSetext\n------\n\nLast.\n";
+        let original = parse_sections("a.md", source);
+        let mut unusual = original.clone();
+        // A missing level-1 heading shadows A; zero and 255 leave that
+        // ancestry intact. Public levels are not restricted to Markdown's six.
+        unusual[2].level = 1;
+        unusual[2].blocks.clear();
+        unusual[3].level = 0;
+        unusual[4].level = 255;
+        unusual[5].level = 200;
+        unusual[5].id = unusual[1].id.clone();
+        for sections in [original, unusual] {
+            let mut chunks = chunk_sections(source, &sections, 20);
+            chunks.reverse();
+            let mut unknown = chunks[0].clone();
+            unknown.section_id = "unknown".into();
+            chunks.insert(1, unknown);
+            let new = chunk_tiers(source, &sections, &chunks);
+            assert_eq!(new.len(), chunks.len() - 1);
+            assert_eq!(new, old_chunk_tiers(source, &sections, &chunks));
+        }
+    }
+
+    #[test]
+    #[ignore = "synthetic timing observation; no performance acceptance threshold"]
+    fn synthetic_scan_timing() {
+        let source: String = (0..1000).map(|i| format!("# H{i}\n\nBody.\n\n")).collect();
+        let sections = parse_sections("a.md", &source);
+        let chunks = chunk_sections(&source, &sections, CHUNK_BUDGET);
+        let start = std::time::Instant::now();
+        let old = old_chunk_tiers(&source, &sections, &chunks);
+        let old_time = start.elapsed();
+        let start = std::time::Instant::now();
+        let new = chunk_tiers(&source, &sections, &chunks);
+        eprintln!("synthetic tiers old={old_time:?} new={:?}", start.elapsed());
+        assert_eq!(new, old);
+    }
 
     fn tiers_of(source: &str) -> (Vec<Chunk>, Vec<ChunkTiers>, Tier) {
         let sections = parse_sections("a.md", source);

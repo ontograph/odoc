@@ -31,6 +31,7 @@ or passing unit tests. These rules apply repository-wide.
   Cargo build, and never import from it. Copy a pattern only when the
   prior-attempt audit session lists it as reusable, and rewrite it against std
   and public crates.
+- Root `LICENSE` applies to the standalone OntoDoc package. `LICENSE-APACHE` and `NOTICE` preserve the retained snapshot's licence and attribution; the historical manifest's `LICENSE` hash maps to `LICENSE-APACHE`. Do not relicense or edit snapshot source.
 
 ## Service Boundary
 
@@ -51,7 +52,9 @@ or passing unit tests. These rules apply repository-wide.
   user tenancy is not. `scope` is a search filter, never authorization.
 - Shared documents do not imply anonymous network access, shared queries or
   sessions, arbitrary beneath-root file access, or index-publication rights.
-  Keep indexing in the trusted CLI/control plane.
+  Keep indexing in the trusted CLI/control plane. The one exception is the
+  opt-in stdio `serve --auto-index` (ADR revision 20): the local user who
+  starts the process is the trusted operator. HTTP never indexes.
 - Reuse `src/mcp.rs` → `src/cli.rs::App` → `src/search/`, with one server/root,
   store and shared immutable index slot per corpus, not per connection. Every
   tool/session stays bound to its endpoint; no cross-corpus graph, statistics,
@@ -109,8 +112,7 @@ or passing unit tests. These rules apply repository-wide.
   section/chunk IDs before publication, including preambles and empty heading
   slugs. Schema 2 is implemented: empty allocated ID components use `@empty`
   only in IDs; Markdown anchors/preambles remain unchanged. Artifacts omit
-  mtime and hash sorted canonical skips. Schema 3 (table-aware first
-  sentence) is current; older schemas require trusted CLI reindex.
+  mtime and hash sorted canonical skips. Schema 4 (relative rendered HTML links resolved to Markdown, after schema 3's table-aware first sentence) is current; older schemas require trusted CLI reindex.
   Same-ID target reuse requires exact index and metadata bytes, not ID alone.
   Identity changes need ADR/schema review. Ranking changes belong in
   `src/search/` and require dev-split evidence.
@@ -136,6 +138,8 @@ or passing unit tests. These rules apply repository-wide.
 ## Evaluation Integrity
 
 The project's claims are worth only as much as this protocol. Do not bend it.
+
+The registered 0.1.0 test attempt completed on 2026-11-13; see `.memory-bank/audit_session-2026-11-13-held-out.md`. Preserve its shared Git-common registration and completed attempt records. Model-judged results remain exploratory and authorize no default promotion. ADR revision 16 records the owner-approved unavailable held-out miss attribution for this experiment only. Do not rerun it or reuse its test queries for a human-label confirmatory claim.
 
 - Tune parameters on the **dev** split only. The **test** split runs once per
   frozen registration (ADR revision 6), through
@@ -183,10 +187,34 @@ The project's claims are worth only as much as this protocol. Do not bend it.
 `../ontoindex`, `../ontocode/tmp/OpenViking` (AGPL-3.0),
 `../ontoindex/tmp/pharma-ltm-assistant` (no licence) and
 `../ontocode/tmp/repo/mcp` (source licence/provenance unresolved) are idea sources only.
-Never copy their code, prompts or data into this repository. Adopted ideas are
-listed in the donor-review audits linked from `.memory-bank/MEMORY.md`. Donor
-inspection is not evidence of retrieval improvement; new ranking arms need their
-own approved dev evaluation and preregistration, not a changed confirmatory family.
+Never copy their code, prompts or data into this repository.
+
+Code may be copied and adapted from a donor file that is MIT or Apache-2.0
+licensed (owner decision 2026-11-13). The clones under `tmp/similar/` are
+candidates. Before copying, check the licence that applies to that file: the
+root licence file, any licence file in its directory, and any header in the
+file. A README badge is not evidence. For every copy:
+
+- Keep the donor's copyright and licence notice. For Apache-2.0, also carry
+  applicable attribution from `NOTICE` when supplied and state in changed files that they were changed.
+- Record donor, commit, files and licence in `COPIED_CODE.md` at the
+  repository root, and mark the origin in a comment beside the code. Do not
+  use `THIRD_PARTY_LICENSES.md`; it is a generated dependency inventory.
+- Review the package licence statement and `NOTICE` when the first copy
+  lands, because the package then carries third-party source.
+- Copy code only. Never copy donor prompts, benchmark queries, labels, model
+  weights or other data without a separate licence check and owner approval.
+- Copied code still meets every rule in this file: existing owner module, no
+  new dependency unless the task names it, determinism, bounds, no
+  `unwrap`/`expect`, and a focused regression test.
+- Copying does not approve a feature. An ADR and a plan task still decide what
+  is built; see `docs/ADR_DONOR_ADOPTION.md`.
+
+Donors with AGPL, no licence or unresolved provenance stay idea sources only.
+Adopted ideas are listed in the donor-review audits linked from
+`.memory-bank/MEMORY.md`. Donor inspection is not evidence of retrieval
+improvement; new ranking arms need their own approved dev evaluation and
+preregistration, not a changed confirmatory family.
 
 ## Memory Bank
 

@@ -4,7 +4,7 @@
 //! [`MAX_RESPONSE_BYTES`] with an explicit `truncated` flag, and reports
 //! whether the corpus still matches the active generation (`fresh`).
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
@@ -60,7 +60,12 @@ pub enum Command {
     /// Show generation, counts, freshness and diagnostics.
     Status,
     /// Serve the read-only MCP tools over stdio.
-    Serve,
+    Serve {
+        /// Build or rebuild this root's index when a call finds it missing or
+        /// stale; the call waits (ADR revision 20, stdio only).
+        #[arg(long)]
+        auto_index: bool,
+    },
     /// Serve every `docs_share/<folder>/` at `/<folder>/mcp` over HTTP on a
     /// loopback address (put an authenticated TLS ingress in front).
     ServeHttp {
@@ -569,7 +574,7 @@ pub struct SearchResult {
     pub score: f64,
     /// The cited file changed since indexing.
     pub stale: bool,
-    pub tier: TierLevel,
+    pub tier: Option<TierLevel>,
     pub text: String,
     /// The returned L0/L1 text was shortened by the tier byte cap at
     /// indexing (stored flag); L2 is never shortened.
@@ -609,6 +614,8 @@ pub struct Neighbour {
     /// `out` (this chunk is the source) or `in`.
     pub direction: &'static str,
     pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub citation: Option<Citation>,
 }
 
 #[derive(Debug, Serialize)]
@@ -617,6 +624,7 @@ pub struct RelatedResponse {
     pub fresh: bool,
     pub chunk_id: String,
     pub neighbours: Vec<Neighbour>,
+    pub omitted: usize,
     pub truncated: bool,
 }
 
@@ -652,23 +660,92 @@ pub struct StatusResponse {
     pub truncated: bool,
 }
 
-/// Drops trailing list items until the serialized response fits.
-pub(crate) trait Bounded: Serialize {
+/// Shrinks responses against each caller's complete serialized form.
+pub(crate) trait Bounded: Serialize + Sized {
     fn pop_item(&mut self) -> bool;
     fn mark_truncated(&mut self);
+
+    fn shrink(&mut self, _fits: impl Fn(&Self) -> Result<bool, AppError>) -> Result<(), AppError> {
+        if !self.pop_item() {
+            return Err(AppError::ResponseTooLarge);
+        }
+        self.mark_truncated();
+        Ok(())
+    }
+}
+
+/// Checks native JSON bytes without allocating the serialized response.
+/// Keep serializing after overflow so later serializer errors are preserved.
+pub(crate) fn json_fits(value: &impl Serialize, limit: usize) -> Result<bool, serde_json::Error> {
+    struct Counter {
+        remaining: usize,
+        exceeded: bool,
+    }
+    impl std::io::Write for Counter {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            match self.remaining.checked_sub(bytes.len()) {
+                Some(remaining) => self.remaining = remaining,
+                None => {
+                    self.remaining = 0;
+                    self.exceeded = true;
+                }
+            }
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let mut counter = Counter {
+        remaining: limit,
+        exceeded: false,
+    };
+    serde_json::to_writer(&mut counter, value)?;
+    Ok(!counter.exceeded)
 }
 
 fn bound<T: Bounded>(mut response: T) -> Result<T, AppError> {
-    while serde_json::to_vec(&response)?.len() > MAX_RESPONSE_BYTES {
-        if !response.pop_item() {
-            return Err(AppError::ResponseTooLarge);
-        }
-        response.mark_truncated();
+    while !json_fits(&response, MAX_RESPONSE_BYTES)? {
+        response.shrink(|value| Ok(json_fits(value, MAX_RESPONSE_BYTES)?))?;
     }
     Ok(response)
 }
 
 impl Bounded for SearchResponse {
+    fn shrink(&mut self, fits: impl Fn(&Self) -> Result<bool, AppError>) -> Result<(), AppError> {
+        let texts: Vec<_> = self
+            .results
+            .iter_mut()
+            .map(|result| {
+                let saved = (
+                    result.tier.take(),
+                    std::mem::take(&mut result.text),
+                    result.text_truncated,
+                );
+                result.text_truncated = false;
+                saved
+            })
+            .collect();
+        while !fits(self)? {
+            if !self.pop_item() {
+                return Err(AppError::ResponseTooLarge);
+            }
+            self.mark_truncated();
+        }
+        for (i, (tier, text, text_truncated)) in
+            texts.into_iter().take(self.results.len()).enumerate()
+        {
+            self.results[i].tier = tier;
+            self.results[i].text = text;
+            self.results[i].text_truncated = text_truncated;
+            if !fits(self)? {
+                self.results[i].tier = None;
+                self.results[i].text.clear();
+                self.results[i].text_truncated = false;
+            }
+        }
+        Ok(())
+    }
     fn pop_item(&mut self) -> bool {
         self.results.pop().is_some()
     }
@@ -696,7 +773,11 @@ impl Bounded for ReadResponse {
 
 impl Bounded for RelatedResponse {
     fn pop_item(&mut self) -> bool {
-        self.neighbours.pop().is_some()
+        if self.neighbours.pop().is_none() {
+            return false;
+        }
+        self.omitted += 1;
+        true
     }
     fn mark_truncated(&mut self) {
         self.truncated = true;
@@ -744,6 +825,10 @@ pub struct App {
     pub root: PathBuf,
     store: Store,
     rooted: Result<RootedCorpus, CorpusError>,
+    /// Freshness already computed for one generation by the stdio refresh
+    /// step (ADR revision 20), consumed by the same call's handler so the
+    /// corpus is hashed once. Only a single-permit server sets it.
+    freshness_hint: std::sync::Mutex<Option<(String, Freshness)>>,
 }
 
 impl App {
@@ -752,6 +837,7 @@ impl App {
             root: root.to_path_buf(),
             store: Store::new(root.join(".ontodoc")),
             rooted: RootedCorpus::open(root),
+            freshness_hint: std::sync::Mutex::new(None),
         }
     }
 
@@ -795,7 +881,32 @@ impl App {
     }
 
     fn freshness(&self, g: &Generation) -> Result<Freshness, AppError> {
+        if let Some((id, freshness)) = self.take_freshness_hint()
+            && id == g.generation_id
+        {
+            return Ok(freshness);
+        }
+        self.check_freshness(g)
+    }
+
+    /// Hashes the corpus against `g`, ignoring any hint.
+    pub(crate) fn check_freshness(&self, g: &Generation) -> Result<Freshness, AppError> {
         Ok(store::freshness_rooted(self.rooted()?, g)?)
+    }
+
+    /// Records `freshness` of generation `id` for the next freshness lookup.
+    pub(crate) fn set_freshness_hint(&self, id: String, freshness: Freshness) {
+        if let Ok(mut hint) = self.freshness_hint.lock() {
+            *hint = Some((id, freshness));
+        }
+    }
+
+    /// Removes and returns the hint; a poisoned lock yields none.
+    pub(crate) fn take_freshness_hint(&self) -> Option<(String, Freshness)> {
+        self.freshness_hint
+            .lock()
+            .ok()
+            .and_then(|mut hint| hint.take())
     }
 
     pub fn search(
@@ -825,18 +936,19 @@ impl App {
             Some(budget) => assemble::assemble(&tier_texts, budget).tiers,
             None => vec![Some(TierLevel::L2); tier_texts.len()],
         };
-        let mut truncated = false;
         let mut results = Vec::new();
         for (i, (hit, tier)) in ranked.hits.iter().zip(tiers).enumerate() {
-            let Some(tier) = tier else {
-                truncated = true;
-                continue;
-            };
             let c = &g.chunks[hit.chunk];
             let text = match tier {
-                TierLevel::L0 => tier_texts[i].l0,
-                TierLevel::L1 => tier_texts[i].l1,
-                TierLevel::L2 => tier_texts[i].l2,
+                Some(TierLevel::L0) => tier_texts[i].l0,
+                Some(TierLevel::L1) => tier_texts[i].l1,
+                Some(TierLevel::L2) => tier_texts[i].l2,
+                None => "",
+            };
+            let (tier, text) = if text.len() > MAX_RESPONSE_BYTES / 2 {
+                (None, "")
+            } else {
+                (tier, text)
             };
             results.push(SearchResult {
                 rank: i + 1,
@@ -847,9 +959,9 @@ impl App {
                 tier,
                 text: text.to_string(),
                 text_truncated: match tier {
-                    TierLevel::L0 => c.l0_truncated,
-                    TierLevel::L1 => c.l1_truncated,
-                    TierLevel::L2 => false,
+                    Some(TierLevel::L0) => c.l0_truncated,
+                    Some(TierLevel::L1) => c.l1_truncated,
+                    _ => false,
                 },
                 citation: Citation::for_chunk(g, hit.chunk)
                     .ok_or_else(|| AppError::NotFound(c.id.clone()))?,
@@ -863,7 +975,7 @@ impl App {
             abstained: ranked.abstained,
             abstention_score: ranked.abstention_score,
             results,
-            truncated,
+            truncated: false,
         })
     }
 
@@ -921,32 +1033,84 @@ impl App {
         if !g.chunks.iter().any(|c| c.id == chunk_id) {
             return Err(AppError::NotFound(chunk_id.to_string()));
         }
-        let mut truncated = false;
-        let neighbours = capped_iter(
-            g.edges
-                .iter()
-                .filter_map(|e| {
-                    if e.from == chunk_id {
-                        Some((e, "out", &e.to))
-                    } else if e.to == chunk_id {
-                        Some((e, "in", &e.from))
-                    } else {
-                        None
-                    }
-                })
-                .map(|(e, direction, id)| Neighbour {
-                    kind: e.kind.clone(),
-                    direction,
-                    id: id.clone(),
-                }),
-            &mut truncated,
-        );
+        let incident = || {
+            g.edges.iter().filter_map(|e| {
+                if e.from == chunk_id {
+                    Some((e, "out", &e.to))
+                } else if e.kind != "MENTIONS" && e.to == chunk_id {
+                    Some((e, "in", &e.from))
+                } else {
+                    None
+                }
+            })
+        };
+        let count = incident().count();
+        let listed: Vec<_> = incident().take(MAX_LIST_ITEMS).collect();
+        let omitted = count - listed.len();
+        // Retain only the capped request's endpoints, then scan each record
+        // family once. Do not build a generation-sized lookup per request.
+        let mut chunks: HashMap<&str, Option<usize>> = listed
+            .iter()
+            .filter(|(e, _, _)| matches!(e.kind.as_str(), "NEXT" | "LINKS_TO"))
+            .map(|(_, _, id)| (id.as_str(), None))
+            .collect();
+        let mut sections: HashMap<&str, Option<usize>> = listed
+            .iter()
+            .filter(|(e, _, _)| e.kind == "CONTAINS")
+            .map(|(_, _, id)| (id.as_str(), None))
+            .collect();
+        for (i, chunk) in g.chunks.iter().enumerate() {
+            if let Some(slot) = chunks.get_mut(chunk.id.as_str()) {
+                *slot = Some(i);
+            }
+        }
+        for (i, section) in g.sections.iter().enumerate() {
+            if let Some(slot) = sections.get_mut(section.id.as_str()) {
+                *slot = Some(i);
+            }
+        }
+        let corrupt = || {
+            AppError::Store(StoreError::Corrupt {
+                id: g.generation_id.clone(),
+                reason: "related edge has an invalid endpoint kind or id".into(),
+            })
+        };
+        let mut neighbours = Vec::with_capacity(listed.len());
+        for (edge, direction, id) in listed {
+            let citation = match edge.kind.as_str() {
+                "NEXT" | "LINKS_TO" => {
+                    let i = chunks
+                        .get(id.as_str())
+                        .copied()
+                        .flatten()
+                        .ok_or_else(corrupt)?;
+                    Some(Citation::for_chunk(g, i).ok_or_else(corrupt)?)
+                }
+                "CONTAINS" if direction == "in" => {
+                    let i = sections
+                        .get(id.as_str())
+                        .copied()
+                        .flatten()
+                        .ok_or_else(corrupt)?;
+                    Some(Citation::for_section(g, &g.sections[i]))
+                }
+                "MENTIONS" if id.starts_with("code:") => None,
+                _ => return Err(corrupt()),
+            };
+            neighbours.push(Neighbour {
+                kind: edge.kind.clone(),
+                direction,
+                id: id.clone(),
+                citation,
+            });
+        }
         bound(RelatedResponse {
             generation_id: g.generation_id.clone(),
             fresh: self.freshness(g)?.is_fresh(),
             chunk_id: chunk_id.to_string(),
             neighbours,
-            truncated,
+            omitted,
+            truncated: omitted > 0,
         })
     }
 
@@ -1096,7 +1260,7 @@ pub fn run(cli: Cli) -> Result<String, AppError> {
         }
         Command::Status => serde_json::to_string_pretty(&app.status(&app.load_index()?)?)?,
         Command::Eval(cmd) => run_eval(cmd)?,
-        Command::Serve | Command::ServeHttp { .. } => {
+        Command::Serve { .. } | Command::ServeHttp { .. } => {
             return Err(AppError::InvalidArgument(
                 "serve commands are handled by the binary entry point".into(),
             ));
@@ -1381,7 +1545,7 @@ fn run_eval(cmd: EvalCommand) -> Result<String, AppError> {
             preparation_sha256,
         } => {
             let bench = pinned(&config, preparation, preparation_sha256)?;
-            pretty(&misses(&bench, &run_dir)?)?
+            pretty(&crate::eval::sweep::misses(&bench, &run_dir)?)?
         }
     };
     Ok(json)
@@ -1396,59 +1560,322 @@ fn write_file(path: &Path, bytes: &[u8]) -> Result<(), AppError> {
         .map_err(|e| AppError::InvalidArgument(format!("{}: {e}", path.display())))
 }
 
-#[derive(Debug, Serialize)]
-struct Miss {
-    query_id: String,
-    system: String,
-    section_id: String,
-    stage: crate::eval::sweep::MissStage,
-}
-
-/// Every judged-relevant section absent from a system's top 10 in a run.
-fn misses(bench: &crate::eval::run::Bench, run_dir: &Path) -> Result<Vec<Miss>, AppError> {
-    use crate::eval::run::{CUTOFF, System, rank_sections};
-    let report = crate::eval::run::score(bench, run_dir, false)?;
-    let (qrels, _) = bench.qrels()?;
-    let indexes = bench.indexes()?;
-    let meta = &report.meta;
-    let systems = [
-        System::B0,
-        System::B1,
-        System::B2(meta.alpha),
-        System::B3(meta.beta),
-    ];
-    let mut out = Vec::new();
-    for q in bench
-        .queries
-        .iter()
-        .filter(|q| report.per_query.contains_key(&q.id))
-    {
-        let index = &indexes[&q.corpus];
-        for system in systems {
-            let ranking = rank_sections(index, system, &q.text);
-            let top: Vec<&str> = ranking
-                .iter()
-                .take(CUTOFF)
-                .map(|(s, _)| s.as_str())
-                .collect();
-            for (section, grade) in qrels.get(&q.id).into_iter().flatten() {
-                if *grade >= 1 && !top.contains(&section.as_str()) {
-                    out.push(Miss {
-                        query_id: q.id.clone(),
-                        system: system.name(),
-                        section_id: section.clone(),
-                        stage: crate::eval::sweep::attribute_miss(index, &q.text, section, system),
-                    });
-                }
-            }
-        }
-    }
-    Ok(out)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn auto_index_flag_parses_for_serve_only() {
+        let serve = Cli::try_parse_from(["ontodoc", "serve", "--auto-index"]).unwrap();
+        assert!(matches!(serve.command, Command::Serve { auto_index: true }));
+        let plain = Cli::try_parse_from(["ontodoc", "serve"]).unwrap();
+        assert!(matches!(
+            plain.command,
+            Command::Serve { auto_index: false }
+        ));
+        assert!(
+            Cli::try_parse_from(["ontodoc", "serve-http", "--docs-share", "x", "--auto-index"])
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn freshness_hint_is_used_once_for_its_generation_only() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("a.md"), "# A\n\nalpha\n").unwrap();
+        let app = App::new(root.path());
+        app.index().unwrap();
+        let index = app.load_index().unwrap();
+        let ghost = Freshness {
+            added: vec!["ghost.md".into()],
+            ..Freshness::default()
+        };
+        app.set_freshness_hint(index.generation.generation_id.clone(), ghost.clone());
+        let hinted = app.status(&index).unwrap();
+        assert!(!hinted.fresh);
+        assert_eq!(hinted.added, vec!["ghost.md".to_string()]);
+        // Consumed: the next lookup hashes the corpus again.
+        assert!(app.status(&index).unwrap().fresh);
+        // A hint for another generation is ignored.
+        app.set_freshness_hint("0".repeat(64), ghost);
+        assert!(app.status(&index).unwrap().fresh);
+    }
+
+    #[test]
+    fn related_citations_resolve_by_kind_and_corrupt_edges_fail_closed() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(
+            root.path().join("guide.md"),
+            "# One\n\n[Two](#two) `code`\n\n# Two\n\nTarget.\n",
+        )
+        .unwrap();
+        let app = App::new(root.path());
+        app.index().unwrap();
+        let mut index = app.load_index().unwrap();
+        let source = "guide.md#one~0";
+        let response = app.related(&index, source).unwrap();
+        let kinds: Vec<_> = response
+            .neighbours
+            .iter()
+            .map(|n| n.kind.as_str())
+            .collect();
+        assert_eq!(kinds, ["CONTAINS", "NEXT", "LINKS_TO", "MENTIONS"]);
+        let citations: Vec<_> = response
+            .neighbours
+            .iter()
+            .filter_map(|n| n.citation.clone())
+            .collect();
+        let verified = app.verify(&citations).unwrap();
+        assert!(
+            verified
+                .results
+                .iter()
+                .all(|r| r.state == CitationState::Valid)
+        );
+        assert_eq!(
+            response.neighbours[0].citation,
+            Some(Citation::for_section(
+                &index.generation,
+                index
+                    .generation
+                    .sections
+                    .iter()
+                    .find(|s| s.id == "guide.md#one")
+                    .unwrap()
+            ))
+        );
+        assert!(
+            serde_json::to_value(&response.neighbours[3])
+                .unwrap()
+                .get("citation")
+                .is_none()
+        );
+
+        for (kind, from, to) in [
+            ("NEXT", source, "unknown"),
+            ("LINKS_TO", source, "guide.md#two"),
+            ("CONTAINS", "guide.md#two~0", source),
+            ("CONTAINS", source, "guide.md#two"),
+            ("MENTIONS", source, "unknown"),
+            ("MENTIONS", source, "guide.md#two~0"),
+            ("unknown", source, "guide.md#two~0"),
+        ] {
+            index.generation.edges = vec![store::EdgeRecord {
+                kind: kind.into(),
+                from: from.into(),
+                to: to.into(),
+            }];
+            let error = app.related(&index, source).unwrap_err();
+            assert_eq!(error.kind(), "corrupt", "{kind}");
+            assert_eq!(error.public_message(), "Internal operation failed");
+        }
+    }
+
+    #[test]
+    fn related_keeps_code_mentions_distinct_from_colliding_chunk_ids() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("code:target.md"), "# Target\n\nBody.\n").unwrap();
+        std::fs::write(
+            root.path().join("guide.md"),
+            "# Guide\n\n`target.md#target~0`\n",
+        )
+        .unwrap();
+        let app = App::new(root.path());
+        app.index().unwrap();
+        let index = app.load_index().unwrap();
+        let target = "code:target.md#target~0";
+        let source = app.related(&index, "guide.md#guide~0").unwrap();
+        let mention = source
+            .neighbours
+            .iter()
+            .find(|n| n.kind == "MENTIONS")
+            .unwrap();
+        assert_eq!(mention.id, target);
+        assert_eq!(mention.direction, "out");
+        assert!(mention.citation.is_none());
+        let response = app.related(&index, target).unwrap();
+        assert_eq!(response.neighbours.len(), 1);
+        assert_eq!(response.neighbours[0].kind, "CONTAINS");
+        let citation = response.neighbours[0].citation.clone().unwrap();
+        assert_eq!(
+            app.verify(&[citation]).unwrap().results[0].state,
+            CitationState::Valid
+        );
+    }
+
+    #[test]
+    fn related_preserves_exact_prefix_at_item_boundary() {
+        for count in [MAX_LIST_ITEMS, MAX_LIST_ITEMS + 1, 150] {
+            let root = tempfile::tempdir().unwrap();
+            let mut text = String::from("# Source\n\n");
+            for i in 0..count - 1 {
+                text.push_str(&format!("`m{i:03}` "));
+            }
+            std::fs::write(root.path().join("guide.md"), text).unwrap();
+            let app = App::new(root.path());
+            app.index().unwrap();
+            let index = app.load_index().unwrap();
+            let response = app.related(&index, "guide.md#source~0").unwrap();
+            let incident: Vec<_> = index
+                .generation
+                .edges
+                .iter()
+                .filter(|e| e.from == "guide.md#source~0" || e.to == "guide.md#source~0")
+                .collect();
+            assert_eq!(incident.len(), count);
+            assert_eq!(response.neighbours.len() + response.omitted, count);
+            let expected: Vec<_> = incident
+                .iter()
+                .take(MAX_LIST_ITEMS)
+                .map(|e| {
+                    (
+                        e.kind.as_str(),
+                        if e.kind == "CONTAINS" { "in" } else { "out" },
+                        if e.kind == "CONTAINS" {
+                            e.from.as_str()
+                        } else {
+                            e.to.as_str()
+                        },
+                    )
+                })
+                .collect();
+            let actual: Vec<_> = response
+                .neighbours
+                .iter()
+                .map(|n| (n.kind.as_str(), n.direction, n.id.as_str()))
+                .collect();
+            assert_eq!(actual, expected);
+            assert_eq!(response.truncated, count > MAX_LIST_ITEMS);
+            assert!(response.neighbours[0].citation.is_some());
+            assert!(
+                response
+                    .neighbours
+                    .iter()
+                    .skip(1)
+                    .all(|n| n.citation.is_none())
+            );
+            assert_eq!(
+                serde_json::to_vec(&response).unwrap(),
+                serde_json::to_vec(&app.related(&index, "guide.md#source~0").unwrap()).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn json_sizing_matches_native_bytes_at_every_threshold() {
+        for value in [
+            serde_json::json!(null),
+            serde_json::json!(""),
+            serde_json::json!({"é":"\u{1}\n\"\\🦀", "items":[1,true,{}]}),
+        ] {
+            let len = serde_json::to_vec(&value).unwrap().len();
+            for limit in [0, len - 1, len, len + 1, usize::MAX] {
+                assert_eq!(json_fits(&value, limit).unwrap(), len <= limit);
+            }
+        }
+    }
+
+    #[test]
+    fn json_sizing_preserves_errors_before_and_after_overflow() {
+        struct Failure(bool);
+        impl Serialize for Failure {
+            fn serialize<S: serde::Serializer>(&self, _: S) -> Result<S::Ok, S::Error> {
+                if self.0 {
+                    Err(serde::ser::Error::custom(std::io::Error::from(
+                        std::io::ErrorKind::FileTooLarge,
+                    )))
+                } else {
+                    Err(serde::ser::Error::custom("late serializer failure"))
+                }
+            }
+        }
+        for file_too_large in [false, true] {
+            let value = ("already serialized prefix", Failure(file_too_large));
+            let old = serde_json::to_vec(&value).unwrap_err();
+            for limit in [0, 1, usize::MAX] {
+                let new = json_fits(&value, limit).unwrap_err();
+                assert_eq!(new.classify(), old.classify());
+                assert_eq!(new.to_string(), old.to_string());
+            }
+        }
+        #[derive(Serialize)]
+        struct BadResponse(&'static str, Failure);
+        impl Bounded for BadResponse {
+            fn pop_item(&mut self) -> bool {
+                panic!("serialization failure must precede truncation")
+            }
+            fn mark_truncated(&mut self) {
+                panic!("serialization failure must precede truncation")
+            }
+        }
+        assert!(matches!(
+            bound(BadResponse("prefix", Failure(false))),
+            Err(AppError::Json(_))
+        ));
+    }
+
+    #[test]
+    fn bounded_responses_keep_native_truncation_bytes_and_order() {
+        fn old_bound<T: Bounded>(mut response: T) -> Result<T, AppError> {
+            while serde_json::to_vec(&response)?.len() > MAX_RESPONSE_BYTES {
+                if !response.pop_item() {
+                    return Err(AppError::ResponseTooLarge);
+                }
+                response.mark_truncated();
+            }
+            Ok(response)
+        }
+        let related = || RelatedResponse {
+            generation_id: String::new(),
+            fresh: true,
+            chunk_id: "source".into(),
+            omitted: 0,
+            neighbours: ["first", "last"]
+                .into_iter()
+                .map(|kind| Neighbour {
+                    kind: kind.into(),
+                    direction: "out",
+                    id: "\u{1}".repeat(MAX_RESPONSE_BYTES / 10),
+                    citation: None,
+                })
+                .collect(),
+            truncated: false,
+        };
+        let new = bound(related()).unwrap();
+        assert!(new.truncated);
+        assert_eq!(new.neighbours.len(), 1);
+        assert_eq!(new.neighbours[0].kind, "first");
+        assert_eq!(
+            serde_json::to_vec(&new).unwrap(),
+            serde_json::to_vec(&old_bound(related()).unwrap()).unwrap()
+        );
+        let read = || ReadResponse {
+            generation_id: String::new(),
+            fresh: true,
+            stale: false,
+            kind: "section",
+            id: "a#a".into(),
+            citation: Citation {
+                generation_id: String::new(),
+                path: "a".into(),
+                heading_path: vec![],
+                byte_start: 0,
+                byte_end: 0,
+                line_start: 0,
+                line_end: 0,
+                sha256: String::new(),
+            },
+            text: "é\u{1}".repeat(MAX_RESPONSE_BYTES),
+            truncated: false,
+        };
+        let new = bound(read()).unwrap();
+        assert!(new.truncated);
+        assert!(!new.text.is_empty());
+        assert_eq!(
+            serde_json::to_vec(&new).unwrap(),
+            serde_json::to_vec(&old_bound(read()).unwrap()).unwrap()
+        );
+    }
 
     #[test]
     fn list_caps_take_at_most_one_extra_item_and_flag_truncation() {
@@ -1691,12 +2118,33 @@ mod tests {
                 .find(|x| x.citation.path == path)
                 .map(|x| (x.tier, x.text_truncated))
         };
-        assert_eq!(flag(&l0, "a.md"), Some((TierLevel::L0, true)));
+        assert_eq!(flag(&l0, "a.md"), Some((Some(TierLevel::L0), true)));
         // b.md's L1 equals its L0, so it may upgrade; either way, uncapped.
         assert_eq!(flag(&l0, "b.md").map(|f| f.1), Some(false));
         // Unbudgeted search returns L2, which is never shortened.
         let l2 = app.search(&index, &request(None)).unwrap();
-        assert_eq!(flag(&l2, "a.md"), Some((TierLevel::L2, false)));
+        assert_eq!(flag(&l2, "a.md"), Some((Some(TierLevel::L2), false)));
+        // The pre-change response uses a non-null tier and the same field order.
+        // Compare bytes, including escaped text, rather than parsed JSON alone.
+        let actual = serde_json::to_vec(&l2).unwrap();
+        let mut expected = format!(
+            "{{\"generation_id\":{},\"fresh\":true,\"mode\":\"lexical\",\"abstained\":null,\"abstention_score\":{},\"results\":[",
+            serde_json::to_string(&l2.generation_id).unwrap(),
+            l2.abstention_score
+        );
+        for (i, hit) in l2.results.iter().enumerate() {
+            if i > 0 {
+                expected.push(',');
+            }
+            expected.push_str(&format!(
+                "{{\"rank\":{},\"chunk_id\":{},\"section_id\":{},\"score\":{},\"stale\":false,\"tier\":\"l2\",\"text\":{},\"text_truncated\":false,\"citation\":{}}}",
+                hit.rank, serde_json::to_string(&hit.chunk_id).unwrap(),
+                serde_json::to_string(&hit.section_id).unwrap(), hit.score,
+                serde_json::to_string(&hit.text).unwrap(), serde_json::to_string(&hit.citation).unwrap()
+            ));
+        }
+        expected.push_str("],\"truncated\":false}");
+        assert_eq!(actual, expected.as_bytes());
     }
 
     #[test]
@@ -1717,6 +2165,7 @@ mod tests {
             fresh: true,
             chunk_id: "\u{1}".repeat(MAX_RESPONSE_BYTES),
             neighbours: Vec::new(),
+            omitted: 0,
             truncated: false,
         };
         assert!(matches!(bound(response), Err(AppError::ResponseTooLarge)));

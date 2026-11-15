@@ -13,11 +13,11 @@ inputs, model-judging record (`eval/judging/`) and preparation manifest.
 ## Flow
 
 `corpus walk → parse (sections) → chunk → tiers → graph → publish generation → load → search (B1/B2/B3, abstention) → assemble (budget) → MCP tools`
-`eval (ADR9 target): final-query approval → split → approved grid-wide pools → human qrels/provenance → trusted preparation handoff → selected dev sweep + power → trusted config recapture → freeze (config + code) → one consumed held-out attempt → accepted decisions → separate default promotion/no-op`
+`eval: final-query approval → split → approved grid-wide pools → model-judged exploratory qrels/provenance (ADR13–15) → trusted preparation handoff → selected dev sweep + power → trusted config recapture → freeze (config + code) → one consumed held-out attempt → exploratory effects/intervals → default no-op`
 
 [README](../README.md) documents root-package installation, stdio client setup,
 five tools, loopback HTTP, schema-4 reindexing and current safety/evaluation
-limits. It claims no measured retrieval/performance result.
+limits. It links measured capacity observations and the registered model-judged exploratory evaluation. No confirmatory quality claim or default promotion follows; lexical defaults and the retrieval flow are unchanged.
 
 ## Accepted Folder-Scoped HTTP Design (Implemented)
 
@@ -35,7 +35,7 @@ separate logical MCP service, named after that folder:
 | `docs_share/<name>/` | `/<name>/mcp` | `docs_share/<name>/.ontodoc/` |
 
 One Rust listener routes to one `OntoDocServer`/`App` per folder. Each owns its
-corpus root, store, immutable index slot and MCP sessions; clients of that
+corpus root, store and immutable index slot; stateless HTTP clients of that
 endpoint share its index. All users may read all exposed corpora. This is
 per-corpus separation, not user tenancy or a merged index with path filtering.
 
@@ -58,13 +58,19 @@ tracked task that owns its slot → complete-response bound and generic
 non-2xx bodies. Each route reuses the registry's `OntoDocServer`; tool work
 takes 4 global then 2 per-corpus permits inside `OntoDocServer::blocking`.
 HTTP-1 (2026-11-11) implements `mcp::Registry::discover`: immediate real
-subdirectories, sorted, at most 32, URL-unreserved names, symlinks and other
-special entries refused, hidden entries and plain files ignored. It holds one
+subdirectories, sorted, at most 32, UTF-8 names encoded as URL segments, symlinks and other
+special entries refused. Real `.git` and `.ontodoc` directories and plain files are ignored; other hidden directories are exposed. It holds one
 `OntoDocServer` per folder, with an exact lookup and no default; `src/http.rs`
 routes to those servers. Detailed lifecycle and acceptance requirements live
 in the ADR's **Folder-Scoped HTTP MCP Architecture** section.
 
 ## Owners
+
+ADR18 response assembly is implemented in `src/cli.rs`: nullable search tiers preserve citations when budget or size withholds text. `Bounded::shrink` accepts each layer's fit predicate and restores search texts in rank order; `src/mcp.rs::structured` reuses it for MCP sizing. Other response shrink rules remain unchanged. Related counts omitted incident edges across both caps. No stored schema or ranking changes.
+
+`src/cli.rs::App::related` owns neighbour citation assembly (ADR17, unreleased 0.1.1). It caps incident edges at 100, retains only those endpoint IDs, scans chunks and sections once, and uses `src/cite.rs::Citation::for_chunk` / `for_section` in stored edge order. Chunk/section lookup failures return `StoreError::Corrupt`; mentions omit citations. Existing freshness and complete-response bounds apply through the same CLI/MCP path. No stored schema or ranking owner changes. See [GraphRAG closeout](audit_session-2026-11-13-graphrag-references.md) for validation and observed cap limits.
+
+Mention incidence is source-only: `code:<text>` targets belong to unresolved code nodes even when their strings equal chunk IDs. `App::related` excludes incoming mention matches before the item cap and validates the prefix of retained outgoing mention targets. This fixes typed lookup without changing stored identities; see [review evidence](audit_session-2026-11-14-graphrag-review.md).
 
 | Path | Role | Task |
 | --- | --- | --- |
@@ -79,17 +85,21 @@ in the ADR's **Folder-Scoped HTTP MCP Architecture** section.
 | `src/search/mod.rs` | checked aggregate tokenizer-input admission and shared first-text/last-hierarchy document map; trusted compatibility constructor retained | OD-1.6, OD-3.6 |
 | `src/assemble.rs` | breadth-first budgeted context assembly (L0 → L1 → L2), no quality claim | OD-1.8 |
 | `src/cite.rs` | exact active-generation chunk/section membership before rooted current-byte verification (valid / moved / stale / missing) | OD-1.7, OD-3.4 |
-| `src/cli.rs`, `src/main.rs` | application layer (`App`, bounded responses, `AppError::kind()`) shared by CLI and MCP; clap subcommands index/search/read/related/verify/status/serve/serve-http (runtime in `main.rs`) and `eval split\|pool\|run\|score\|check-benchmark\|sweep\|freeze\|check-frozen\|misses` | OD-2.0, EVAL-1.1, EVAL-1.2 |
-| `src/mcp.rs` | rmcp stdio server, five read-only tools, native input/output bounds, preconversion admission, closure-owned bounded permits (optional shared global, then per-corpus) over a snapshot cache, `docs_share` folder registry | OD-2.1, OD-3.3, OD-3.5, HTTP-1, PERF-1, HTTP-2 |
+| `src/cli.rs`, `src/main.rs` | application layer (`App`, bounded responses, `AppError::kind()`) shared by CLI and MCP; clap subcommands index/search/read/related/verify/status/serve (`--auto-index`, ADR20)/serve-http (runtime in `main.rs`); one-shot freshness hint reused by the stdio refresh and `eval split\|pool\|run\|score\|check-benchmark\|sweep\|freeze\|check-frozen\|misses` | OD-2.0, EVAL-1.1, EVAL-1.2 |
+| `src/mcp.rs` | rmcp stdio server, five read-only tools, native input/output bounds, preconversion admission, closure-owned bounded permits (optional shared global, then per-corpus) over a snapshot cache, `docs_share` folder registry; opt-in stdio `AutoIndex` refresh inside the call's permit (ADR20, never set by the registry) | OD-2.1, OD-3.3, OD-3.5, HTTP-1, PERF-1, HTTP-2 |
 | `src/http.rs` | loopback Streamable HTTP listener: routing, admission, body/response bounds, drain | HTTP-2 |
 | `tests/ranking_sanity.rs` | ADR discrimination check on planted synthetic sections (oracle vs shuffle, self p = 1, B1–B3 vs shuffle); sanity only, no quality claim | FIX-9 |
 | `src/eval/{metrics,stats}.rs` | metrics, decision rule, bootstrap, randomization, Holm, Wilson, the single weighted-kappa implementation (`kappa_from_counts`), power | EVAL-1.0 |
 | `src/eval/run.rs` | split/pool/run/score/reports; split-specific capture and opaque mechanical evidence, bounded payload/index bytes and shared cached indexes | EVAL-1.1, EVAL-1.4 |
-| `src/eval/{gates,sweep}.rs` | integrity gates, in-memory pool comparison, captured dev computation, miss attribution, freeze/code-freeze checks; public measurement disabled | EVAL-1.2, EVAL-1.4 |
+| `src/eval/{gates,sweep}.rs` | integrity gates, in-memory pool comparison, captured dev computation, miss collection (`sweep::misses`) and miss attribution, freeze/code-freeze checks; measurement requires approved preparation and identity | EVAL-1.2, EVAL-1.4, RF-3 |
 | `eval/` | corpora pins, queries, pools, qrels, frozen config, results | EVAL-2.x, EVAL-3.x |
 | `ontocode-rs/` | read-only prior-attempt snapshot; never built | — |
 
 ## Change-home rules
+
+- ADR19: `Generation::validate_edges_and_documents` in `src/store.rs` runs after unique-ID checks at publication and through every ordinary/rooted/captured load. Borrowed lookups enforce typed E1–E5 edges and D1 unique document paths with fixed reasons. Valid artifact bytes and schema 4 remain unchanged. Refused active stores require stopping service, removing only the refused generation directory and trusted reindex; synthetic regressions prove recovery for malformed edges and duplicate IDs. Load cost of the additional lookups remains unmeasured. See [execution evidence](audit_session-2026-11-14-ontoindex-ideas.md).
+
+- `Store::lock` returns a private guard that explicitly unlocks at scope exit, including error paths, before closing its file. Duplicate descriptors cannot prolong a successfully released lock. Publication retains the guard through commit and maintenance; fail-fast contention and publication outcomes are unchanged. CORR-LOCK's retained-duplicate regression demonstrated failure before the guard and success afterward; it does not identify the holder behind the earlier parallel-test failure.
 
 - `Generation::validate_unique_ids` in `src/store.rs` rejects ambiguous raw
   section/chunk collections before publication writes and before loaded
@@ -114,6 +124,7 @@ in the ADR's **Folder-Scoped HTTP MCP Architecture** section.
   CLI response truncation is reused for text/structured parity; `src/cli.rs`
   owns shared public error redaction and escaped read bounds. See the
   [OD-3.3 compatibility decision](audit_session-2026-11-10-mcp-wire-bounds.md).
+  CORR-1 shares its typed cap error and exact native request-ID admission with HTTP; an unencodable HTTP refusal returns 413 before dispatch. CORR-2 shares fixed-storage sizing in `cli::json_fits`, preserving late serializer errors. CORR-3 uses validated sorted-span binary lookup in graph construction (linear fallback for arbitrary spans) and caches heading paths once per section in tiers. These repairs retain schema/ranking and original measured artifacts; see the [corrected-candidate audit](audit_session-2026-11-13-corrected-candidate.md).
 - ADR revision 7 separates local safety from HTTP exposure. `src/store.rs`
   owns OD-3.8 pointer/meta/artifact bounds and bounded publication serialization;
   shared captured decoding retains evaluation's stricter caps. Limits: CURRENT
@@ -123,7 +134,7 @@ in the ADR's **Folder-Scoped HTTP MCP Architecture** section.
   local budgets and publication outcomes below; OD-3.4 implements rooted reads
   and membership; OD-3.5/3.6 implement local budgets; OD-3.9 implements
   publication outcomes and bounded maintenance.
-  HTTP-0 remains owner-gated.
+  HTTP-0 is DONE under ADR revision 10; HTTP-2 implements loopback delivery behind an operator-managed authenticated TLS ingress.
 - Native inbound collection has its own fixed-buffer 128-KiB line guard before
   rmcp decode, separate from complete output bounds. Borrowed JSON admission
   counts argument keys/nested strings and per-field limits before typed conversion;

@@ -16,6 +16,7 @@ use bytes::Bytes;
 use http::{Request, Response, StatusCode};
 use http_body_util::{BodyExt, Full, Limited, combinators::BoxBody};
 use hyper_util::rt::{TokioIo, TokioTimer};
+use rmcp::model::ClientJsonRpcMessage;
 use rmcp::transport::streamable_http_server::session::never::NeverSessionManager;
 use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
 use tokio::net::TcpListener;
@@ -24,7 +25,7 @@ use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 
 use crate::cli::MAX_RESPONSE_BYTES;
-use crate::mcp::{OntoDocServer, Registry, RegistryError};
+use crate::mcp::{OntoDocServer, Registry, RegistryError, cap_error, fits_json};
 
 /// Request body ceiling, enforced while streaming before JSON decoding.
 pub const MAX_REQUEST_BYTES: usize = 128 * 1024;
@@ -133,6 +134,23 @@ impl Router {
             Ok(Err(_)) => return plain(StatusCode::PAYLOAD_TOO_LARGE, "request too large"),
             Err(_) => return plain(StatusCode::REQUEST_TIMEOUT, "request timeout"),
         };
+        // Use rmcp's native parser, including its request/ID validation. Other
+        // messages and malformed input still go through rmcp's own handling.
+        let fallback = match serde_json::from_reader::<_, ClientJsonRpcMessage>(&body[..]) {
+            Ok(ClientJsonRpcMessage::Request(request)) => {
+                let error = cap_error(Some(request.id));
+                // Reserve stdio's newline byte for identical envelope limits.
+                // Reject before dispatch if even the exact-ID refusal cannot fit.
+                if !fits_json(&error, MAX_RESPONSE_BYTES - 1) {
+                    return plain(StatusCode::PAYLOAD_TOO_LARGE, "request too large");
+                }
+                match serde_json::to_vec(&error) {
+                    Ok(bytes) => Some(Bytes::from(bytes)),
+                    Err(_) => return plain(StatusCode::INTERNAL_SERVER_ERROR, "internal error"),
+                }
+            }
+            _ => None,
+        };
         // rmcp's stateless transport only ends its per-request service task
         // after the response is delivered, so the call must run to completion
         // even if this future is dropped. The in-flight slot moves with it.
@@ -142,7 +160,7 @@ impl Router {
             let response = service
                 .handle(Request::from_parts(parts, Full::new(body)))
                 .await;
-            bound_response(response).await
+            bound_response(response, fallback).await
         });
         call.await
             .unwrap_or_else(|_| plain(StatusCode::INTERNAL_SERVER_ERROR, "internal error"))
@@ -157,20 +175,31 @@ impl Router {
     }
 }
 
-/// Complete-body bound on the way out; an oversized body is a generic 500.
+/// Complete-body bound on the way out; native requests retain their exact ID
+/// in the same typed cap refusal as stdio.
 /// Transport-level refusals from rmcp keep their status but get a generic
 /// body, because rmcp echoes parser and header details.
-async fn bound_response(response: Response<Body>) -> Response<Body> {
+async fn bound_response(response: Response<Body>, fallback: Option<Bytes>) -> Response<Body> {
     if !response.status().is_success() {
         return plain(response.status(), "request refused");
     }
     let (parts, body) = response.into_parts();
-    match Limited::new(body, MAX_RESPONSE_BYTES).collect().await {
+    match Limited::new(body, MAX_RESPONSE_BYTES - 1).collect().await {
         Ok(collected) => Response::from_parts(parts, Full::new(collected.to_bytes()).boxed()),
-        Err(_) => plain(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "response exceeds the byte limit",
-        ),
+        Err(_) => match fallback {
+            Some(bytes) => {
+                let mut response = Response::new(Full::new(bytes).boxed());
+                response.headers_mut().insert(
+                    http::header::CONTENT_TYPE,
+                    http::HeaderValue::from_static("application/json"),
+                );
+                response
+            }
+            None => plain(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "response exceeds the byte limit",
+            ),
+        },
     }
 }
 
@@ -329,15 +358,54 @@ mod tests {
 
     #[tokio::test]
     async fn outbound_body_is_bounded_completely() {
-        let fits = Response::new(Full::new(Bytes::from(vec![b'x'; MAX_RESPONSE_BYTES])).boxed());
-        let fits = bound_response(fits).await;
+        let fits =
+            Response::new(Full::new(Bytes::from(vec![b'x'; MAX_RESPONSE_BYTES - 1])).boxed());
+        let fits = bound_response(fits, None).await;
         assert_eq!(fits.status(), StatusCode::OK);
-        let over =
-            Response::new(Full::new(Bytes::from(vec![b'x'; MAX_RESPONSE_BYTES + 1])).boxed());
-        let over = bound_response(over).await;
+        for size in [MAX_RESPONSE_BYTES, MAX_RESPONSE_BYTES + 1] {
+            let fallback = Bytes::from(
+                serde_json::to_vec(&cap_error(Some(rmcp::model::NumberOrString::Number(7))))
+                    .unwrap(),
+            );
+            let over = Response::new(Full::new(Bytes::from(vec![b'x'; size])).boxed());
+            let over = bound_response(over, Some(fallback.clone())).await;
+            assert_eq!(over.status(), StatusCode::OK);
+            assert_eq!(
+                over.headers()[http::header::CONTENT_TYPE],
+                "application/json"
+            );
+            assert_eq!(
+                over.into_body().collect().await.unwrap().to_bytes(),
+                fallback
+            );
+        }
+        let over = Response::new(Full::new(Bytes::from(vec![b'x'; MAX_RESPONSE_BYTES])).boxed());
+        let over = bound_response(over, None).await;
         assert_eq!(over.status(), StatusCode::INTERNAL_SERVER_ERROR);
-        let body = over.into_body().collect().await.unwrap().to_bytes();
-        assert_eq!(&body[..], b"response exceeds the byte limit");
+        assert_eq!(
+            over.into_body().collect().await.unwrap().to_bytes(),
+            "response exceeds the byte limit"
+        );
+    }
+
+    #[tokio::test]
+    async fn unencodable_request_id_is_refused_before_dispatch() {
+        let share = tempfile::tempdir().unwrap();
+        std::fs::create_dir(share.path().join("a")).unwrap();
+        let router = Router::new(share.path(), "localhost").unwrap();
+        let body = serde_json::json!({"jsonrpc":"2.0", "id":"x".repeat(MAX_RESPONSE_BYTES - 100),
+            "method":"tools/call", "params":{"name":"status","arguments":{}}})
+        .to_string();
+        assert!(body.len() <= MAX_REQUEST_BYTES);
+        let request = Request::builder()
+            .method("POST")
+            .uri("/a/mcp")
+            .body(Full::new(Bytes::from(body)))
+            .unwrap();
+        let response = router.handle(request).await;
+        assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+        assert!(router.calls.is_empty(), "no rmcp task may be dispatched");
+        assert_eq!(router.in_flight.available_permits(), MAX_IN_FLIGHT);
     }
 
     #[test]

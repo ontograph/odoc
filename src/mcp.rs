@@ -2,7 +2,8 @@
 //!
 //! The index is loaded once per server and reloaded when `CURRENT` changes.
 //! Every tool result is structured JSON from [`crate::cli`], bounded by
-//! `MAX_RESPONSE_BYTES` with `truncated` flags. Indexing is CLI-only.
+//! `MAX_RESPONSE_BYTES` with `truncated` flags. Indexing is CLI-only, except
+//! the opt-in stdio refresh (`serve --auto-index`, ADR revision 20).
 
 use std::path::Path;
 use std::pin::Pin;
@@ -91,6 +92,8 @@ pub struct OntoDocServer {
     admission: Arc<Semaphore>,
     /// Process-wide work permits shared by every corpus (HTTP); `None` for stdio.
     global: Option<Arc<Semaphore>>,
+    /// Opt-in stdio refresh (ADR revision 20); always `None` over HTTP.
+    auto_index: Option<Arc<AutoIndex>>,
     #[cfg(test)]
     work_counts: Arc<WorkCounts>,
     tool_router: ToolRouter<Self>,
@@ -254,32 +257,24 @@ fn structured<T: Bounded>(value: Result<T, AppError>) -> Result<CallToolResult, 
         if fits_json(&result, MAX_RESPONSE_BYTES) {
             return Ok(result);
         }
-        if !value.pop_item() {
-            return Err(to_mcp(AppError::ResponseTooLarge));
-        }
-        value.mark_truncated();
+        value
+            .shrink(|candidate| {
+                let json = serde_json::to_value(candidate)?;
+                Ok(fits_json(
+                    &CallToolResult::structured(json),
+                    MAX_RESPONSE_BYTES,
+                ))
+            })
+            .map_err(to_mcp)?;
     }
 }
 
 /// Counts the native serde encoding without allocating an oversized byte buffer.
-fn fits_json(value: &impl Serialize, limit: usize) -> bool {
-    struct Counter(usize);
-    impl std::io::Write for Counter {
-        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-            if bytes.len() > self.0 {
-                return Err(std::io::ErrorKind::FileTooLarge.into());
-            }
-            self.0 -= bytes.len();
-            Ok(bytes.len())
-        }
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-    }
-    serde_json::to_writer(Counter(limit), value).is_ok()
+pub(crate) fn fits_json(value: &impl Serialize, limit: usize) -> bool {
+    crate::cli::json_fits(value, limit).unwrap_or(false)
 }
 
-fn cap_error(id: Option<rmcp::model::RequestId>) -> TxJsonRpcMessage<RoleServer> {
+pub(crate) fn cap_error(id: Option<rmcp::model::RequestId>) -> TxJsonRpcMessage<RoleServer> {
     JsonRpcMessage::error(
         ErrorData::internal_error(
             "Response exceeds the byte limit",
@@ -349,6 +344,62 @@ impl<T: Transport<RoleServer, Error = std::io::Error>> Transport<RoleServer>
 /// Upper bound on concurrently admitted tool calls per server.
 pub const MAX_PERMITS: usize = 64;
 
+/// Minimum wait after a failed automatic rebuild before the next attempt.
+const RETRY_AFTER: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// State of the opt-in stdio refresh (ADR revision 20). The rebuild runs
+/// inside the admitted call that needs it; there is no thread or timer.
+#[derive(Default)]
+struct AutoIndex {
+    /// Monotonic time of the last failed rebuild, held in memory only.
+    last_failure: Mutex<Option<std::time::Instant>>,
+    #[cfg(test)]
+    rebuilds: std::sync::atomic::AtomicUsize,
+    /// Runs inside the rebuild, before publication, so tests can hold it open.
+    #[cfg(test)]
+    pause: Mutex<Option<Box<dyn FnOnce() + Send>>>,
+}
+
+impl AutoIndex {
+    /// No failure yet, or the last one is at least `RETRY_AFTER` old.
+    fn due(&self) -> bool {
+        self.last_failure
+            .lock()
+            .is_ok_and(|last| last.is_none_or(|t| t.elapsed() >= RETRY_AFTER))
+    }
+
+    /// One build and publication through the CLI path; returns the new id.
+    /// Failures and degraded outcomes go to stderr as fixed codes only.
+    fn rebuild(&self, app: &App) -> Result<String, AppError> {
+        #[cfg(test)]
+        {
+            self.rebuilds.fetch_add(1, Ordering::Relaxed);
+            if let Some(pause) = self.pause.lock().ok().and_then(|mut p| p.take()) {
+                pause();
+            }
+        }
+        let result = app.index();
+        if let Ok(mut last) = self.last_failure.lock() {
+            *last = result.is_err().then(std::time::Instant::now);
+        }
+        match result {
+            Ok(report) => {
+                if report.durability != crate::store::Durability::Synced {
+                    eprintln!(r#"{{"warning":"auto_index","code":"durability_uncertain"}}"#);
+                }
+                if report.maintenance == crate::store::Maintenance::Failed {
+                    eprintln!(r#"{{"warning":"auto_index","code":"maintenance_failed"}}"#);
+                }
+                Ok(report.generation_id)
+            }
+            Err(e) => {
+                eprintln!(r#"{{"warning":"auto_index","code":"{}"}}"#, e.kind());
+                Err(e)
+            }
+        }
+    }
+}
+
 impl OntoDocServer {
     /// One admitted call at a time (the stdio default).
     pub fn new(root: &Path) -> Self {
@@ -363,12 +414,22 @@ impl OntoDocServer {
             .then(|| Self::build(root, permits))
     }
 
+    /// The stdio server with `--auto-index`: one permit, and a call that finds
+    /// no index or a stale one rebuilds it and waits (ADR revision 20).
+    pub fn with_auto_index(root: &Path) -> Self {
+        Self {
+            auto_index: Some(Arc::new(AutoIndex::default())),
+            ..Self::build(root, 1)
+        }
+    }
+
     fn build(root: &Path, permits: usize) -> Self {
         Self {
             app: Arc::new(App::new(root)),
             index: Arc::new(Mutex::new(None)),
             admission: Arc::new(Semaphore::new(permits)),
             global: None,
+            auto_index: None,
             #[cfg(test)]
             work_counts: Arc::new(WorkCounts::default()),
             tool_router: Self::tool_router(),
@@ -400,6 +461,7 @@ impl OntoDocServer {
             .map_err(|_| to_mcp(AppError::Busy))?;
         let app = self.app.clone();
         let slot = self.index.clone();
+        let auto = self.auto_index.clone();
         #[cfg(test)]
         let counts = self.work_counts.clone();
         #[cfg(test)]
@@ -408,19 +470,48 @@ impl OntoDocServer {
             let _permits = (global, permit);
             let index = {
                 let mut slot = slot.lock().map_err(|_| to_mcp(AppError::Internal))?;
+                let load = |slot: &mut Option<(String, Arc<SearchIndex>)>, current: String| {
+                    if slot.as_ref().is_none_or(|(id, _)| *id != current) {
+                        #[cfg(test)]
+                        counts.loads.fetch_add(1, Ordering::Relaxed);
+                        let index = Arc::new(app.load_index_for(&current).map_err(to_mcp)?);
+                        *slot = Some((current, index));
+                    }
+                    slot.as_ref()
+                        .map(|(_, index)| index.clone())
+                        .ok_or_else(|| to_mcp(AppError::Internal))
+                };
                 #[cfg(test)]
                 counts.current_reads.fetch_add(1, Ordering::Relaxed);
-                let current = app.current_id().map_err(to_mcp)?;
-                if slot.as_ref().is_none_or(|(id, _)| *id != current) {
-                    #[cfg(test)]
-                    counts.loads.fetch_add(1, Ordering::Relaxed);
-                    let index = Arc::new(app.load_index_for(&current).map_err(to_mcp)?);
-                    *slot = Some((current, index));
+                // Opt-in stdio refresh (ADR revision 20), under this call's
+                // permit: build when no generation exists; otherwise one
+                // freshness check, reused by the handler unless a rebuild ran.
+                // Load errors keep their typed error and are never rebuilt.
+                if auto.is_some() {
+                    app.take_freshness_hint();
                 }
-                slot.as_ref()
-                    .ok_or_else(|| to_mcp(AppError::Internal))?
-                    .1
-                    .clone()
+                let (current, rebuilt) = match (app.current_id(), &auto) {
+                    (Err(AppError::NoIndex(_)), Some(auto)) if auto.due() => {
+                        (auto.rebuild(&app).map_err(to_mcp)?, true)
+                    }
+                    (current, _) => (current.map_err(to_mcp)?, false),
+                };
+                let mut index = load(&mut slot, current)?;
+                if let Some(auto) = &auto
+                    && !rebuilt
+                {
+                    let freshness = app.check_freshness(&index.generation).map_err(to_mcp)?;
+                    let rebuilt = (!freshness.is_fresh() && auto.due())
+                        .then(|| auto.rebuild(&app).ok())
+                        .flatten();
+                    match rebuilt {
+                        Some(id) => index = load(&mut slot, id)?,
+                        // Unchanged generation: the handler reuses this check.
+                        None => app
+                            .set_freshness_hint(index.generation.generation_id.clone(), freshness),
+                    }
+                }
+                index
             };
             structured(f(&app, &index))
         })
@@ -433,6 +524,12 @@ impl OntoDocServer {
 impl OntoDocServer {
     /// Search documentation. Returns ranked chunks with citations, freshness and
     /// an abstention reason when nothing matches well enough.
+    /// Withheld text has tier null, empty text and text_truncated false; citations remain.
+    /// Matching is on exact lowercase words; there is no stemming and no stop-word
+    /// removal, so prefer distinctive terms the document is likely to contain.
+    /// `scope` restricts results to paths with that prefix. `abstention_score` is
+    /// always returned; results are withheld only when `threshold` is passed, and
+    /// no validated cutoff exists.
     #[tool(annotations(
         title = "Search documentation",
         read_only_hint = true,
@@ -447,7 +544,7 @@ impl OntoDocServer {
             .await
     }
 
-    /// Read one chunk or section with its citation.
+    /// Read one chunk or section with its citation; truncated true means a text prefix.
     #[tool(annotations(
         title = "Read section or chunk",
         read_only_hint = true,
@@ -463,6 +560,8 @@ impl OntoDocServer {
     }
 
     /// List graph neighbours (CONTAINS, NEXT, LINKS_TO, MENTIONS) of a chunk.
+    /// Chunk and section neighbours carry citations; unresolved code mentions do not.
+    /// omitted counts incident edges absent after item and byte bounds.
     #[tool(annotations(
         title = "Related chunks",
         read_only_hint = true,
@@ -536,12 +635,23 @@ impl ServerHandler for OntoDocServer {
     }
 
     fn get_info(&self) -> ServerInfo {
+        let refresh = if self.auto_index.is_some() {
+            " This server maintains its own index store in `.ontodoc/`: a call that finds \
+             the index missing or stale rebuilds it and waits."
+        } else {
+            ""
+        };
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("ontodoc", env!("CARGO_PKG_VERSION")))
             .with_instructions(format!(
                 "Read-only documentation search with citations. Use `search`, then `read` or \
                  `related`; check quotes with `verify` (max {MAX_LIST_ITEMS} citations). \
-                 Results may be stale when `fresh` is false; run `ontodoc index` to refresh."
+                 Search may withhold text (tier null, empty text, text_truncated false) while \
+                 retaining citations. Read may return a prefix with truncated true. \
+                 Related omitted counts incident edges absent after item and byte bounds. \
+                 Search matches exact words without stemming; rephrase with terms from \
+                 the expected text when results miss. \
+                 Results may be stale when `fresh` is false; run `ontodoc index` to refresh.{refresh}"
             ))
     }
 }
@@ -672,11 +782,16 @@ fn valid_segment(name: &str) -> bool {
 
 /// Serves MCP over stdio until the client disconnects. Stdout carries only
 /// protocol frames.
-pub async fn serve_stdio(root: &Path) -> std::io::Result<()> {
+pub async fn serve_stdio(root: &Path, auto_index: bool) -> std::io::Result<()> {
     let (input, output) = rmcp::transport::stdio();
     let refused = Arc::new(AtomicBool::new(false));
     let input = BoundedInput::new(input, MAX_INPUT_BYTES, refused.clone());
-    let service = OntoDocServer::new(root)
+    let server = if auto_index {
+        OntoDocServer::with_auto_index(root)
+    } else {
+        OntoDocServer::new(root)
+    };
+    let service = server
         .serve(BoundedTransport {
             inner: rmcp::transport::async_rw::AsyncRwTransport::new_server(input, output),
             closed: false,
@@ -697,6 +812,24 @@ pub async fn serve_stdio(root: &Path) -> std::io::Result<()> {
 mod tests {
     use super::*;
     use tokio::io::AsyncReadExt;
+
+    #[test]
+    fn mcp_sizing_matches_native_bytes_and_refuses_serializer_errors() {
+        let value = serde_json::json!({"text":"é\u{1}\"\\"});
+        let len = serde_json::to_vec(&value).unwrap().len();
+        for limit in [0, len - 1, len, len + 1] {
+            assert_eq!(fits_json(&value, limit), len <= limit);
+        }
+        struct Bad;
+        impl Serialize for Bad {
+            fn serialize<S: serde::Serializer>(&self, _: S) -> Result<S::Ok, S::Error> {
+                Err(serde::ser::Error::custom("serializer failure"))
+            }
+        }
+        for limit in [0, usize::MAX] {
+            assert!(!fits_json(&("prefix", Bad), limit));
+        }
+    }
 
     #[test]
     fn decoded_admission_counts_unknown_keys_values_and_utf8_bytes() {
@@ -1254,6 +1387,189 @@ mod tests {
         // or new index is never served as current.
         std::fs::write(root.path().join(".ontodoc/CURRENT"), "0".repeat(64)).unwrap();
         assert!(server.status(Parameters(StatusRequest {})).await.is_err());
+    }
+
+    fn auto_rebuilds(server: &OntoDocServer) -> usize {
+        server
+            .auto_index
+            .as_ref()
+            .unwrap()
+            .rebuilds
+            .load(Ordering::Relaxed)
+    }
+
+    fn status_json(result: CallToolResult) -> serde_json::Value {
+        result.structured_content.unwrap()
+    }
+
+    /// Holds the publication lock the way a second publisher would.
+    fn hold_store_lock(root: &Path) -> std::fs::File {
+        std::fs::create_dir_all(root.join(".ontodoc")).unwrap();
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(root.join(".ontodoc/index.lock"))
+            .unwrap();
+        file.try_lock().unwrap();
+        file
+    }
+
+    #[tokio::test]
+    async fn auto_index_builds_missing_index_then_refreshes_after_edit() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("a.md"), "# A\n\nalpha text\n").unwrap();
+        let server = OntoDocServer::with_auto_index(root.path());
+        let first = status_json(server.status(Parameters(StatusRequest {})).await.unwrap());
+        assert_eq!(first["fresh"], true);
+        assert_eq!(auto_rebuilds(&server), 1);
+        // The automatic build is the CLI build: same generation id.
+        let cli_id = App::new(root.path()).index().unwrap().generation_id;
+        assert_eq!(first["generation_id"], cli_id.as_str());
+        // A fresh index is not rebuilt; the handler reused the refresh check.
+        server.status(Parameters(StatusRequest {})).await.unwrap();
+        assert_eq!(auto_rebuilds(&server), 1);
+        assert!(server.app.take_freshness_hint().is_none());
+
+        std::fs::write(root.path().join("a.md"), "# A\n\nbeta text\n").unwrap();
+        let request = serde_json::from_value(serde_json::json!({"query":"beta"})).unwrap();
+        let found = status_json(server.search(Parameters(request)).await.unwrap());
+        assert_eq!(auto_rebuilds(&server), 2);
+        assert_eq!(found["fresh"], true);
+        assert_ne!(found["generation_id"], first["generation_id"]);
+        assert!(
+            found["results"][0]["text"]
+                .as_str()
+                .unwrap()
+                .contains("beta")
+        );
+    }
+
+    #[tokio::test]
+    async fn auto_index_failure_serves_stale_and_waits_before_retrying() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("a.md"), "# A\n\nalpha\n").unwrap();
+        let old = App::new(root.path()).index().unwrap().generation_id;
+        let server = OntoDocServer::with_auto_index(root.path());
+        server.status(Parameters(StatusRequest {})).await.unwrap();
+        assert_eq!(auto_rebuilds(&server), 0);
+
+        let lock = hold_store_lock(root.path());
+        std::fs::write(root.path().join("a.md"), "# A\n\nchanged\n").unwrap();
+        let stale = status_json(server.status(Parameters(StatusRequest {})).await.unwrap());
+        assert_eq!(auto_rebuilds(&server), 1);
+        assert_eq!(stale["fresh"], false);
+        assert_eq!(stale["generation_id"], old.as_str());
+        // Inside the retry interval the next call does not rebuild.
+        let again = status_json(server.status(Parameters(StatusRequest {})).await.unwrap());
+        assert_eq!(auto_rebuilds(&server), 1);
+        assert_eq!(again["fresh"], false);
+
+        drop(lock);
+        let auto = server.auto_index.as_ref().unwrap();
+        *auto.last_failure.lock().unwrap() =
+            std::time::Instant::now().checked_sub(RETRY_AFTER + std::time::Duration::from_secs(1));
+        let fresh = status_json(server.status(Parameters(StatusRequest {})).await.unwrap());
+        assert_eq!(auto_rebuilds(&server), 2);
+        assert_eq!(fresh["fresh"], true);
+        assert_ne!(fresh["generation_id"], old.as_str());
+    }
+
+    #[tokio::test]
+    async fn auto_index_without_generation_returns_the_build_error() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("a.md"), "# A\n\nalpha\n").unwrap();
+        let _lock = hold_store_lock(root.path());
+        let server = OntoDocServer::with_auto_index(root.path());
+        let error = server
+            .status(Parameters(StatusRequest {}))
+            .await
+            .unwrap_err();
+        assert_eq!(error.data, Some(serde_json::json!({"error":"locked"})));
+        let error = server
+            .status(Parameters(StatusRequest {}))
+            .await
+            .unwrap_err();
+        assert_eq!(error.data, Some(serde_json::json!({"error":"no_index"})));
+        assert_eq!(auto_rebuilds(&server), 1);
+    }
+
+    #[tokio::test]
+    async fn auto_index_never_rebuilds_or_removes_an_unloadable_generation() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("a.md"), "# A\n\nalpha\n").unwrap();
+        let id = App::new(root.path()).index().unwrap().generation_id;
+        let meta = root
+            .path()
+            .join(".ontodoc/generations")
+            .join(&id)
+            .join("meta.json");
+        std::fs::write(&meta, b"{}").unwrap();
+        let server = OntoDocServer::with_auto_index(root.path());
+        for _ in 0..2 {
+            let error = server
+                .status(Parameters(StatusRequest {}))
+                .await
+                .unwrap_err();
+            assert_ne!(error, to_mcp(AppError::Busy));
+        }
+        assert_eq!(auto_rebuilds(&server), 0);
+        assert_eq!(std::fs::read(&meta).unwrap(), b"{}");
+    }
+
+    #[tokio::test]
+    async fn auto_index_rebuild_keeps_the_permit_and_refuses_concurrent_calls() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("a.md"), "# A\n\nalpha\n").unwrap();
+        let server = OntoDocServer::with_auto_index(root.path());
+        let (entered_tx, entered_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+        *server.auto_index.as_ref().unwrap().pause.lock().unwrap() = Some(Box::new(move || {
+            entered_tx.send(()).unwrap();
+            release_rx.recv().unwrap();
+        }));
+        let worker = server.clone();
+        let first = tokio::spawn(async move { worker.status(Parameters(StatusRequest {})).await });
+        entered_rx.await.unwrap();
+        assert_eq!(server.admission.available_permits(), 0);
+        assert_eq!(
+            server
+                .status(Parameters(StatusRequest {}))
+                .await
+                .unwrap_err(),
+            to_mcp(AppError::Busy)
+        );
+        release_tx.send(()).unwrap();
+        let built = status_json(first.await.unwrap().unwrap());
+        assert_eq!(built["fresh"], true);
+        assert_eq!(auto_rebuilds(&server), 1);
+    }
+
+    #[tokio::test]
+    async fn auto_index_is_stdio_only_and_named_in_instructions() {
+        let share = tempfile::tempdir().unwrap();
+        std::fs::create_dir(share.path().join("a")).unwrap();
+        let registry = Registry::discover_with(share.path(), 2, None).unwrap();
+        assert!(registry.get("a").unwrap().auto_index.is_none());
+        let root = tempfile::tempdir().unwrap();
+        let note = "maintains its own index store";
+        let plain = OntoDocServer::new(root.path())
+            .get_info()
+            .instructions
+            .unwrap();
+        assert!(!plain.contains(note));
+        let auto = OntoDocServer::with_auto_index(root.path())
+            .get_info()
+            .instructions
+            .unwrap();
+        assert!(auto.contains(note));
+        // Without the flag a missing index stays an error and nothing is built.
+        let error = OntoDocServer::new(root.path())
+            .status(Parameters(StatusRequest {}))
+            .await
+            .unwrap_err();
+        assert_eq!(error.data, Some(serde_json::json!({"error":"no_index"})));
+        assert!(!root.path().join(".ontodoc").exists());
     }
 
     #[tokio::test]

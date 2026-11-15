@@ -1,9 +1,9 @@
 [package]
 name = "ontodoc"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.95"
-license-file = "LICENSE"
+license = "MIT"
 description = "Documentation graph-RAG MCP service with pre-registered retrieval evaluation"
 publish = false
 

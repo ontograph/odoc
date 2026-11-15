@@ -18,7 +18,8 @@ use crate::search::{Mode, Params, SearchIndex};
 
 use super::metrics::{self, Qrels};
 use super::run::{
-    Bench, CUTOFF, EvalError, MIN_EFFECT, Query, SplitName, Stratum, System, rank_sections,
+    Bench, CUTOFF, EvalError, FETCH, MIN_EFFECT, Query, SplitName, Stratum, System, rank_sections,
+    score,
 };
 use super::stats::{required_n, sample_sd};
 
@@ -245,8 +246,54 @@ pub enum MissStage {
     LexicalMiss,
     /// BM25 alone has it in the top 10, but fusion pushed it out.
     FusionDisplaced,
-    /// BM25 finds it, just below the cutoff.
+    /// Fallback when no earlier stage applies and BM25 retrieves a chunk within
+    /// FETCH; for B0 and B1, this includes sections already in B1's top 10.
     Truncated,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct Miss {
+    query_id: String,
+    system: String,
+    section_id: String,
+    stage: MissStage,
+}
+
+/// Every judged-relevant section absent from a system's top 10 in a run.
+pub(crate) fn misses(bench: &Bench, run_dir: &Path) -> Result<Vec<Miss>, EvalError> {
+    let report = score(bench, run_dir, false)?;
+    let (qrels, _) = bench.qrels()?;
+    let indexes = bench.indexes()?;
+    let meta = &report.meta;
+    let systems = [
+        System::B0,
+        System::B1,
+        System::B2(meta.alpha),
+        System::B3(meta.beta),
+    ];
+    let mut out = Vec::new();
+    for q in bench
+        .queries
+        .iter()
+        .filter(|q| report.per_query.contains_key(&q.id))
+    {
+        let index = &indexes[&q.corpus];
+        for system in systems {
+            let ranking = rank_sections(index, system, &q.text);
+            let top: Vec<&str> = ranking.iter().map(|(s, _)| s.as_str()).collect();
+            for (section, grade) in qrels.get(&q.id).into_iter().flatten() {
+                if *grade >= 1 && !top.contains(&section.as_str()) {
+                    out.push(Miss {
+                        query_id: q.id.clone(),
+                        system: system.name(),
+                        section_id: section.clone(),
+                        stage: attribute_miss(index, &q.text, section, system),
+                    });
+                }
+            }
+        }
+    }
+    Ok(out)
 }
 
 /// Attributes a missed relevant section to exactly one stage.
@@ -296,7 +343,7 @@ pub fn attribute_miss(
     if in_b1 && matches!(system, System::B2(_) | System::B3(_)) {
         return MissStage::FusionDisplaced;
     }
-    let deep = index.search(query, &Params::new(Mode::Lexical, 50));
+    let deep = index.search(query, &Params::new(Mode::Lexical, FETCH));
     let found = deep
         .hits
         .iter()
@@ -774,7 +821,7 @@ mod tests {
     }
 
     #[test]
-    fn zero_overlap_is_a_lexical_miss_and_child_only_terms_are_a_chunk_boundary() {
+    fn attribute_miss_reports_every_stage() {
         let dir = tempfile::tempdir().unwrap();
         // `# Parent` owns only its intro block; its span also covers `## Child`.
         std::fs::write(
@@ -798,6 +845,19 @@ mod tests {
         assert_eq!(
             attribute_miss(&index, "zebra", "missing.md#x", System::B1),
             MissStage::NotIndexed
+        );
+        // The child is in B1's top 10; attribute_miss does not re-rank the system.
+        assert_eq!(
+            attribute_miss(&index, "zebra", "a.md#parent/child", System::B2(0.3)),
+            MissStage::FusionDisplaced
+        );
+        assert_eq!(
+            attribute_miss(&index, "zebra", "a.md#parent/child", System::B3(0.3)),
+            MissStage::FusionDisplaced
+        );
+        assert_eq!(
+            attribute_miss(&index, "zebra", "a.md#parent/child", System::B0),
+            MissStage::Truncated
         );
     }
 

@@ -1,8 +1,8 @@
 # OntoDoc Implementation Plan
 
 Date: 2026-11-10
-Status: HTTP delivery done; EVAL-2.1 model-judged qrels prepared (ADR rev 15), awaiting operator pin; see manager_loop
-Authority: `ADR_ONTODOC_SERVICE.md` (Accepted, revision 15); user requirement of
+Status: Corrected candidate locally validated and packaged; publication remains gated
+Authority: `ADR_ONTODOC_SERVICE.md` (Accepted, revision 16); user requirement of
 2026-11-08: new Rust MCP service for documentation in this repository, with
 scientifically provable improvements. Reviews: `audit_session-2026-11-08-prior-attempt-review.md`,
 `audit_session-2026-11-08-donor-ideas-review.md`, `audit_session-2026-11-08-plan-challenge.md`.
@@ -23,15 +23,47 @@ outcome. The current track uses model-judged labels and is exploratory only
 ```yaml
 manager_loop:
   authority: true
-  status: in-progress
+  status: blocked
   selection_policy: active_next_task-first
-  active_next_task: EVAL-2.1
+  active_next_task: null
   max_in_flight: 1
   dispatch_mode: none
-  reopen_gate: null
+  reopen_gate: reopen after at least one unfinished task becomes dependency-ready and has no substantive known_blockers
 tasks:
+  CORR-0:
+    title: Preserve completed cards and register approved corrected-candidate work
+    status: DONE
+    classification: architecture-paperwork
+    type: documentation
+    validation_tier: unit-fast
+    depends_on: []
+    owner_files:
+    - .memory-bank/
+    - docs/
+    allowed_write_set:
+    - .memory-bank/
+    - docs/
+    non_goals:
+    - No runtime, frozen artifact, custody or publication changes.
+    required_validation:
+    - git diff --check
+    expected_evidence:
+    - Archived cards retain exact bytes; runtime state preserved; strict plan validates; owner proceed decision recorded.
+    rollback:
+    - Restore this task changes only.
+    stop_conditions:
+    - Historical state would be lost.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-manager: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: User proceed after explicit separate corrected-candidate proposal.
+        validation_summary: Exact pre-compaction tracker archived; structural comparison exit 0 preserves all state/dependencies/write sets/closeouts (0f05e0). Strict plan PASS 73 tasks; git diff --check exit 0. Decision and scoped CORR-1..4 recorded; no runtime or frozen artifact change.
+    dod_status: pass
   OD-0.0:
-    title: Given an empty package, when `cargo check --all-targets` runs at the repository root, then the `ontodoc` lib and bin compile and `ontocode-rs/` is not built
+    title: OD-0.0 completed; original task card in archive/release-010-completed-cards.md#od-00
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -55,19 +87,15 @@ tasks:
     - src/lib.rs
     - src/main.rs
     non_goals:
-    - Any retrieval, storage or MCP logic.
-    - Modifying anything under `ontocode-rs/`.
-    - A multi-crate workspace.
+    - See archive/release-010-completed-cards.md#od-00 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo check --all-targets
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#od-00 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-00 (sha256 524b2be1019c)'
+    - See archive/release-010-completed-cards.md#od-00 (verbatim card).
     rollback:
-    - Delete the listed files.
+    - See archive/release-010-completed-cards.md#od-00 (verbatim card).
     stop_conditions:
-    - A dependency version is unavailable offline and network fetch fails.
-    - Cargo resolves `ontocode-rs/Cargo.toml` as part of the build.
+    - See archive/release-010-completed-cards.md#od-00 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -78,7 +106,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#od-00 (sha256 9547531a405b)'
     dod_status: pass
   OD-1.0:
-    title: Given a fixture tree with ignored, oversized, non-UTF-8 and symlinked files, when the corpus walk runs, then only eligible `.md`/`.markdown` files are returned in sorted relative-path order and each skip is a typed diagnostic
+    title: OD-1.0 completed; original task card in archive/release-010-completed-cards.md#od-10
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -97,16 +125,15 @@ tasks:
     - src/lib.rs
     - tests/fixtures/corpus/
     non_goals:
-    - Parsing Markdown.
-    - Following symlinks or reading outside the root.
+    - See archive/release-010-completed-cards.md#od-10 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib -- corpus::'
+    - See archive/release-010-completed-cards.md#od-10 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-10 (sha256 d764553f835b)'
+    - See archive/release-010-completed-cards.md#od-10 (verbatim card).
     rollback:
-    - Revert `src/corpus.rs` and the module line in `src/lib.rs`.
+    - See archive/release-010-completed-cards.md#od-10 (verbatim card).
     stop_conditions:
-    - Beneath-root reads need platform code beyond std on Linux.
+    - See archive/release-010-completed-cards.md#od-10 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -117,7 +144,7 @@ tasks:
         validation_summary: See audit_session-2026-11-11-tracker-evidence-compaction.md#od-10; verbatim scalar SHA-256 84105a9a30bb4cb0df0230b1973e65af6e0cae529c1917caa2ac7362c7f4ab00.
     dod_status: pass
   OD-1.1:
-    title: Given Markdown fixtures with ATX and setext headings, front matter, nested fences and duplicate headings, when parsed, then sections and chunks carry GitHub slugs, byte and line spans, span SHA-256, budget-independent section ids and chunk ids of section id plus ordinal
+    title: OD-1.1 completed; original task card in archive/release-010-completed-cards.md#od-11
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -138,17 +165,15 @@ tasks:
     - src/lib.rs
     - tests/fixtures/markdown/
     non_goals:
-    - Tiers and pseudo-documents (OD-1.2).
-    - Resolving links (OD-1.3).
-    - MDX or HTML rendering.
+    - See archive/release-010-completed-cards.md#od-11 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib -- parse:: chunk::'
+    - See archive/release-010-completed-cards.md#od-11 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-11 (sha256 a43869c6d173)'
+    - See archive/release-010-completed-cards.md#od-11 (verbatim card).
     rollback:
-    - Revert the two modules and the module lines in `src/lib.rs`.
+    - See archive/release-010-completed-cards.md#od-11 (verbatim card).
     stop_conditions:
-    - pulldown-cmark offsets cannot express a required span.
+    - See archive/release-010-completed-cards.md#od-11 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -159,7 +184,7 @@ tasks:
         validation_summary: See audit_session-2026-11-11-tracker-evidence-compaction.md#od-11; verbatim scalar SHA-256 7e8cf4743772b284dd61cbc6d29142bd086989f826e44f8479a2251bba1e9ff4.
     dod_status: pass
   OD-1.2:
-    title: Given parsed sections, when tiers are derived, then each chunk has L0 at most 200 bytes and L1 at most 1,500 bytes, each document has a structural pseudo-document, and every tier byte is copied from the source
+    title: OD-1.2 completed; original task card in archive/release-010-completed-cards.md#od-12
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -176,15 +201,15 @@ tasks:
     - src/tiers.rs
     - src/lib.rs
     non_goals:
-    - Generated or model-written summaries.
+    - See archive/release-010-completed-cards.md#od-12 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib -- tiers::'
+    - See archive/release-010-completed-cards.md#od-12 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-12 (sha256 09371c03c70e)'
+    - See archive/release-010-completed-cards.md#od-12 (verbatim card).
     rollback:
-    - Revert `src/tiers.rs`.
+    - See archive/release-010-completed-cards.md#od-12 (verbatim card).
     stop_conditions:
-    - A tier cannot be built without rewriting source text.
+    - See archive/release-010-completed-cards.md#od-12 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -195,7 +220,7 @@ tasks:
         validation_summary: See audit_session-2026-11-11-tracker-evidence-compaction.md#od-12; verbatim scalar SHA-256 33b3afd538ffab1bf054f5c6c3b521a8a7ff9c59bd76b07c185df4f6724c2513.
     dod_status: pass
   OD-1.3:
-    title: Given a multi-file fixture with relative links, anchors, broken links and inline code spans, when the graph is built, then CONTAINS, NEXT, LINKS_TO (projected to first chunks) and MENTIONS edges match the golden edge list and broken links are diagnostics, not edges
+    title: OD-1.3 completed; original task card in archive/release-010-completed-cards.md#od-13
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -214,16 +239,15 @@ tasks:
     - src/lib.rs
     - tests/fixtures/graph/
     non_goals:
-    - Resolving MENTIONS to code symbols.
-    - External URL fetching.
+    - See archive/release-010-completed-cards.md#od-13 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib -- graph::'
+    - See archive/release-010-completed-cards.md#od-13 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-13 (sha256 887ecbfa6575)'
+    - See archive/release-010-completed-cards.md#od-13 (verbatim card).
     rollback:
-    - Revert `src/graph.rs`.
+    - See archive/release-010-completed-cards.md#od-13 (verbatim card).
     stop_conditions:
-    - Link resolution needs repository knowledge beyond the corpus file set.
+    - See archive/release-010-completed-cards.md#od-13 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -234,7 +258,7 @@ tasks:
         validation_summary: See audit_session-2026-11-11-tracker-evidence-compaction.md#od-13; verbatim scalar SHA-256 a50ec0a8de1969b38b6a7f6551d7891ce2eddcb0116af70919cc61c61648acad.
     dod_status: pass
   OD-1.4:
-    title: Given a built corpus, when a generation is published, interrupted, reloaded with a corrupted artifact, or checked after a file edit, then publication is atomic, corruption is rejected, overflow publishes nothing, only index-time config affects the generation id, and freshness reports stale paths
+    title: OD-1.4 completed; original task card in archive/release-010-completed-cards.md#od-14
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -252,16 +276,15 @@ tasks:
     - src/store.rs
     - src/lib.rs
     non_goals:
-    - Incremental re-indexing.
-    - Non-Linux publication fallbacks.
+    - See archive/release-010-completed-cards.md#od-14 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib -- store::'
+    - See archive/release-010-completed-cards.md#od-14 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-14 (sha256 dd4b83ddbe46)'
+    - See archive/release-010-completed-cards.md#od-14 (verbatim card).
     rollback:
-    - Revert `src/store.rs`; delete `.ontodoc/` in fixtures.
+    - See archive/release-010-completed-cards.md#od-14 (verbatim card).
     stop_conditions:
-    - Atomic rename semantics differ on the target filesystem.
+    - See archive/release-010-completed-cards.md#od-14 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -272,7 +295,7 @@ tasks:
         validation_summary: See audit_session-2026-11-11-tracker-evidence-compaction.md#od-14; verbatim scalar SHA-256 e9f76e2b54ca87413b60d0cef10cf33e87212ccb4f23f4295a042ee9417d382c.
     dod_status: pass
   OD-1.5:
-    title: Given an indexed fixture, when the tokenizer, B0, B1 and abstention run, then B0 returns prior-attempt substring order, B1 BM25 scores match hand-computed values to 1e-9, chunk rankings map to section rankings by first occurrence, and abstention on normalised raw BM25 returns empty with a typed reason
+    title: OD-1.5 completed; original task card in archive/release-010-completed-cards.md#od-15
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -295,17 +318,15 @@ tasks:
     - src/search/bm25.rs
     - src/lib.rs
     non_goals:
-    - PPR, B2, B3, scope and explain (OD-1.6).
-    - Embeddings, rerankers, query rewriting or LLM calls.
-    - Tuning any parameter.
+    - See archive/release-010-completed-cards.md#od-15 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib -- search::'
+    - See archive/release-010-completed-cards.md#od-15 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-15 (sha256 7771b7ef1c83)'
+    - See archive/release-010-completed-cards.md#od-15 (verbatim card).
     rollback:
-    - Revert the listed search files.
+    - See archive/release-010-completed-cards.md#od-15 (verbatim card).
     stop_conditions:
-    - B0 behaviour cannot be reimplemented from the audit description without the host crates.
+    - See archive/release-010-completed-cards.md#od-15 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -316,7 +337,7 @@ tasks:
         validation_summary: See audit_session-2026-11-11-tracker-evidence-compaction.md#od-15; verbatim scalar SHA-256 7fa3923af3e5b88ea6d71e81ae92b354d4567bff2f9c8bba1b5ca43922d57bf1.
     dod_status: pass
   OD-1.6:
-    title: Given an indexed fixture, when B2 and B3 run, then PPR over undirected LINKS_TO and NEXT matches hand-computed values to 1e-6, a 0 and beta 0 reproduce B1 exactly, degenerate min-max yields 0, scope restricts candidates and seeds, and explain lists score components
+    title: OD-1.6 completed; original task card in archive/release-010-completed-cards.md#od-16
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -335,16 +356,15 @@ tasks:
     - src/search/fusion.rs
     - src/search/mod.rs
     non_goals:
-    - CONTAINS edges in PPR.
-    - Combined B2+B3 fusion.
+    - See archive/release-010-completed-cards.md#od-16 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib -- search::'
+    - See archive/release-010-completed-cards.md#od-16 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-16 (sha256 07ccbfec2ff2)'
+    - See archive/release-010-completed-cards.md#od-16 (verbatim card).
     rollback:
-    - Revert the listed search files.
+    - See archive/release-010-completed-cards.md#od-16 (verbatim card).
     stop_conditions:
-    - B2 or B3 at zero weight cannot reproduce B1 without changing B1.
+    - See archive/release-010-completed-cards.md#od-16 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -355,7 +375,7 @@ tasks:
         validation_summary: See audit_session-2026-11-11-tracker-evidence-compaction.md#od-16; verbatim scalar SHA-256 475fed0a400d0a760f17408dbfb8cce0958de0b6fc5aed58b6dad9aaf94e7acb.
     dod_status: pass
   OD-1.7:
-    title: Given citations from a generation, when the cited file is unchanged, shifted by an edit outside the span, edited inside the span, or deleted, then verify returns valid, moved with the new span, stale and missing respectively
+    title: OD-1.7 completed; original task card in archive/release-010-completed-cards.md#od-17
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -372,15 +392,15 @@ tasks:
     - src/cite.rs
     - src/lib.rs
     non_goals:
-    - Answer-level claim grounding.
+    - See archive/release-010-completed-cards.md#od-17 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib -- cite::'
+    - See archive/release-010-completed-cards.md#od-17 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-17 (sha256 69bf8d1aa46d)'
+    - See archive/release-010-completed-cards.md#od-17 (verbatim card).
     rollback:
-    - Revert `src/cite.rs`.
+    - See archive/release-010-completed-cards.md#od-17 (verbatim card).
     stop_conditions:
-    - A citation state cannot be decided from the stored span and current bytes alone.
+    - See archive/release-010-completed-cards.md#od-17 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -391,7 +411,7 @@ tasks:
         validation_summary: See audit_session-2026-11-11-tracker-evidence-compaction.md#od-17; verbatim scalar SHA-256 66064a5bec70a22e25901c0e531529b0d34af51a24977a94b9ab2db6fc4b254f.
     dod_status: pass
   OD-1.8:
-    title: Given ranked results and a byte budget, when context assembly runs, then every result first receives L0, leftover budget upgrades results in rank order to L1 then L2, an upgrade that does not fit keeps the prior tier, and output never exceeds the budget or truncates a tier
+    title: OD-1.8 completed; original task card in archive/release-010-completed-cards.md#od-18
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -408,16 +428,15 @@ tasks:
     - src/assemble.rs
     - src/lib.rs
     non_goals:
-    - Session ledgers or de-duplication across calls.
-    - Any quality hypothesis or comparison arm.
+    - See archive/release-010-completed-cards.md#od-18 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib -- assemble::'
+    - See archive/release-010-completed-cards.md#od-18 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-18 (sha256 1fab700da595)'
+    - See archive/release-010-completed-cards.md#od-18 (verbatim card).
     rollback:
-    - Revert `src/assemble.rs`.
+    - See archive/release-010-completed-cards.md#od-18 (verbatim card).
     stop_conditions:
-    - A tier for a chunk is missing from the generation.
+    - See archive/release-010-completed-cards.md#od-18 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -428,7 +447,7 @@ tasks:
         validation_summary: See audit_session-2026-11-11-tracker-evidence-compaction.md#od-18; verbatim scalar SHA-256 739cfa451ac96888960d0ebf718da124cb442ae0e6d3f1b4ffb6116cfb9eee91.
     dod_status: pass
   OD-2.0:
-    title: Given a fixture repository, when `ontodoc index`, `search`, `read`, `verify` and `status` run, then each exits 0 with deterministic JSON output and a missing index exits non-zero with a typed message
+    title: OD-2.0 completed; original task card in archive/release-010-completed-cards.md#od-20
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -450,16 +469,15 @@ tasks:
     - src/lib.rs
     - tests/cli.rs
     non_goals:
-    - The `eval` subcommands (EVAL-1.1, EVAL-1.2).
-    - Shell completion or config files.
+    - See archive/release-010-completed-cards.md#od-20 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo test --test cli
+    - See archive/release-010-completed-cards.md#od-20 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-20 (sha256 89c0caa5f09f)'
+    - See archive/release-010-completed-cards.md#od-20 (verbatim card).
     rollback:
-    - Revert the listed files.
+    - See archive/release-010-completed-cards.md#od-20 (verbatim card).
     stop_conditions:
-    - CLI output cannot be made deterministic without changing core types owned by earlier tasks.
+    - See archive/release-010-completed-cards.md#od-20 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -470,7 +488,7 @@ tasks:
         validation_summary: See audit_session-2026-11-11-tracker-evidence-compaction.md#od-20; verbatim scalar SHA-256 3a0eaba1c31d909404d5dbd9aadd9198c9d77977fe704b25680bf79435d86978.
     dod_status: pass
   OD-2.1:
-    title: Given a running `ontodoc serve` on an in-process duplex transport, when a client lists and calls the five tools, then each returns schema-valid bounded JSON with citations and freshness, and oversized results set `truncated`
+    title: OD-2.1 completed; original task card in archive/release-010-completed-cards.md#od-21
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -496,16 +514,15 @@ tasks:
     - Cargo.toml
     - Cargo.lock
     non_goals:
-    - HTTP transport, auth, write or index tools.
-    - MCP resources and prompts.
+    - See archive/release-010-completed-cards.md#od-21 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo test --test mcp
+    - See archive/release-010-completed-cards.md#od-21 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-21 (sha256 319d39a14add)'
+    - See archive/release-010-completed-cards.md#od-21 (verbatim card).
     rollback:
-    - Revert the listed files.
+    - See archive/release-010-completed-cards.md#od-21 (verbatim card).
     stop_conditions:
-    - rmcp 1.7 lacks a duplex/in-memory transport usable from tests.
+    - See archive/release-010-completed-cards.md#od-21 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -516,7 +533,7 @@ tasks:
         validation_summary: See audit_session-2026-11-11-tracker-evidence-compaction.md#od-21; verbatim scalar SHA-256 9e8e0b763c3909e92d31cfeb71214732f56daae12c24a2cb76ceecc1f611ac8a.
     dod_status: pass
   EVAL-1.0:
-    title: Given hand-computed reference cases, when nDCG@k, Recall@k, MRR@k, condensed nDCG', corpus-stratified paired bootstrap and randomization, Holm, Wilson, quadratic-weighted kappa and the power formula run, then each matches the reference within 1e-9 or the stated Monte Carlo tolerance
+    title: EVAL-1.0 completed; original task card in archive/release-010-completed-cards.md#eval-10
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -537,16 +554,15 @@ tasks:
     - src/eval/stats.rs
     - src/lib.rs
     non_goals:
-    - Statistics crates; implement with std and an in-crate SplitMix64.
-    - Reading run files (EVAL-1.1).
+    - See archive/release-010-completed-cards.md#eval-10 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib -- eval::'
+    - See archive/release-010-completed-cards.md#eval-10 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#eval-10 (sha256 8f0a6c125bfd)'
+    - See archive/release-010-completed-cards.md#eval-10 (verbatim card).
     rollback:
-    - Revert the listed eval files.
+    - See archive/release-010-completed-cards.md#eval-10 (verbatim card).
     stop_conditions:
-    - A hand-computed reference value disagrees with the implementation; stop and record the discrepancy instead of adjusting the test.
+    - See archive/release-010-completed-cards.md#eval-10 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -557,7 +573,7 @@ tasks:
         validation_summary: See audit_session-2026-11-11-tracker-evidence-compaction.md#eval-10; verbatim scalar SHA-256 0744b5ad8005c7ed8e71bd1ae9a3a2d318568272006a0191bcf4159c504feac3.
     dod_status: pass
   EVAL-1.1:
-    title: Given fixture queries, qrels and a config, when `ontodoc eval split`, `pool`, `run` and `score` execute, then splits and pools regenerate byte for byte, run writes TREC-style section rankings and a report with identity fields, score re-scores saved runs identically, and the test split is refused without `--confirm-test-split`
+    title: EVAL-1.1 completed; original task card in archive/release-010-completed-cards.md#eval-11
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -581,16 +597,15 @@ tasks:
     - tests/eval_run.rs
     - tests/fixtures/eval/
     non_goals:
-    - Integrity gates, sweep and power (EVAL-1.2).
-    - Authoring the real benchmark (EVAL-2.0).
+    - See archive/release-010-completed-cards.md#eval-11 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo test --test eval_run
+    - See archive/release-010-completed-cards.md#eval-11 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#eval-11 (sha256 3fd641dfb81a)'
+    - See archive/release-010-completed-cards.md#eval-11 (verbatim card).
     rollback:
-    - Revert the listed files.
+    - See archive/release-010-completed-cards.md#eval-11 (verbatim card).
     stop_conditions:
-    - Section ids are not stable across generations of the same pinned corpus.
+    - See archive/release-010-completed-cards.md#eval-11 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -601,7 +616,7 @@ tasks:
         validation_summary: See audit_session-2026-11-11-tracker-evidence-compaction.md#eval-11; verbatim scalar SHA-256 54077fb704190a1ea71e65e608ee733655c0d688f81400cf529a7b9799787214.
     dod_status: pass
   EVAL-1.2:
-    title: Given fixture benchmarks with planted defects, when `ontodoc eval check-benchmark` and `eval sweep` run, then every integrity gate fails on its planted defect, sweep refuses non-dev splits, misses are attributed to one stage each, and the frozen config is refused on a dirty tree or hash mismatch
+    title: EVAL-1.2 completed; original task card in archive/release-010-completed-cards.md#eval-12
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -626,15 +641,15 @@ tasks:
     - tests/eval_gates.rs
     - tests/fixtures/eval_gates/
     non_goals:
-    - Real benchmark data.
+    - See archive/release-010-completed-cards.md#eval-12 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo test --test eval_gates
+    - See archive/release-010-completed-cards.md#eval-12 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#eval-12 (sha256 4bbfa343da08)'
+    - See archive/release-010-completed-cards.md#eval-12 (verbatim card).
     rollback:
-    - Revert the listed files.
+    - See archive/release-010-completed-cards.md#eval-12 (verbatim card).
     stop_conditions:
-    - A gate cannot be checked from repository files and the pinned generations alone.
+    - See archive/release-010-completed-cards.md#eval-12 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -645,7 +660,7 @@ tasks:
         validation_summary: See audit_session-2026-11-11-tracker-evidence-compaction.md#eval-12; verbatim scalar SHA-256 3948218febdce9fdf51c8578f763e817329dc74a25aaa46ad16e7fdae53dbfbc.
     dod_status: pass
   EVAL-1.3:
-    title: Given missing or invalid benchmark evidence, when a measurement or held-out scoring is requested, the evaluation entry point refuses before publishing results; valid evidence and matching frozen identity permit the measured operation
+    title: EVAL-1.3 completed; original task card in archive/release-010-completed-cards.md#eval-13
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -681,16 +696,15 @@ tasks:
     - tests/fixtures/eval/
     - src/store.rs
     non_goals:
-    - Real benchmark data, annotation or held-out measurement.
-    - Model-only relevance labels counted as human judgments.
+    - See archive/release-010-completed-cards.md#eval-13 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run
+    - See archive/release-010-completed-cards.md#eval-13 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#eval-13 (sha256 9b367418be9b)'
+    - See archive/release-010-completed-cards.md#eval-13 (verbatim card).
     rollback:
-    - Revert this task's listed source and test changes.
+    - See archive/release-010-completed-cards.md#eval-13 (verbatim card).
     stop_conditions:
-    - Correctness requires weakening an ADR integrity, freeze or annotation requirement.
+    - See archive/release-010-completed-cards.md#eval-13 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -701,7 +715,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#eval-13 (sha256 b5512fc122f2)'
     dod_status: pass
   EVAL-2.0:
-    title: Given the pinned corpora, when the benchmark is assembled, then `eval/` holds pinned corpus metadata, stratified queries with operational strata and seeded dev/test split, and grid-wide top-10 pools with the judgement count reported
+    title: EVAL-2.0 completed; original task card in archive/release-010-completed-cards.md#eval-20
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -736,17 +750,15 @@ tasks:
     - eval/pools/
     - eval/preparation.json
     non_goals:
-    - Relevance judgements (EVAL-2.1).
-    - Link-derived silver qrels (rejected in the ADR).
+    - See archive/release-010-completed-cards.md#eval-20 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo run --release -- eval check-benchmark eval/config.json --stage pools --gates eval/gates.json --query-review eval/query-review.jsonl --query-review-sha256 "$ONTODOC_QUERY_REVIEW_SHA256"
+    - See archive/release-010-completed-cards.md#eval-20 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#eval-20 (sha256 d183e7f9fe39)'
+    - See archive/release-010-completed-cards.md#eval-20 (verbatim card).
     rollback:
-    - Delete the listed files.
+    - See archive/release-010-completed-cards.md#eval-20 (verbatim card).
     stop_conditions:
-    - No permissively licensed second corpus is available.
-    - Queries cannot be written without copying target text.
+    - See archive/release-010-completed-cards.md#eval-20 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -758,7 +770,7 @@ tasks:
     dod_status: pass
   EVAL-2.1:
     title: Given approved pools and FIX-14, when two independent model judges (GPT-6-Astra, claude-opus-5-5 high) blindly grade every pooled pair, then model-judged qrels and provenance pass qrels-stage preparation with agreement and trusted operator approval (ADR rev 13, exploratory only)
-    status: OPEN
+    status: DONE
     classification: implementation-ready
     assurance_profile: full
     complexity: complex
@@ -798,23 +810,27 @@ tasks:
     - eval/dev-queries.jsonl
     - eval/test-queries.jsonl
     non_goals:
-    - Model labels counted or described as human judgements.
-    - Judging off-topic queries.
-    - A judge seeing system identity, scores, ranks or the other judge's grade.
+    - See archive/corrected-candidate-preparation-cards.md task EVAL-2.1 (verbatim).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo run --release -- eval check-benchmark eval/config.json --stage qrels --query-review eval/query-review.jsonl --query-review-sha256 "$ONTODOC_QUERY_REVIEW_SHA256" --annotation eval/annotation.jsonl --annotation-notes eval/annotation.md --preparation-out eval/preparation.json --operator "$OPERATOR" --operator-evidence eval/audit_session-preparation.md
+    - See archive/corrected-candidate-preparation-cards.md task EVAL-2.1 (verbatim).
     expected_evidence:
-    - Every pooled answerable pair has two raw model grades from blinded judge sessions shown only guideline, query and section text in a seeded order; final grade floor((a+b)/2).
-    - annotation.md declares label_provenance model-judged, both model ids, guideline version, blinding and the adjudication rule; agreement kappa >= 0.6 with seeded query-cluster CI and prevalence.
-    - Preparation records label_provenance model-judged; separate dev/test qrels; operator audits and pins the manifest hash.
+    - See archive/corrected-candidate-preparation-cards.md task EVAL-2.1 (verbatim).
     rollback:
     - Delete the listed files.
     stop_conditions:
     - Weighted kappa below 0.6; revise the guideline and regrade before any run.
     - A judge session saw rankings, scores or the other judge's grades.
     known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-12: "1 2 3" accepts preparation approval item 1 and continued release work.'
+        validation_summary: 'Approval-only closeout: inline Python SHA-256 checks exit 0 for the exact approved manifest, nine bound inputs and four partition files; git diff --check exit 0. Historical qrels-stage preparation exit 0, judging provenance and agreement are preserved in eval/audit_session-preparation.md and eval/judging/. Required preparation command was not rerun: its create-new output already exists and is now pinned. No current build/test/measurement claim; no labels inspected. All payloads unchanged.'
+    dod_status: pass
   FIX-14:
-    title: Given ADR rev 13, annotation notes may declare label_provenance model-judged with two distinct model judges, preparation records it, and every scored report then carries it with confirmatory comparisons downgraded to exploratory (no Holm, no decision)
+    title: FIX-14 completed; original task card in archive/release-010-completed-cards.md#fix-14
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -835,17 +851,15 @@ tasks:
     - tests/eval_gates.rs
     - tests/common/mod.rs
     non_goals:
-    - Weakening any human-path check; model parties as human; changes to ranking, metrics or decision rules for human labels.
+    - See archive/release-010-completed-cards.md#fix-14 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval::'
-    - CARGO_BUILD_JOBS=4 cargo test --all-targets
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#fix-14 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-14 (sha256 2b6c7267e819)'
+    - See archive/release-010-completed-cards.md#fix-14 (verbatim card).
     rollback:
-    - Revert this task's listed changes.
+    - See archive/release-010-completed-cards.md#fix-14 (verbatim card).
     stop_conditions:
-    - Any existing human-path test changes expectation.
+    - See archive/release-010-completed-cards.md#fix-14 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -856,7 +870,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-14 (sha256 e40b3c7ecac8)'
     dod_status: pass
   FIX-15:
-    title: Given ADR rev 14-15, config pool_extension deepens the pool for listed answerable queries only, is validated against the whole benchmark at preparation and pooling, and selected dev/test captures never need the other split
+    title: FIX-15 completed; original task card in archive/release-010-completed-cards.md#fix-15
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -873,18 +887,15 @@ tasks:
     - src/eval/run.rs
     - tests/eval_gates.rs
     non_goals:
-    - Changing @10 metrics, the base pool, ranking, or any human-path rule.
+    - See archive/release-010-completed-cards.md#fix-15 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval::'
-    - CARGO_BUILD_JOBS=4 cargo test --all-targets
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#fix-15 (verbatim card).
     expected_evidence:
-    - PoolExtension{depth 11..=30, 1..=64 sorted unique ids}; rank_sections_to keeps the FETCH order and top-10 prefix; only listed queries pool deeper; pool bytes regenerate identically.
-    - validate_pool_extension runs on the complete query set (load, full capture, pooling), not per partition; a regression with ids in both splits passes preparation and a dev-only capture, and fails on the old per-partition check.
+    - See archive/release-010-completed-cards.md#fix-15 (verbatim card).
     rollback:
-    - Revert this task's listed changes and remove pool_extension from eval/config.json.
+    - See archive/release-010-completed-cards.md#fix-15 (verbatim card).
     stop_conditions:
-    - Any existing pool or human-path test changes expectation.
+    - See archive/release-010-completed-cards.md#fix-15 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -896,43 +907,49 @@ tasks:
     dod_status: pass
   EVAL-3.0:
     title: Given the dev split, when one `ontodoc eval run` of B0 and B1 executes, then `report.json` exists with every identity field, judged@10 for both systems, and a second run is byte-identical
-    status: OPEN
+    status: DONE
     classification: implementation-ready
     assurance_profile: full
     complexity: complex
     depends_on:
     - EVAL-2.1
+    - REL-3
+    - REL-5
     type: measurement
     validation_tier: integration
     impact_risk: low
     owner_files:
-    - $ONTODOC_BENCH/results/dev-proof/
-    - $ONTODOC_BENCH/results/dev-proof-repeat/
-    - $ONTODOC_BENCH/audit_session-dev-proof.md
-    allowed_write_set:
-    - $ONTODOC_BENCH/results/dev-proof/
-    - $ONTODOC_BENCH/results/dev-proof-repeat/
-    - $ONTODOC_BENCH/audit_session-dev-proof.md
+    - tmp/release-010/candidate/target/release/ontodoc
+    allowed_write_set: []
+    validation_workspace:
+      root: tmp/release-010
+      inputs:
+      - candidate/target/release/ontodoc
+      generated_outputs:
+      - benchmark/
     non_goals:
     - The test split.
     - Parameter tuning.
     required_validation:
-    - '"$ONTODOC_FROZEN_BIN" eval run "$ONTODOC_BENCH/config.json" --preparation "$ONTODOC_BENCH/preparation.json" --preparation-sha256 "$ONTODOC_PREPARATION_SHA256" --split dev --out "$ONTODOC_BENCH/results/dev-proof"'
-    - '"$ONTODOC_FROZEN_BIN" eval run "$ONTODOC_BENCH/config.json" --preparation "$ONTODOC_BENCH/preparation.json" --preparation-sha256 "$ONTODOC_PREPARATION_SHA256" --split dev --out "$ONTODOC_BENCH/results/dev-proof-repeat"'
-    - diff -r "$ONTODOC_BENCH/results/dev-proof" "$ONTODOC_BENCH/results/dev-proof-repeat"
+    - See archive/corrected-candidate-preparation-cards.md task EVAL-3.0 (verbatim).
     expected_evidence:
-    - '`$ONTODOC_BENCH/results/dev-proof/report.json` exists and a separately named rerun produces byte-identical artifacts; existing output directories refuse overwrite.'
-    - Trusted preparation has already exported/recaptured and approved the canonical external snapshot; audit binds preparation hash, complete benchmark/partition commitments and matching committed code/binary. Dev proof loads selected dev payloads only, never the full pool/provenance/test payloads. No scientific improvement follows from this instrument proof.
+    - See archive/corrected-candidate-preparation-cards.md task EVAL-3.0 (verbatim).
     rollback:
     - Preserve the recorded proof; delete only an explicitly owned disposable dev rerun.
     stop_conditions:
-    - Report identity fields are missing or rerun output differs.
-    - Canonical external benchmark snapshot and frozen binary paths are not pinned in the audit; EVAL-1.3 success/admission proof is missing.
-    - Clean committed code, matching audited binary and preparation/provenance handoff are unavailable; HEAD exists (b6e3f3e) but the tree is dirty; freezing needs a clean committed checkpoint supplied by the owner.
+    - See archive/corrected-candidate-preparation-cards.md task EVAL-3.0 (verbatim).
     known_blockers: []
+    closeout:
+      role_results:
+        coder-performance: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: User 2026-11-13 proceed tasks; same-byte external export.
+        validation_summary: Both dev runs and diff -r exit 0; seven byte-identical files, all metadata/hash identities checked, judged10=1 for four arms (B0 empty). Overwrite probe exit 1 with original hashes unchanged. External benchmark/eval/{audit_session-dev-proof.md,dev-proof-validation.json}; mirror audit_session-2026-11-13-dev-proof.md. No held-out access or custody writes.
+    dod_status: pass
   EVAL-3.1:
     title: Given the dev split only, when PPR alpha, B3 beta and the abstention threshold are swept and the power calculation runs, then the external frozen export and fixed registration bind selected values, power, commit and hashes before test access
-    status: OPEN
+    status: DONE
     classification: implementation-ready
     assurance_profile: full
     complexity: complex
@@ -942,41 +959,42 @@ tasks:
     validation_tier: integration
     impact_risk: medium
     owner_files:
-    - $ONTODOC_BENCH/config.json
-    - $ONTODOC_BENCH/preparation.json
-    - $ONTODOC_BENCH/frozen-config.toml
-    - $ONTODOC_BENCH/results/dev-sweep/
-    - $ONTODOC_GIT_COMMON/ontodoc-eval/registration.json
-    - $ONTODOC_BENCH/audit_session-preregistration.md
-    allowed_write_set:
-    - $ONTODOC_BENCH/config.json
-    - $ONTODOC_BENCH/preparation.json
-    - $ONTODOC_BENCH/frozen-config.toml
-    - $ONTODOC_BENCH/results/dev-sweep/
-    - $ONTODOC_GIT_COMMON/ontodoc-eval/registration.json
-    - $ONTODOC_BENCH/audit_session-preregistration.md
+    - tmp/release-010/candidate/target/release/ontodoc
+    allowed_write_set: []
+    validation_workspace:
+      root: .
+      inputs:
+      - tmp/release-010/candidate/target/release/ontodoc
+      - tmp/release-010/benchmark/eval/preparation-selected.json
+      - tmp/release-010/benchmark/eval/config.json
+      generated_outputs:
+      - tmp/release-010/benchmark/eval/frozen-config.toml
+      - tmp/release-010/benchmark/eval/results/freeze/
+      - tmp/release-010/benchmark/eval/audit_session-preregistration.md
+      - .git/ontodoc-eval/
     non_goals:
     - Any test-split evaluation.
     - Sweeping the chunk budget or any grid beyond the ADR.
     required_validation:
-    - '"$ONTODOC_FROZEN_BIN" eval sweep "$ONTODOC_BENCH/config.json" --preparation "$ONTODOC_BENCH/preparation.json" --preparation-sha256 "$ONTODOC_PREPARATION_SHA256" --split dev --out "$ONTODOC_BENCH/results/dev-sweep/sweep.json"'
-    - '"$ONTODOC_FROZEN_BIN" eval check-benchmark "$ONTODOC_BENCH/config.json" --stage qrels --gates "$ONTODOC_BENCH/gates.json" --query-review "$ONTODOC_BENCH/query-review.jsonl" --query-review-sha256 "$ONTODOC_QUERY_REVIEW_SHA256" --annotation "$ONTODOC_BENCH/annotation.jsonl" --annotation-notes "$ONTODOC_BENCH/annotation.md" --preparation-out "$ONTODOC_BENCH/preparation.json"'
-    - '"$ONTODOC_FROZEN_BIN" eval freeze "$ONTODOC_BENCH/config.json" --preparation "$ONTODOC_BENCH/preparation.json" --preparation-sha256 "$ONTODOC_PREPARATION_SHA256" --threshold "$ONTODOC_DEV_THRESHOLD" --repo . --out "$ONTODOC_BENCH/frozen-config.toml"'
-    - '"$ONTODOC_FROZEN_BIN" eval check-frozen "$ONTODOC_BENCH/config.json" "$ONTODOC_BENCH/frozen-config.toml" --preparation "$ONTODOC_BENCH/preparation.json" --preparation-sha256 "$ONTODOC_PREPARATION_SHA256" --repo .'
+    - See archive/corrected-candidate-preparation-cards.md task EVAL-3.1 (verbatim).
     expected_evidence:
-    - Grid a {0, 0.1, ..., 0.5}, beta {0, 0.1, ..., 0.5} (or the recorded fallback {0.2, 0.4}); threshold set for at most 10% false abstention on answerable dev queries.
-    - Sweep using the original approved preparation; select only dev parameters in config.json. Then run the listed qrels-stage check explicitly as trusted-operator preparation, not ordinary dev; verify unchanged query/review/label/split bytes and reapprove the resulting manifest in the external audit. Update ONTODOC_PREPARATION_SHA256 from that approval before freeze/check. Ordinary dev never opens held-out data to refresh approval. Record exact config, complete partition/index commitments, both selected digests and h5-then-h2-v1 policy; never tune/rewrite held-out payloads.
-    - required n = max(n_H2, n_H5, 150) is at most the preparation-bound test answerable count; exact frozen export and registration SHA-256 hashes are recorded in an audit session before EVAL-3.2.
+    - See archive/corrected-candidate-preparation-cards.md task EVAL-3.1 (verbatim).
     rollback:
-    - Preserve the write-once registration and frozen evidence. Superseding custody requires a fresh approved experiment and separately scoped transition; never delete it to retry.
+    - See archive/corrected-candidate-preparation-cards.md task EVAL-3.1 (verbatim).
     stop_conditions:
-    - Any code path reads test-split qrels during the sweep.
-    - Required n exceeds the answerable test queries; write and label more test queries (reopen EVAL-2.0/2.1) before freezing.
-    known_blockers:
-    - ADR revision 6 resolves artifact location. EVAL-1.3 (DONE) proved synthetic captured freeze/check and attempt success paths; real runs still need EVAL-2.x data. ONTODOC_DEV_THRESHOLD must bind the dev selection, never a guess; external benchmark/custody/binary paths must be pinned and preregistered.
+    - See archive/corrected-candidate-preparation-cards.md task EVAL-3.1 (verbatim).
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-performance: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: User proceed tasks approves selected pin 0d4ef095...f8c8c61 on 2026-11-13.
+        validation_summary: Retained sweep/power/recapture exit0; this turn pin/identity checks, freeze and check-frozen exit0. Required150<=165, exact registration/export binding. Full hashes and commands in audit_session-2026-11-13-preregistration.md and external results/freeze/validation.json. No held-out attempt yet.
+    dod_status: pass
   EVAL-3.2:
     title: Given approved frozen identity, when the sole held-out run executes, then accepted custody binds every reported hypothesis and the h5-then-h2-v1 recommendation without changing application defaults
-    status: OPEN
+    status: DONE
     classification: implementation-ready
     assurance_profile: full
     complexity: complex
@@ -987,34 +1005,45 @@ tasks:
     validation_tier: integration
     impact_risk: high
     owner_files:
-    - $ONTODOC_BENCH/results/test-v1/
-    - $ONTODOC_GIT_COMMON/ontodoc-eval/attempt-started.json
-    - $ONTODOC_GIT_COMMON/ontodoc-eval/attempt-result.json
-    - $ONTODOC_BENCH/audit_session-held-out.md
-    allowed_write_set:
-    - $ONTODOC_BENCH/results/test-v1/
-    - $ONTODOC_GIT_COMMON/ontodoc-eval/attempt-started.json
-    - $ONTODOC_GIT_COMMON/ontodoc-eval/attempt-result.json
-    - $ONTODOC_BENCH/audit_session-held-out.md
+    - tmp/release-010/candidate/target/release/ontodoc
+    allowed_write_set: []
+    validation_workspace:
+      root: .
+      inputs:
+      - tmp/release-010/candidate/target/release/ontodoc
+      - tmp/release-010/benchmark/eval/preparation-selected.json
+      - tmp/release-010/benchmark/eval/frozen-config.toml
+      - .git/ontodoc-eval/registration.json
+      generated_outputs:
+      - tmp/release-010/benchmark/eval/results/test-v1/
+      - tmp/release-010/benchmark/eval/results/held-out-validation/
+      - tmp/release-010/benchmark/eval/audit_session-held-out.md
+      - .git/ontodoc-eval/attempt-started.json
+      - .git/ontodoc-eval/attempt-result.json
     non_goals:
     - Re-running the test split with a changed config.
     - Reporting only passing hypotheses.
     required_validation:
-    - '"$ONTODOC_FROZEN_BIN" eval run "$ONTODOC_BENCH/config.json" --preparation "$ONTODOC_BENCH/preparation.json" --preparation-sha256 "$ONTODOC_PREPARATION_SHA256" --split test --confirm-test-split --out "$ONTODOC_BENCH/results/test-v1"'
+    - See archive/corrected-candidate-preparation-cards.md task EVAL-3.2 (verbatim).
     expected_evidence:
-    - Identity fields match the frozen config; judged@10 >= 0.95 for every system; condensed nDCG' reported.
-    - Pooled and per-corpus results, per-stage miss attribution, and an audit session recording the outcome and marking the test split burned if any later tuning uses its errors.
-    - Report H1, both H2/H5 Holm/CI decisions, H3/H4/E1 and all limitations, regardless of gain. Freeze h5-then-h2-v1 before access; H5 pass recommends hier/frozen beta, else H2 pass graph/frozen alpha, else lexical/no-op. Under model-judged labels (ADR rev 13) H2/H5 report effects and CIs with role exploratory, no Holm p, no decision and no recommendation; H1 keeps its decision; the report lists the rev 15 withdrawn queries. Omitted threshold stays disabled. This task writes no application defaults; OD-4.1 alone implements an accepted recommendation.
-    - Audit binds canonical external snapshot, preparation approval, frozen export/registration and started/completed hashes. Reserve before test payload access; every failure consumes the attempt. Visible output without matching completed custody is unaccepted, including publication/completion failure; preserve and audit it, never retry/reset.
+    - See archive/corrected-candidate-preparation-cards.md task EVAL-3.2 (verbatim).
     rollback:
     - None for the run itself; a superseding run requires a new pre-registered configuration, a fresh test split and its own audit record.
     stop_conditions:
     - Frozen config hash, commit or binary hash mismatch, or a dirty tree.
     - H1 fails; stop and audit the pipeline before interpreting H2 or H5.
     known_blockers: []
+    closeout:
+      role_results:
+        coder-performance: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: User proceed tasks approves held-out diagnostic limitation on 2026-11-13.
+        validation_summary: EVAL-3.2 sole run and saved score exit0; completed custody and all publication hashes verified, score equals report. H1 pass, judged10=1; model-judged H2/H5 exploratory without promotion. Citation14/MCP12 tests exit0. Full outcomes, CIs, withdrawal list and limitations in audit_session-2026-11-13-held-out.md; external acceptance.json binds hashes.
+    dod_status: pass
   OD-4.1:
     title: Given an accepted audited held-out report, apply only its predeclared h5-then-h2-v1 default recommendation with CLI/MCP parity, or record an explicit no-op when neither arm passes
-    status: OPEN
+    status: DONE
     classification: implementation-ready
     assurance_profile: full
     complexity: complex
@@ -1032,31 +1061,28 @@ tasks:
     - tests/cli.rs
     - tests/mcp.rs
     non_goals:
-    - Ranking algorithm changes, mutable evaluation reads on the retrieval path, or promotion by largest observed held-out gain.
-    - Default abstention, new MCP fields/tools or changes to explicit per-request mode/weight semantics.
+    - See archive/corrected-candidate-preparation-cards.md task OD-4.1 (verbatim).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib cli::'
-    - CARGO_BUILD_JOBS=4 cargo test --test cli --test mcp
-    - cargo fmt --check
-    - just --justfile ../ontocode/justfile compiler-lane-detached "$ONTODOC_PROMOTION_JOB" sh -c "CARGO_BUILD_JOBS=4 cargo clippy --all-targets -- -D warnings"
+    - See archive/corrected-candidate-preparation-cards.md task OD-4.1 (verbatim).
     expected_evidence:
-    - Verify the accepted completed report, publication, frozen identity and audited recommendation. Apply H5-first mode plus frozen beta, else H2 mode plus frozen alpha, else record no code change through manager-owned closeout. Invalid or H1-failing output authorizes no promotion. A model-judged (exploratory) report authorizes no promotion: record the no-op.
-    - Shared SearchMode/SearchRequest in src/cli.rs owns clap and serde defaulting and omitted weights; src/mcp.rs consumes it and src/search/mod.rs requires explicit mode, so neither needs production edits. Preserve explicit requests and zero weights; absent threshold remains None. Generated MCP schema, CLI and serde omissions agree, and implicit ranking matches explicit approved parameters on synthetic fixtures.
-    - Manager-owned audit records the exact recommendation and default constants, or the no-op reason; no second held-out run or post-result tuning. No-op may use unchanged compatibility checks and needs no source edit.
-    - Run the no-cd external compiler-lane wrapper from this package root only, with a manager-assigned unique absent ONTODOC_PROMOTION_JOB. Harvest its terminal result with `just --justfile ../ontocode/justfile lane-result "$ONTODOC_PROMOTION_JOB"`; startup exit0 is not lint success. Never build the donor snapshot.
+    - See archive/corrected-candidate-preparation-cards.md task OD-4.1 (verbatim).
     rollback:
     - Revert only default/test edits without altering frozen code, custody or benchmark artifacts.
     stop_conditions:
-    - Missing or mismatched accepted custody, audit, preregistered policy or frozen parameters.
-    - Promotion needs an algorithm/schema/threshold-default change outside this card.
+    - See archive/corrected-candidate-preparation-cards.md task OD-4.1 (verbatim).
     known_blockers: []
     closeout:
       role_results:
         coder-worker: null
         coder-worker-test-challenger: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: User proceed tasks; ADR13 model-judged report requires explicit no-op.
+        validation_summary: No source/test changes; accepted custody and exploratory null decisions verified. CLI8/MCP12 and cli-unit8 passed; fmt exit0; managed Clippy terminal exit0 (ontodoc-010-noop-20261113-final). Source bytes match F. See audit_session-2026-11-13-default-noop.md.
+    dod_status: pass
   OD-4.0:
     title: Given the held-out results, when the closeout is written, then README, AGENTS.md and memory-bank files describe install, MCP client setup, tool contracts and each hypothesis outcome with its CI and a link to the report
-    status: OPEN
+    status: DONE
     classification: architecture-paperwork
     assurance_profile: full
     complexity: complex
@@ -1081,15 +1107,22 @@ tasks:
     required_validation:
     - CARGO_BUILD_JOBS=4 cargo test
     expected_evidence:
-    - README states each H2/H5 outcome as pass, negative or inconclusive with its CI and links the pinned external held-out report/audit identity under ADR6. Model-judged runs state effects and CIs as exploratory, say \"model-judged labels\", and claim no outcome.
-    - Memory bank updated; this plan closed.
+    - See archive/corrected-candidate-preparation-cards.md task OD-4.0 (verbatim).
     rollback:
     - Revert the documentation edits.
     stop_conditions:
     - Held-out report is missing or its identity fields do not match the frozen config.
     known_blockers: []
+    closeout:
+      role_results:
+        coder-manager: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: User proceed tasks authorizes evaluation documentation closeout.
+        validation_summary: README/AGENTS/architecture report accepted exploratory outcomes, CIs and limitations; audit_session-2026-11-13-evaluation-closeout.md. Main-root cargo test exit0, 281 passed/one ignored; prior same-session fmt and managed Clippy exit0. No Rust changes or held-out rerun.
+    dod_status: pass
   OD-3.0:
-    title: Given duplicate section or chunk IDs, publication refuses before any store mutation and loading rejects the malformed generation
+    title: OD-3.0 completed; original task card in archive/release-010-completed-cards.md#od-30
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -1105,17 +1138,15 @@ tasks:
     allowed_write_set:
     - src/store.rs
     non_goals:
-    - Changing ID syntax, schema, graph/ranking algorithms or evaluation guards.
-    - Full artifact semantic validation, path/read caps, HTTP or filesystem containment repairs.
+    - See archive/release-010-completed-cards.md#od-30 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib store::'
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#od-30 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-30 (sha256 484829166e8d)'
+    - See archive/release-010-completed-cards.md#od-30 (verbatim card).
     rollback:
-    - Revert only this task's changes; preserve published source inputs and prior closeouts.
+    - See archive/release-010-completed-cards.md#od-30 (verbatim card).
     stop_conditions:
-    - The repair requires a new identity format or disk schema.
+    - See archive/release-010-completed-cards.md#od-30 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1126,7 +1157,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#od-30 (sha256 96e92224ead1)'
     dod_status: pass
   OD-3.1:
-    title: Given canonical-byte and empty-slug conflicts, record an explicit compatible identity/schema decision before changing stored artifacts
+    title: OD-3.1 completed; original task card in archive/release-010-completed-cards.md#od-31
     status: DONE
     classification: architecture-paperwork
     assurance_profile: full
@@ -1145,15 +1176,15 @@ tasks:
     - .memory-bank/project_architecture.md
     - .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
     non_goals:
-    - Code changes, listener startup, benchmark execution or implicit acceptance of diagnostics.
+    - See archive/release-010-completed-cards.md#od-31 (verbatim card).
     required_validation:
-    - project_plan_validate .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
+    - See archive/release-010-completed-cards.md#od-31 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-31 (sha256 7d01421ae495)'
+    - See archive/release-010-completed-cards.md#od-31 (verbatim card).
     rollback:
-    - Revert only this decision's document changes.
+    - See archive/release-010-completed-cards.md#od-31 (verbatim card).
     stop_conditions:
-    - An identity change would relabel an already frozen benchmark without a fresh preregistration.
+    - See archive/release-010-completed-cards.md#od-31 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1164,7 +1195,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#od-31 (sha256 a9f5fc57967c)'
     dod_status: pass
   OD-3.2:
-    title: Given identical source bytes and different mtimes, canonical artifacts match byte for byte and distinct Markdown sections have distinct IDs
+    title: OD-3.2 completed; original task card in archive/release-010-completed-cards.md#od-32
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -1189,16 +1220,15 @@ tasks:
     - src/chunk.rs
     - tests/cli.rs
     non_goals:
-    - Ranking tuning, new graph relations, real labels or benchmark regeneration.
+    - See archive/release-010-completed-cards.md#od-32 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo test --lib
-    - CARGO_BUILD_JOBS=4 cargo test --test cli
+    - See archive/release-010-completed-cards.md#od-32 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-32 (sha256 9c63cde6aa1f)'
+    - See archive/release-010-completed-cards.md#od-32 (verbatim card).
     rollback:
-    - Revert only this task's changes; preserve published source inputs and prior closeouts.
+    - See archive/release-010-completed-cards.md#od-32 (verbatim card).
     stop_conditions:
-    - OD-3.1 has not resolved the format and invalidation decisions.
+    - See archive/release-010-completed-cards.md#od-32 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1209,7 +1239,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#od-32 (sha256 104442db0afc)'
     dod_status: pass
   OD-3.3:
-    title: Given escaped payloads and internal failures, every complete MCP frame fits the wire cap and exposes no private internal paths
+    title: OD-3.3 completed; original task card in archive/release-010-completed-cards.md#od-33
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -1230,15 +1260,15 @@ tasks:
     - tests/mcp.rs
     - tests/cli.rs
     non_goals:
-    - New tools, HTTP transport or a second response pipeline.
+    - See archive/release-010-completed-cards.md#od-33 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo test --test mcp --test cli
+    - See archive/release-010-completed-cards.md#od-33 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-33 (sha256 2962a75db3e0)'
+    - See archive/release-010-completed-cards.md#od-33 (verbatim card).
     rollback:
-    - Revert only this task's changes; preserve published source inputs and prior closeouts.
+    - See archive/release-010-completed-cards.md#od-33 (verbatim card).
     stop_conditions:
-    - The locked transport cannot enforce a complete-frame cap without a documented compatibility decision.
+    - See archive/release-010-completed-cards.md#od-33 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1249,7 +1279,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#od-33 (sha256 d5a77f8108a0)'
     dod_status: pass
   OD-3.4:
-    title: Given fabricated citations or filesystem replacements, verification reads only current bytes of authorized corpus documents within descriptor-rooted byte bounds
+    title: OD-3.4 completed; original task card in archive/release-010-completed-cards.md#od-34
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -1281,19 +1311,15 @@ tasks:
     - tests/cli.rs
     - tests/mcp.rs
     non_goals:
-    - Per-user ACLs, cached freshness substituted for verification, or arbitrary-file access.
+    - See archive/release-010-completed-cards.md#od-34 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib corpus::'
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib cite::'
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib store::'
-    - CARGO_BUILD_JOBS=4 cargo test --test cli --test mcp
-    - CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run
+    - See archive/release-010-completed-cards.md#od-34 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-34 (sha256 6c952f4be76b)'
+    - See archive/release-010-completed-cards.md#od-34 (verbatim card).
     rollback:
-    - Revert only this task's changes; preserve published source inputs and prior closeouts.
+    - See archive/release-010-completed-cards.md#od-34 (verbatim card).
     stop_conditions:
-    - Implementation requires weakening ADR8 root binding, membership, policy parity or unsupported-filesystem refusal.
+    - See archive/release-010-completed-cards.md#od-34 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1304,7 +1330,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#od-34 (sha256 3f716a93d91b)'
     dod_status: pass
   OD-3.5:
-    title: Given costly or cancelled requests, input/work budgets reject early and admission remains owned by the actual blocking work until it stops
+    title: OD-3.5 completed; original task card in archive/release-010-completed-cards.md#od-35
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -1328,16 +1354,15 @@ tasks:
     - src/store.rs
     - tests/mcp.rs
     non_goals:
-    - Timeout-only containment, silent semantic weakening, or new ranking methods.
+    - See archive/release-010-completed-cards.md#od-35 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib cite::'
-    - CARGO_BUILD_JOBS=4 cargo test --test mcp
+    - See archive/release-010-completed-cards.md#od-35 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-35 (sha256 4263a38ddbb4)'
+    - See archive/release-010-completed-cards.md#od-35 (verbatim card).
     rollback:
-    - Revert only this task's changes; preserve published source inputs and prior closeouts.
+    - See archive/release-010-completed-cards.md#od-35 (verbatim card).
     stop_conditions:
-    - Implementation requires a network/session boundary or weakening ADR8 actual-work ownership/local limits.
+    - See archive/release-010-completed-cards.md#od-35 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1348,7 +1373,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#od-35 (sha256 7479892e3a84)'
     dod_status: pass
   OD-3.6:
-    title: Given freshness scans or malformed store files, current-byte checks retain bounded memory and loaders reject excessive reads before allocation
+    title: OD-3.6 completed; original task card in archive/release-010-completed-cards.md#od-36
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -1372,18 +1397,15 @@ tasks:
     - src/search/mod.rs
     - tests/cli.rs
     non_goals:
-    - Watcher infrastructure, TTL freshness or per-request index rebuilds.
+    - See archive/release-010-completed-cards.md#od-36 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib search::'
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib corpus::'
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib store::'
-    - CARGO_BUILD_JOBS=4 cargo test --test cli
+    - See archive/release-010-completed-cards.md#od-36 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-36 (sha256 b662568e0292)'
+    - See archive/release-010-completed-cards.md#od-36 (verbatim card).
     rollback:
-    - Revert only this task's changes; preserve published source inputs and prior closeouts.
+    - See archive/release-010-completed-cards.md#od-36 (verbatim card).
     stop_conditions:
-    - An optimization changes current-byte freshness semantics or requires an unapproved disk-format change.
+    - See archive/release-010-completed-cards.md#od-36 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1394,7 +1416,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#od-36 (sha256 79955109100a)'
     dod_status: pass
   EVAL-1.4:
-    title: Given dev-only execution, split-isolated immutable inputs validate and compute from the same bounded bytes without opening held-out payloads
+    title: EVAL-1.4 completed; original task card in archive/release-010-completed-cards.md#eval-14
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -1425,15 +1447,15 @@ tasks:
     - tests/eval_gates.rs
     - tests/eval_run.rs
     non_goals:
-    - External audit registry service, real benchmark preparation/labels or measurement enablement.
+    - See archive/release-010-completed-cards.md#eval-14 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run
+    - See archive/release-010-completed-cards.md#eval-14 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#eval-14 (sha256 10419b329610)'
+    - See archive/release-010-completed-cards.md#eval-14 (verbatim card).
     rollback:
-    - Revert only this task's changes; preserve published source inputs and prior closeouts.
+    - See archive/release-010-completed-cards.md#eval-14 (verbatim card).
     stop_conditions:
-    - Dev execution must open held-out records or provenance is replaced by self-asserted evidence.
+    - See archive/release-010-completed-cards.md#eval-14 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1444,7 +1466,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#eval-14 (sha256 e7fbe946abb4)'
     dod_status: pass
   EVAL-1.5:
-    title: Given frozen registration and a held-out attempt, the exclusive durable attempt and exact saved-run bytes remain bound to the approved identity
+    title: EVAL-1.5 completed; original task card in archive/release-010-completed-cards.md#eval-15
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -1471,15 +1493,15 @@ tasks:
     - tests/eval_gates.rs
     - tests/eval_run.rs
     non_goals:
-    - Real held-out execution, model annotations counted as human, or claims that mutable local receipts provide external independent custody.
+    - See archive/release-010-completed-cards.md#eval-15 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run
+    - See archive/release-010-completed-cards.md#eval-15 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#eval-15 (sha256 416994b20cb2)'
+    - See archive/release-010-completed-cards.md#eval-15 (verbatim card).
     rollback:
-    - Revert only this task's changes; preserve published source inputs and prior closeouts.
+    - See archive/release-010-completed-cards.md#eval-15 (verbatim card).
     stop_conditions:
-    - Authoritative preregistration/attempt location or scored-byte identity is unresolved.
+    - See archive/release-010-completed-cards.md#eval-15 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1490,7 +1512,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#eval-15 (sha256 5760454f4841)'
     dod_status: pass
   HTTP-0:
-    title: Given accepted folder-scoped HTTP, decide exposure and numerical resource/containment contracts before implementing network delivery
+    title: HTTP-0 completed; original task card in archive/release-010-completed-cards.md#http-0
     status: DONE
     classification: architecture-paperwork
     assurance_profile: full
@@ -1510,18 +1532,15 @@ tasks:
     - .memory-bank/project_architecture.md
     - .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
     non_goals:
-    - Code changes, listener startup, benchmark execution or implicit acceptance of diagnostics.
+    - See archive/release-010-completed-cards.md#http-0 (verbatim card).
     required_validation:
-    - project_plan_validate .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
+    - See archive/release-010-completed-cards.md#http-0 (verbatim card).
     expected_evidence:
-    - Record loopback versus authenticated trusted ingress deployment; origin/host/DNS-rebinding controls, session binding and error/log privacy.
-    - Set numeric network/frame, corpus-count, session, aggregate multi-corpus and global work/load/memory budgets; cancellation permits belong to actual work.
-    - Reuse SAFETY-0 containment, reader, membership and local budgets without weakening them; locked rmcp remains the only transport stack.
-    - Folder encoding, unknown/unindexed readiness and no-fallback rules remain unchanged; diagnostics and retrieval hypotheses stay out of scope.
+    - See archive/release-010-completed-cards.md#http-0 (verbatim card).
     rollback:
-    - Revert only this decision's document changes.
+    - See archive/release-010-completed-cards.md#http-0 (verbatim card).
     stop_conditions:
-    - Network exposure requires an authentication or deployment choice not supplied by the service owner.
+    - See archive/release-010-completed-cards.md#http-0 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1532,7 +1551,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#http-0 (sha256 73304d15dae2)'
     dod_status: pass
   HTTP-1:
-    title: Given docs_share folders, startup produces bounded sorted independent corpus endpoints and stores without cross-corpus fallback
+    title: HTTP-1 completed; original task card in archive/release-010-completed-cards.md#http-1
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -1556,15 +1575,15 @@ tasks:
     - src/store.rs
     - tests/mcp.rs
     non_goals:
-    - Listener startup, live discovery, per-user tenancy, merged indexes or new tools.
+    - See archive/release-010-completed-cards.md#http-1 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo test --test mcp --test cli
+    - See archive/release-010-completed-cards.md#http-1 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#http-1 (sha256 f598494d7abc)'
+    - See archive/release-010-completed-cards.md#http-1 (verbatim card).
     rollback:
-    - Revert only this task's changes; preserve published source inputs and prior closeouts.
+    - See archive/release-010-completed-cards.md#http-1 (verbatim card).
     stop_conditions:
-    - Folder encoding, corpus-cap or no-fallback rules in the accepted folder ADR are insufficient; listener, exposure, auth and session decisions stay in HTTP-0/HTTP-2.
+    - See archive/release-010-completed-cards.md#http-1 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1575,7 +1594,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#http-1 (sha256 fafa9305239f)'
     dod_status: pass
   HTTP-2:
-    title: Given configured HTTP delivery, locked rmcp serves endpoint-bound sessions with stdio parity and bounded actual work
+    title: HTTP-2 completed; original task card in archive/release-010-completed-cards.md#http-2
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -1612,19 +1631,15 @@ tasks:
     - tests/cli.rs
     - tests/http.rs
     non_goals:
-    - New MCP tools, retrieval-network dependencies, anonymous exposure or scientific quality claims.
+    - See archive/release-010-completed-cards.md#http-2 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo test --test mcp --test cli --test http
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib http:': null
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib mcp:': null
+    - See archive/release-010-completed-cards.md#http-2 (verbatim card).
     expected_evidence:
-    - Enable only the approved locked rmcp HTTP feature and minimal required transport dependencies; reuse the five stdio handlers, no REST ranker.
-    - Synthetic listener tests prove endpoint/session isolation, same-corpus stdio parity, complete wire bounds, origin/host/admission rejection, cancellation ownership and controlled drain.
-    - Publication, corruption or reload in one corpus never replaces a sibling index; no production listener is exposed by tests.
+    - See archive/release-010-completed-cards.md#http-2 (verbatim card).
     rollback:
-    - Revert only this task's changes; preserve published source inputs and prior closeouts.
+    - See archive/release-010-completed-cards.md#http-2 (verbatim card).
     stop_conditions:
-    - Exposure/resource contracts are unresolved or transport parity requires weakening isolation.
+    - See archive/release-010-completed-cards.md#http-2 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1635,7 +1650,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#http-2 (sha256 8822733dd088)'
     dod_status: pass
   OD-3.7:
-    title: Given the current service, operational documentation accurately describes installation, five tools and limitations without waiting for retrieval-quality results
+    title: OD-3.7 completed; original task card in archive/release-010-completed-cards.md#od-37
     status: DONE
     classification: architecture-paperwork
     assurance_profile: full
@@ -1654,15 +1669,15 @@ tasks:
     - AGENTS.md
     - .memory-bank/project_architecture.md
     non_goals:
-    - Code changes, listener startup, benchmark execution or implicit acceptance of diagnostics.
+    - See archive/release-010-completed-cards.md#od-37 (verbatim card).
     required_validation:
-    - project_plan_validate .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
+    - See archive/release-010-completed-cards.md#od-37 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-37 (sha256 c687263f03e9)'
+    - See archive/release-010-completed-cards.md#od-37 (verbatim card).
     rollback:
-    - Revert only this decision's document changes.
+    - See archive/release-010-completed-cards.md#od-37 (verbatim card).
     stop_conditions:
-    - Documentation would claim an unimplemented feature or a measured result without evidence.
+    - See archive/release-010-completed-cards.md#od-37 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1673,7 +1688,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#od-37 (sha256 6886f29ec17c)'
     dod_status: pass
   OD-3.8:
-    title: Given malformed or oversized store controls and artifacts, bounded readers and serialization refuse before unbounded reads or pointer changes
+    title: OD-3.8 completed; original task card in archive/release-010-completed-cards.md#od-38
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -1688,17 +1703,15 @@ tasks:
     allowed_write_set:
     - src/store.rs
     non_goals:
-    - Descriptor-rooted containment, freshness streaming, total-memory admission, publication commit-point redesign or ranking changes.
-    - Real benchmark measurements, HTTP exposure, dependencies, schema migration or new public configuration knobs.
+    - See archive/release-010-completed-cards.md#od-38 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib store::'
-    - CARGO_BUILD_JOBS=4 cargo test --test cli --test mcp --test eval_gates --test eval_run
+    - See archive/release-010-completed-cards.md#od-38 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-38 (sha256 64e5907a8589)'
+    - See archive/release-010-completed-cards.md#od-38 (verbatim card).
     rollback:
-    - Revert only this task's changes; retain prior evidence and published source data.
+    - See archive/release-010-completed-cards.md#od-38 (verbatim card).
     stop_conditions:
-    - A byte-bound repair requires changing canonical schema or silently accepting unsafe target replacement.
+    - See archive/release-010-completed-cards.md#od-38 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1709,7 +1722,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#od-38 (sha256 86df1804dea9)'
     dod_status: pass
   OD-3.9:
-    title: Given failures around CURRENT publication, the recorded commit-point contract distinguishes uncommitted failure from committed durability or maintenance failure
+    title: OD-3.9 completed; original task card in archive/release-010-completed-cards.md#od-39
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -1729,16 +1742,15 @@ tasks:
     - src/cli.rs
     - tests/cli.rs
     non_goals:
-    - New store format, general transaction framework, background janitor, implicit rollback or changing retrieval ranking.
+    - See archive/release-010-completed-cards.md#od-39 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib store::'
-    - CARGO_BUILD_JOBS=4 cargo test --test cli
+    - See archive/release-010-completed-cards.md#od-39 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#od-39 (sha256 14ef58bb7b32)'
+    - See archive/release-010-completed-cards.md#od-39 (verbatim card).
     rollback:
-    - Revert only this task's changes; retain prior evidence and published source data.
+    - See archive/release-010-completed-cards.md#od-39 (verbatim card).
     stop_conditions:
-    - Implementing ADR8 outcomes requires a format/transaction-framework change or reproducing the parallel lock failure requires unrelated global test changes.
+    - See archive/release-010-completed-cards.md#od-39 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1749,7 +1761,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#od-39 (sha256 59c80667c64a)'
     dod_status: pass
   SAFETY-0:
-    title: Given stdio safety gaps, record rooted-reader, membership, work budgets and publication outcomes independently of HTTP deployment
+    title: SAFETY-0 completed; original task card in archive/release-010-completed-cards.md#safety-0
     status: DONE
     classification: architecture-paperwork
     assurance_profile: full
@@ -1770,15 +1782,15 @@ tasks:
     - .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
     - .memory-bank/project_architecture.md
     non_goals:
-    - Code changes, listener exposure, real benchmark preparation/measurement or implicit acceptance of diagnostics.
+    - See archive/release-010-completed-cards.md#safety-0 (verbatim card).
     required_validation:
-    - project_plan_validate .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
+    - See archive/release-010-completed-cards.md#safety-0 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#safety-0 (sha256 a48f83b362d3)'
+    - See archive/release-010-completed-cards.md#safety-0 (verbatim card).
     rollback:
-    - Revert only this task's changes; retain prior evidence and published source data.
+    - See archive/release-010-completed-cards.md#safety-0 (verbatim card).
     stop_conditions:
-    - The decision requires a network exposure choice or substituting models for required human annotators.
+    - See archive/release-010-completed-cards.md#safety-0 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1789,7 +1801,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#safety-0 (sha256 6f2d09c4ba9d)'
     dod_status: pass
   EVAL-1.6:
-    title: Given incomplete provenance admission, record the trusted preparation handoff and a deterministic default-promotion rule before public evaluation integration
+    title: EVAL-1.6 completed; original task card in archive/release-010-completed-cards.md#eval-16
     status: DONE
     classification: architecture-paperwork
     assurance_profile: full
@@ -1809,15 +1821,15 @@ tasks:
     - .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
     - .memory-bank/project_architecture.md
     non_goals:
-    - Code changes, listener exposure, real benchmark preparation/measurement or implicit acceptance of diagnostics.
+    - See archive/release-010-completed-cards.md#eval-16 (verbatim card).
     required_validation:
-    - project_plan_validate .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
+    - See archive/release-010-completed-cards.md#eval-16 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#eval-16 (sha256 72776c22ae42)'
+    - See archive/release-010-completed-cards.md#eval-16 (verbatim card).
     rollback:
-    - Revert only this task's changes; retain prior evidence and published source data.
+    - See archive/release-010-completed-cards.md#eval-16 (verbatim card).
     stop_conditions:
-    - The decision requires a network exposure choice or substituting models for required human annotators.
+    - See archive/release-010-completed-cards.md#eval-16 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1828,7 +1840,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#eval-16 (sha256 9a46b1ce4357)'
     dod_status: pass
   FIX-1:
-    title: Given verified review defects, moved citations report byte-correct lines, dev resamples are bounded and preparation inputs obey layout isolation
+    title: FIX-1 completed; original task card in archive/release-010-completed-cards.md#fix-1
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -1849,16 +1861,15 @@ tasks:
     - tests/eval_run.rs
     - tests/common/
     non_goals:
-    - Ranking, schema, freshness-semantics or ADR changes; real benchmark data.
+    - See archive/release-010-completed-cards.md#fix-1 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo test --lib && CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run --test cli --test mcp
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#fix-1 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#fix-1 (sha256 ebecbfa5d886)'
+    - See archive/release-010-completed-cards.md#fix-1 (verbatim card).
     rollback:
-    - Revert this task's listed source and test changes.
+    - See archive/release-010-completed-cards.md#fix-1 (verbatim card).
     stop_conditions:
-    - A fix requires weakening an ADR integrity or freshness requirement.
+    - See archive/release-010-completed-cards.md#fix-1 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1869,7 +1880,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#fix-1 (sha256 b985679ee993)'
     dod_status: pass
   SIMPL-1:
-    title: Given duplicated evaluation code, freeze computes its dev sweep once, the unreachable check-benchmark run branch is removed and gates reuse the stats quantile, with unchanged behaviour
+    title: SIMPL-1 completed; original task card in archive/release-010-completed-cards.md#simpl-1
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -1896,16 +1907,15 @@ tasks:
     - tests/eval_gates.rs
     - tests/eval_run.rs
     non_goals:
-    - Removing custody, reservation, preparation binding or any ADR safeguard; frozen export format changes.
+    - See archive/release-010-completed-cards.md#simpl-1 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval:: && CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run --test cli'
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#simpl-1 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#simpl-1 (sha256 26fa695d6cd4)'
+    - See archive/release-010-completed-cards.md#simpl-1 (verbatim card).
     rollback:
-    - Revert this task's listed source and test changes.
+    - See archive/release-010-completed-cards.md#simpl-1 (verbatim card).
     stop_conditions:
-    - A simplification changes any gate outcome, report byte or refusal order.
+    - See archive/release-010-completed-cards.md#simpl-1 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1916,7 +1926,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#simpl-1 (sha256 d518d2e86b14)'
     dod_status: pass
   FIX-2:
-    title: Given any accepted corpus name, the frozen config TOML written by freeze parses back to the identical config
+    title: FIX-2 completed; original task card in archive/release-010-completed-cards.md#fix-2
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -1931,16 +1941,15 @@ tasks:
     allowed_write_set:
     - src/eval/sweep.rs
     non_goals:
-    - Byte changes for ordinary names; new fields; frozen version bump; real benchmark data.
+    - See archive/release-010-completed-cards.md#fix-2 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo test --lib eval::sweep
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#fix-2 (verbatim card).
     expected_evidence:
-    - Round-trip regression over control-character, quote, backslash, DEL, non-ASCII and ' = ' corpus names; existing round-trip test unchanged.
+    - See archive/release-010-completed-cards.md#fix-2 (verbatim card).
     rollback:
-    - Revert this task's src/eval/sweep.rs changes.
+    - See archive/release-010-completed-cards.md#fix-2 (verbatim card).
     stop_conditions:
-    - The fix changes the written bytes for ordinary ASCII names.
+    - See archive/release-010-completed-cards.md#fix-2 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1951,7 +1960,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#fix-2 (sha256 9b5ad8ff6c6b)'
     dod_status: pass
   FIX-3:
-    title: Given an admitted benchmark, ranking output fits the scoring read budget before the held-out attempt is reserved, vocabulary misses are not attributed to chunk boundaries, and unused scratch plumbing is removed
+    title: FIX-3 completed; original task card in archive/release-010-completed-cards.md#fix-3
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -1974,18 +1983,15 @@ tasks:
     - src/cli.rs
     - tests/eval_gates.rs
     non_goals:
-    - Weakening custody, reservation, freeze or any ADR integrity rule; new miss stages; real benchmark data.
+    - See archive/release-010-completed-cards.md#fix-3 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval:: && CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run --test cli'
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#fix-3 (verbatim card).
     expected_evidence:
-    - Regression showing an oversized ranking worst case is refused before reservation and generation enforces the same budget.
-    - Regression showing a zero-overlap section is attributed lexical_miss, not chunk_boundary; ADR stage set unchanged.
-    - check_pool/check_benchmark lose the unused scratch parameter; existing gate tests pass.
+    - See archive/release-010-completed-cards.md#fix-3 (verbatim card).
     rollback:
-    - Revert this task's listed source and test changes.
+    - See archive/release-010-completed-cards.md#fix-3 (verbatim card).
     stop_conditions:
-    - A fix requires changing the ADR stage set, scoring budget semantics or held-out custody.
+    - See archive/release-010-completed-cards.md#fix-3 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -1996,7 +2002,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#fix-3 (sha256 c2328a5e8e8d)'
     dod_status: pass
   FIX-4:
-    title: Given large graphs or diagnostics, related and status cap neighbours and diagnostic lists before collecting or cloning, with unchanged responses
+    title: FIX-4 completed; original task card in archive/release-010-completed-cards.md#fix-4
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -2011,16 +2017,15 @@ tasks:
     allowed_write_set:
     - src/cli.rs
     non_goals:
-    - Changing response shape, ranking, freshness or the search truncated contract.
+    - See archive/release-010-completed-cards.md#fix-4 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib cli:: && CARGO_BUILD_JOBS=4 cargo test --test cli --test mcp'
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#fix-4 (verbatim card).
     expected_evidence:
-    - related collects at most MAX_LIST_ITEMS+1 neighbours; status clones at most MAX_LIST_ITEMS diagnostics; truncated flags and response bytes unchanged.
+    - See archive/release-010-completed-cards.md#fix-4 (verbatim card).
     rollback:
-    - Revert this task's listed source and test changes.
+    - See archive/release-010-completed-cards.md#fix-4 (verbatim card).
     stop_conditions:
-    - Capping changes any response byte for inputs at or below the cap.
+    - See archive/release-010-completed-cards.md#fix-4 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -2031,7 +2036,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#fix-4 (sha256 76d06c453ef6)'
     dod_status: pass
   SIMPL-2:
-    title: Given a held-out run or score, the registered freeze is read and verified once and passed to the later frozen check, with unchanged refusals
+    title: SIMPL-2 completed; original task card in archive/release-010-completed-cards.md#simpl-2
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -2046,16 +2051,15 @@ tasks:
     allowed_write_set:
     - src/eval/run.rs
     non_goals:
-    - Removing any identity, code, custody or power check; reordering checks before payload reads; changing CLI check-frozen.
+    - See archive/release-010-completed-cards.md#simpl-2 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval:: && CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run --test cli'
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#simpl-2 (verbatim card).
     expected_evidence:
-    - run_reserved and score call check_held_out_code once; held_out_preflight takes the verified FrozenConfig; all existing refusal tests pass unchanged.
+    - See archive/release-010-completed-cards.md#simpl-2 (verbatim card).
     rollback:
-    - Revert this task's src/eval/run.rs changes.
+    - See archive/release-010-completed-cards.md#simpl-2 (verbatim card).
     stop_conditions:
-    - Any refusal test changes outcome or a check moves after a payload read.
+    - See archive/release-010-completed-cards.md#simpl-2 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -2066,7 +2070,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#simpl-2 (sha256 eb35c9c13502)'
     dod_status: pass
   FIX-5:
-    title: Given TSV-unsafe query ids or an unusable output parent, held-out admission refuses before the attempt is reserved
+    title: FIX-5 completed; original task card in archive/release-010-completed-cards.md#fix-5
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -2081,17 +2085,15 @@ tasks:
     allowed_write_set:
     - src/eval/run.rs
     non_goals:
-    - Writability probes; weakening custody; reading held-out payloads before reservation; real benchmark data.
+    - See archive/release-010-completed-cards.md#fix-5 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval:: && CARGO_BUILD_JOBS=4 cargo test --test eval_gates --test eval_run --test cli'
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#fix-5 (verbatim card).
     expected_evidence:
-    - validate_queries and the pinned split ids refuse tab/CR/LF ids; regression.
-    - external_path requires a directory parent and admission refuses non-NotFound metadata errors; regression.
+    - See archive/release-010-completed-cards.md#fix-5 (verbatim card).
     rollback:
-    - Revert this task's listed changes.
+    - See archive/release-010-completed-cards.md#fix-5 (verbatim card).
     stop_conditions:
-    - A fix requires reading a held-out payload before reservation.
+    - See archive/release-010-completed-cards.md#fix-5 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -2102,7 +2104,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#fix-5 (sha256 a374f24668ca)'
     dod_status: pass
   FIX-6:
-    title: Given any published generation, every returned citation is verifiable and path#anchor lookup works for paths containing
+    title: FIX-6 completed; original task card in archive/release-010-completed-cards.md#fix-6
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -2119,17 +2121,15 @@ tasks:
     - src/store.rs
     - src/cli.rs
     non_goals:
-    - Changing citation shape, ID scheme, schema version or MCP response fields.
+    - See archive/release-010-completed-cards.md#fix-6 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib store:: && CARGO_BUILD_JOBS=4 cargo test --lib cli:: && CARGO_BUILD_JOBS=4 cargo test --test cli --test mcp'
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#fix-6 (verbatim card).
     expected_evidence:
-    - build refuses (CapExceeded) a heading path above the citation input bound (64 headings / 16 KiB); regression.
-    - find_section splits path#anchor at the last
+    - See archive/release-010-completed-cards.md#fix-6 (verbatim card).
     rollback:
-    - Revert this task's listed changes.
+    - See archive/release-010-completed-cards.md#fix-6 (verbatim card).
     stop_conditions:
-    - The cap requires a schema version bump or alters existing valid generations.
+    - See archive/release-010-completed-cards.md#fix-6 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -2140,7 +2140,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#fix-6 (sha256 41710c33dac2)'
     dod_status: pass
   FIX-7:
-    title: Given search results and evaluation reports, per-result text truncation is explicit and empty exploratory groups report null statistics
+    title: FIX-7 completed; original task card in archive/release-010-completed-cards.md#fix-7
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -2157,19 +2157,15 @@ tasks:
     - src/cli.rs
     - src/eval/run.rs
     non_goals:
-    - Changing ranking, assembly order, schema version or the confirmatory decision rule.
+    - See archive/release-010-completed-cards.md#fix-7 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib cli::'
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval::'
-    - CARGO_BUILD_JOBS=4 cargo test --test cli --test mcp --test eval_run
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#fix-7 (verbatim card).
     expected_evidence:
-    - SearchResult.text_truncated from stored l0_truncated/l1_truncated (L2 false); regression search_results_carry_the_stored_tier_truncation_flag.
-    - Comparison mean/ci_lo/ci_hi/p are Option and null when n = 0; Holm uses 1 for a missing p; decision Inconclusive without an interval; per_corpus_comparisons test asserts nulls.
+    - See archive/release-010-completed-cards.md#fix-7 (verbatim card).
     rollback:
-    - Revert this task's listed changes.
+    - See archive/release-010-completed-cards.md#fix-7 (verbatim card).
     stop_conditions:
-    - Null statistics would change a confirmatory decision with n > 0.
+    - See archive/release-010-completed-cards.md#fix-7 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -2180,7 +2176,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#fix-7 (sha256 019cf794c91b)'
     dod_status: pass
   SIMPL-3:
-    title: Given rater count matrices, one quadratic-weighted kappa implementation serves agreement gates and statistics
+    title: SIMPL-3 completed; original task card in archive/release-010-completed-cards.md#simpl-3
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -2197,17 +2193,15 @@ tasks:
     - src/eval/gates.rs
     - src/eval/stats.rs
     non_goals:
-    - Consolidating identity checks (deferred by owner) or changing agreement thresholds.
+    - See archive/release-010-completed-cards.md#simpl-3 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval::'
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#simpl-3 (verbatim card).
     expected_evidence:
-    - stats::kappa_from_counts (square matrix, k >= 2) is the only kappa formula; weighted_kappa builds counts and delegates; gates.rs duplicate removed.
-    - Worked examples unchanged: 10/13, identical raters 1, undefined None (stats and gates tests).
+    - See archive/release-010-completed-cards.md#simpl-3 (verbatim card).
     rollback:
-    - Revert this task's listed changes.
+    - See archive/release-010-completed-cards.md#simpl-3 (verbatim card).
     stop_conditions:
-    - A worked-example value changes.
+    - See archive/release-010-completed-cards.md#simpl-3 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -2218,7 +2212,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#simpl-3 (sha256 b6e2cc4192b0)'
     dod_status: pass
   FIX-8:
-    title: Given a held-out run, the private staging directory exists before the sole attempt is reserved
+    title: FIX-8 completed; original task card in archive/release-010-completed-cards.md#fix-8
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -2235,18 +2229,15 @@ tasks:
     - src/eval/run.rs
     - tests/eval_run.rs
     non_goals:
-    - Reading held-out payloads before reservation or changing StagingDir semantics.
+    - See archive/release-010-completed-cards.md#fix-8 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo test --test eval_run
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval::'
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#fix-8 (verbatim card).
     expected_evidence:
-    - run_held_out and run create StagingDir before Bench::load_test_reserved / run_reserved; run_reserved takes the stage.
-    - Regression unwritable_output_parent_refuses_before_reservation: read-only parent refuses, no attempt-started.json, no output; fails with the old ordering (checked by temporary revert).
+    - See archive/release-010-completed-cards.md#fix-8 (verbatim card).
     rollback:
-    - Revert this task's listed changes.
+    - See archive/release-010-completed-cards.md#fix-8 (verbatim card).
     stop_conditions:
-    - Staging before reservation would read held-out payloads.
+    - See archive/release-010-completed-cards.md#fix-8 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -2257,7 +2248,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#fix-8 (sha256 3bd39fe7017b)'
     dod_status: pass
   FIX-9:
-    title: Given round-5 review, dev runs stage after validation and an ADR discrimination check exercises the real rankers on planted synthetic sections
+    title: FIX-9 completed; original task card in archive/release-010-completed-cards.md#fix-9
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -2276,17 +2267,15 @@ tasks:
     - tests/eval_run.rs
     - tests/ranking_sanity.rs
     non_goals:
-    - Quality claims, tuning, new CLI commands, real data or held-out guard changes.
+    - See archive/release-010-completed-cards.md#fix-9 (verbatim card).
     required_validation:
-    - CARGO_BUILD_JOBS=4 cargo test --test ranking_sanity --test eval_run
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib eval::'
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#fix-9 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-9 (sha256 2651549cf6f5)'
+    - See archive/release-010-completed-cards.md#fix-9 (verbatim card).
     rollback:
-    - Revert this task's listed changes.
+    - See archive/release-010-completed-cards.md#fix-9 (verbatim card).
     stop_conditions:
-    - The diagnostic would need real benchmark data or a held-out path.
+    - See archive/release-010-completed-cards.md#fix-9 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -2297,7 +2286,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-9 (sha256 58517f790daa)'
     dod_status: pass
   FIX-10:
-    title: Given round-6 review, numeric scorers have hand-computed edge tests, hash crates build optimized in dev
+    title: FIX-10 completed; original task card in archive/release-010-completed-cards.md#fix-10
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -2318,17 +2307,15 @@ tasks:
     - src/search/ppr.rs
     - src/search/fusion.rs
     non_goals:
-    - Parser, tier, identity, schema or ranking changes; store pruning recovery.
+    - See archive/release-010-completed-cards.md#fix-10 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib search::'
-    - CARGO_BUILD_JOBS=4 cargo test --all-targets
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#fix-10 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-10 (sha256 66b4920b2630)'
+    - See archive/release-010-completed-cards.md#fix-10 (verbatim card).
     rollback:
-    - Revert this task's listed changes.
+    - See archive/release-010-completed-cards.md#fix-10 (verbatim card).
     stop_conditions:
-    - A test would require changing scorer behaviour.
+    - See archive/release-010-completed-cards.md#fix-10 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -2339,7 +2326,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-10 (sha256 ae1a67e2bd05)'
     dod_status: pass
   FIX-11:
-    title: Given round-7 review, an interrupted prune no longer disables pruning, fusion tie-break tests discriminate, and HTTP socket tests have deadlines
+    title: FIX-11 completed; original task card in archive/release-010-completed-cards.md#fix-11
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -2360,17 +2347,15 @@ tasks:
     - src/search/bm25.rs
     - tests/http.rs
     non_goals:
-    - Parser, tier, identity, schema or ranking changes; recovery of already-existing incomplete generation dirs.
+    - See archive/release-010-completed-cards.md#fix-11 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib store::'
-    - CARGO_BUILD_JOBS=4 cargo test --all-targets
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#fix-11 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-11 (sha256 48e0934a4042)'
+    - See archive/release-010-completed-cards.md#fix-11 (verbatim card).
     rollback:
-    - Revert this task's listed changes.
+    - See archive/release-010-completed-cards.md#fix-11 (verbatim card).
     stop_conditions:
-    - The fix would relax complete-shape validation of generations/.
+    - See archive/release-010-completed-cards.md#fix-11 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -2381,7 +2366,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-11 (sha256 ab47ca5d36cf)'
     dod_status: pass
   FIX-12:
-    title: Given owner approval, the first-sentence rule parses with the sectioning GFM extensions so tables are never first sentences, and the stored schema becomes 3
+    title: FIX-12 completed; original task card in archive/release-010-completed-cards.md#fix-12
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -2404,17 +2389,15 @@ tasks:
     - src/store.rs
     - tests/cli.rs
     non_goals:
-    - Section or chunk identity changes, ranking parameter changes, tuning, migration of old stores.
+    - See archive/release-010-completed-cards.md#fix-12 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib tiers:: parse:: graph:: store::'
-    - CARGO_BUILD_JOBS=4 cargo test --all-targets
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#fix-12 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-12 (sha256 bf20e290692d)'
+    - See archive/release-010-completed-cards.md#fix-12 (verbatim card).
     rollback:
-    - Revert this task's listed changes; schema-3 stores then need a reindex under schema 2.
+    - See archive/release-010-completed-cards.md#fix-12 (verbatim card).
     stop_conditions:
-    - Section or chunk ids change on any existing fixture.
+    - See archive/release-010-completed-cards.md#fix-12 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -2425,7 +2408,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-12 (sha256 f574fa3ae4ac)'
     dod_status: pass
   FIX-13:
-    title: Given owner approval, relative `.html` links resolve to an existing sibling `.md` source (schema 4) and a corpus rooted in a checkout subdirectory excludes only its own store from the pin dirty check
+    title: FIX-13 completed; original task card in archive/release-010-completed-cards.md#fix-13
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -2446,17 +2429,15 @@ tasks:
     - src/eval/gates.rs
     - tests/cli.rs
     non_goals:
-    - Section or chunk identity changes, ranking parameter changes, tuning, migration of old stores, absolute-URL link resolution.
+    - See archive/release-010-completed-cards.md#fix-13 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib graph:: store:: eval::gates::'
-    - CARGO_BUILD_JOBS=4 cargo test --all-targets
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#fix-13 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-13 (sha256 3500e691d969)'
+    - See archive/release-010-completed-cards.md#fix-13 (verbatim card).
     rollback:
-    - Revert this task's listed changes; schema-4 stores then need a reindex.
+    - See archive/release-010-completed-cards.md#fix-13 (verbatim card).
     stop_conditions:
-    - Section or chunk ids change on any existing fixture.
+    - See archive/release-010-completed-cards.md#fix-13 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -2467,7 +2448,7 @@ tasks:
         validation_summary: 'Archived verbatim: audit_session-2026-11-12-done-card-archive.md#fix-13 (sha256 a899c69ab1bf)'
     dod_status: pass
   PERF-1:
-    title: Given concurrent MCP clients, requests snapshot the shared immutable index under a short lock and run with bounded configurable permits owned by the actual work
+    title: PERF-1 completed; original task card in archive/release-010-completed-cards.md#perf-1
     status: DONE
     classification: implementation-ready
     assurance_profile: full
@@ -2484,16 +2465,15 @@ tasks:
     - src/mcp.rs
     - tests/mcp.rs
     non_goals:
-    - Listener startup, freshness caching or TTLs, unbounded queues, ranking changes.
+    - See archive/release-010-completed-cards.md#perf-1 (verbatim card).
     required_validation:
-    - 'CARGO_BUILD_JOBS=4 cargo test --lib mcp:: && CARGO_BUILD_JOBS=4 cargo test --test mcp'
-    - cargo fmt --check
+    - See archive/release-010-completed-cards.md#perf-1 (verbatim card).
     expected_evidence:
-    - 'Archived verbatim: audit_session-2026-11-11-done-card-evidence-archive.md#perf-1 (sha256 9664c6309097)'
+    - See archive/release-010-completed-cards.md#perf-1 (verbatim card).
     rollback:
-    - Revert this task's listed source and test changes.
+    - See archive/release-010-completed-cards.md#perf-1 (verbatim card).
     stop_conditions:
-    - Concurrency requires changing ADR admission or freshness contracts.
+    - See archive/release-010-completed-cards.md#perf-1 (verbatim card).
     known_blockers: []
     closeout:
       role_results:
@@ -2503,6 +2483,598 @@ tasks:
         authorization_ref: 'User 2026-11-11: review/challenge/consolidate one plan and proceed; use GPT reviewers'
         validation_summary: 'Archived verbatim: audit_session-2026-11-11-done-card-validation-archive.md#perf-1 (sha256 bb9e833843f6)'
     dod_status: pass
+  REL-0:
+    title: Given the release instruction, register scoped release cards and correct eval command sequencing while preserving completed-task evidence and owner gates
+    status: DONE
+    classification: architecture-paperwork
+    assurance_profile: full
+    complexity: complex
+    depends_on: []
+    type: documentation
+    validation_tier: unit-fast
+    impact_risk: low
+    owner_files:
+    - .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
+    - docs/RELEASE_0.1.0_PLAN.md
+    - .memory-bank/archive/release-010-completed-cards.md
+    - .memory-bank/audit_session-2026-11-12-release-preparation.md
+    - .memory-bank/MEMORY.md
+    - .memory-bank/project_plan-current.md
+    - .memory-bank/project_pending-tasks.md
+    allowed_write_set:
+    - .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
+    - docs/RELEASE_0.1.0_PLAN.md
+    - .memory-bank/archive/release-010-completed-cards.md
+    - .memory-bank/audit_session-2026-11-12-release-preparation.md
+    - .memory-bank/MEMORY.md
+    - .memory-bank/project_plan-current.md
+    - .memory-bank/project_pending-tasks.md
+    non_goals:
+    - No retrieval changes, held-out access, publication or owner decisions beyond this card.
+    required_validation:
+    - git diff --check
+    expected_evidence:
+    - See archive/corrected-candidate-preparation-cards.md task REL-0 (verbatim).
+    rollback:
+    - Revert only this task’s new changes; preserve pre-existing edits, historical evidence and evaluation custody.
+    stop_conditions:
+    - An unresolved owner decision, ADR conflict or write outside the declared scope is required.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-manager: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-12: proceed tasks from docs/RELEASE_0.1.0_PLAN.md'
+        validation_summary: git diff --check exit 0; Python archive/hash/state check exit 0 for all 53 DONE cards; project_plan_validate PASS (66 tasks). See audit_session-2026-11-12-release-preparation.md. No Rust or evaluation execution.
+    dod_status: pass
+  REL-1:
+    title: Given owner licence and snapshot decisions, prepare MIT root metadata and a complete linked-crate licence inventory before candidate freeze
+    status: DONE
+    classification: architecture-paperwork
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - REL-0
+    type: documentation
+    validation_tier: unit-fast
+    impact_risk: low
+    owner_files:
+    - LICENSE
+    - NOTICE
+    - Cargo.toml
+    - README.md
+    - THIRD_PARTY_LICENSES.md
+    - LICENSE-APACHE
+    - AGENTS.md
+    - .memory-bank/audit_session-2026-11-12-release-preparation.md
+    allowed_write_set:
+    - LICENSE
+    - NOTICE
+    - Cargo.toml
+    - README.md
+    - THIRD_PARTY_LICENSES.md
+    - LICENSE-APACHE
+    - AGENTS.md
+    - .memory-bank/audit_session-2026-11-12-release-preparation.md
+    non_goals:
+    - No retrieval changes, held-out access, publication or owner decisions beyond this card.
+    required_validation:
+    - git diff --check
+    expected_evidence:
+    - See archive/corrected-candidate-preparation-cards.md task REL-1 (verbatim).
+    rollback:
+    - Revert only this task’s new changes; preserve pre-existing edits, historical evidence and evaluation custody.
+    stop_conditions:
+    - An unresolved owner decision, ADR conflict or write outside the declared scope is required.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-manager: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-13: keep snapshot; proceed tasks after proposed Copyright (c) 2026 OntoDoc contributors.'
+        validation_summary: 'REL-1 audit in audit_session-2026-11-12-release-preparation.md: offline locked Cargo metadata/tree exit 0; git diff --check exit 0; manifest hash continuity and normalized full licence completeness checks exit 0; 114 crates, 90 runtime candidates and 24 build-only. Bounded source reuse comparison completed with no substantive copied text found. No Rust source changes or compilation. LICENSE-APACHE preserves original bytes; NOTICE and snapshot unchanged.'
+    dod_status: pass
+  REL-2:
+    title: Given source-checked service contracts, correct stale architecture and pending documentation and label ranking and capacity unmeasured
+    status: DONE
+    classification: architecture-paperwork
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - REL-0
+    type: documentation
+    validation_tier: unit-fast
+    impact_risk: low
+    owner_files:
+    - README.md
+    - AGENTS.md
+    - .memory-bank/project_architecture.md
+    - .memory-bank/project_pending-tasks.md
+    - .memory-bank/audit_session-2026-11-12-release-preparation.md
+    - .memory-bank/archive/release-010-pending-history.md
+    allowed_write_set:
+    - README.md
+    - AGENTS.md
+    - .memory-bank/project_architecture.md
+    - .memory-bank/project_pending-tasks.md
+    - .memory-bank/audit_session-2026-11-12-release-preparation.md
+    - .memory-bank/archive/release-010-pending-history.md
+    non_goals:
+    - No retrieval changes, held-out access, publication or owner decisions beyond this card.
+    required_validation:
+    - git diff --check
+    expected_evidence:
+    - See archive/corrected-candidate-preparation-cards.md task REL-2 (verbatim).
+    rollback:
+    - Revert only this task’s new changes; preserve pre-existing edits, historical evidence and evaluation custody.
+    stop_conditions:
+    - An unresolved owner decision, ADR conflict or write outside the declared scope is required.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-manager: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-12: proceed tasks from docs/RELEASE_0.1.0_PLAN.md'
+        validation_summary: git diff --check exit 0; inline Python document-link/status/history checks exit 0; source-backed registry/defaults/HTTP/schema review. See audit_session-2026-11-12-release-preparation.md#rel-2. Rust checks skipped for docs-only task.
+    dod_status: pass
+  REL-4:
+    title: Given the accepted ingress contract, document a systemd service and TLS-authenticated nginx proxy with correct Host and encoded routing, explicitly labelled untested
+    status: DONE
+    classification: architecture-paperwork
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - REL-2
+    type: documentation
+    validation_tier: unit-fast
+    impact_risk: low
+    owner_files:
+    - docs/DEPLOYMENT.md
+    - README.md
+    - .memory-bank/audit_session-2026-11-12-release-preparation.md
+    allowed_write_set:
+    - docs/DEPLOYMENT.md
+    - README.md
+    - .memory-bank/audit_session-2026-11-12-release-preparation.md
+    non_goals:
+    - No retrieval changes, held-out access, publication or owner decisions beyond this card.
+    required_validation:
+    - git diff --check
+    expected_evidence:
+    - See archive/corrected-candidate-preparation-cards.md task REL-4 (verbatim).
+    rollback:
+    - Revert only this task’s new changes; preserve pre-existing edits, historical evidence and evaluation custody.
+    stop_conditions:
+    - An unresolved owner decision, ADR conflict or write outside the declared scope is required.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-manager: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: 'User 2026-11-12: proceed tasks from docs/RELEASE_0.1.0_PLAN.md'
+        validation_summary: git diff --check exit 0; inline Python guide-reference/fence/INI/ingress-contract checks exit 0; project_plan_validate PASS. Guide explicitly untested; nginx/systemd runtime checks skipped. See audit_session-2026-11-12-release-preparation.md#rel-4.
+    dod_status: pass
+  REL-5:
+    title: Given an approved binary target and release changes, validate a clean linked candidate worktree and retain one hashed release binary
+    status: DONE
+    classification: proof-only
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - REL-1
+    - REL-4
+    type: proof
+    validation_tier: release
+    impact_risk: low
+    owner_files:
+    - tmp/release-010/candidate/Cargo.toml
+    - tmp/release-010/candidate/src/
+    - tmp/release-010/candidate/tests/
+    allowed_write_set: []
+    validation_workspace:
+      root: tmp/release-010
+      inputs:
+      - candidate/Cargo.toml
+      - candidate/Cargo.lock
+      - candidate/src/
+      - candidate/tests/
+      generated_outputs:
+      - candidate/target/
+      - evidence/
+    non_goals:
+    - No retrieval changes, held-out access, publication or owner decisions beyond this card.
+    required_validation:
+    - See archive/corrected-candidate-preparation-cards.md task REL-5 (verbatim).
+    expected_evidence:
+    - See archive/corrected-candidate-preparation-cards.md task REL-5 (verbatim).
+    rollback:
+    - Revert only this task’s new changes; preserve pre-existing edits, historical evidence and evaluation custody.
+    stop_conditions:
+    - An unresolved owner decision, ADR conflict or write outside the declared scope is required.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-auditor: null
+        coder-manager: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: User 2026-11-13 proceed tasks; Linux x86_64 GNU target accepted.
+        validation_summary: 'REL-5: clean F cc116c44a4d7f854bc19c6a4b40d75098a437268; compiler lane ontodoc-rel5-20261113-a terminal exit 0; fmt, Clippy, all-target tests (281 passed, 1 ignored), locked release build exit 0. tmp/release-010/evidence/{checks,smoke,binary-inspection}.json records five-tool stdio/HTTP parity, version, host and path scan (312 home-path matches). Binary SHA-256 af5fd69e216cb8a8e81ba495588f50d8274725388d27d61d1050fef3a2b83b55 retained unchanged. No held-out execution or publication.'
+    dod_status: pass
+  REL-3:
+    title: Given the retained candidate binary, record index time/RSS and HTTP per-tool p50/p95 at concurrency 1 and 4 plus busy behavior on both benchmark corpora and a near-cap corpus
+    status: DONE
+    classification: architecture-paperwork
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - REL-5
+    type: measurement
+    validation_tier: release
+    impact_risk: low
+    owner_files:
+    - tmp/release-010/candidate/target/release/ontodoc
+    allowed_write_set: []
+    validation_workspace:
+      root: tmp/release-010
+      inputs:
+      - candidate/target/release/ontodoc
+      generated_outputs:
+      - evidence/capacity/
+    non_goals:
+    - No retrieval changes, held-out access, publication or owner decisions beyond this card.
+    required_validation:
+    - See archive/corrected-candidate-preparation-cards.md task REL-3 (verbatim).
+    expected_evidence:
+    - See archive/corrected-candidate-preparation-cards.md task REL-3 (verbatim).
+    rollback:
+    - Revert only this task’s new changes; preserve pre-existing edits, historical evidence and evaluation custody.
+    stop_conditions:
+    - An unresolved owner decision, ADR conflict or write outside the declared scope is required.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-performance: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: User 2026-11-13 proceed tasks; corrected packet retry accepted.
+        validation_summary: 'REL-3 audit_session-2026-11-13-capacity.md; measure.py --self-check and full invocation exit 0. Nine index runs exit 0; 1660 HTTP samples: 1008 success, 652 busy, zero other errors; five tools/c1/c4 on both pins plus near-file-cap corpus. Final binary/candidate identity verified; no capacity acceptance verdict. Raw result.json and observations.jsonl under tmp/release-010/evidence/capacity/.'
+    dod_status: pass
+  REVIEW-9:
+    title: Verify the preserved release archive and complete source inventory without rebuilding
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    depends_on: []
+    type: code
+    validation_tier: unit-fast
+    impact_risk: low
+    owner_files:
+    - scripts/verify_release.py
+    - tests/test_verify_release.py
+    allowed_write_set:
+    - scripts/verify_release.py
+    - tests/test_verify_release.py
+    non_goals:
+    - See archive/corrected-candidate-preparation-cards.md task REVIEW-9 (verbatim).
+    required_validation:
+    - See archive/corrected-candidate-preparation-cards.md task REVIEW-9 (verbatim).
+    expected_evidence:
+    - See archive/corrected-candidate-preparation-cards.md task REVIEW-9 (verbatim).
+    rollback:
+    - Revert only REVIEW-9 edits; preserve all prior changes, archive bytes, source candidate and custody.
+    stop_conditions:
+    - Any production-code or frozen-artifact edit, unresolved ADR conflict or publication action is required.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+        coder-worker-test-challenger: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: User 2026-11-13 review, consolidate and proceed with GPT subagents.
+        validation_summary: 'GPT implementation and independent source challenge reviewed; no material finding. Unittest: 22 pass, exit 0 (636c9f); verifier: 9 members and 28 source files pass, exit 0 (75c713); git diff --check exit 0 (e4305d). Tag skipped; no Rust/build/eval/publication. Parent inspected final source; challenge was source-only.'
+    dod_status: pass
+  REVIEW-9-DOC:
+    title: Consolidate GPT challenge findings and correct release documentation against current evidence
+    status: DONE
+    classification: architecture-paperwork
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - REVIEW-9
+    type: documentation
+    validation_tier: unit-fast
+    impact_risk: low
+    owner_files:
+    - docs/RELEASE_0.1.0_PLAN.md
+    - docs/DEPLOYMENT.md
+    - docs/EVALUATION_0.1.0.md
+    - .memory-bank/ADR_ONTODOC_SERVICE.md
+    - .memory-bank/audit_session-2026-11-13-review-round9.md
+    - .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
+    - .memory-bank/MEMORY.md
+    - .memory-bank/project_plan-current.md
+    - .memory-bank/project_pending-tasks.md
+    allowed_write_set:
+    - docs/RELEASE_0.1.0_PLAN.md
+    - docs/DEPLOYMENT.md
+    - docs/EVALUATION_0.1.0.md
+    - .memory-bank/ADR_ONTODOC_SERVICE.md
+    - .memory-bank/audit_session-2026-11-13-review-round9.md
+    - .memory-bank/ONTODOC_IMPLEMENTATION_PLAN.md
+    - .memory-bank/MEMORY.md
+    - .memory-bank/project_plan-current.md
+    - .memory-bank/project_pending-tasks.md
+    non_goals:
+    - No runtime changes, publication, performance claims or held-out rerun; preserve frozen bytes and history.
+    required_validation:
+    - git diff --check
+    expected_evidence:
+    - See archive/corrected-candidate-preparation-cards.md task REVIEW-9-DOC (verbatim).
+    rollback:
+    - Revert only new review documentation edits.
+    stop_conditions:
+    - A semantic ADR change, frozen-artifact edit or publication is required.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-manager: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: User 2026-11-13 review, consolidate and proceed.
+        validation_summary: Round9 audit and consolidated release plan complete; all-outcomes companion independently checked by GPT. Inline Python links/anchors/fences and exact aggregate tables exit 0; git diff --check exit 0; strict plan validation PASS, 68 tasks. No Rust/artifact/eval changes; runtime blocked by recorded ADR/candidate decision.
+    dod_status: pass
+  CORR-1:
+    title: Restore typed bounded HTTP errors and request ID parity
+    status: DONE
+    classification: implementation-ready
+    type: code
+    assurance_profile: full
+    complexity: complex
+    validation_tier: unit-fast
+    impact_risk: medium
+    depends_on:
+    - CORR-0
+    owner_files:
+    - src/http.rs
+    - src/mcp.rs
+    - tests/http.rs
+    - tests/mcp.rs
+    allowed_write_set:
+    - src/http.rs
+    - src/mcp.rs
+    - tests/http.rs
+    - tests/mcp.rs
+    required_validation:
+    - CARGO_BUILD_JOBS=4 cargo test --test http
+    - CARGO_BUILD_JOBS=4 cargo test --test mcp
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib mcp::'
+    - cargo fmt --check
+    expected_evidence:
+    - Valid large and escaped IDs receive same bounded cap error as stdio; unencodable IDs rejected before tool work; admission and privacy retained.
+    non_goals:
+    - No new dependencies, ranking changes, held-out access, frozen writes or publication.
+    rollback:
+    - Revert this task changes only; preserve concurrent and historical work.
+    stop_conditions:
+    - New ADR choice or wider writes required.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+        coder-worker-test-challenger: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: User proceed authorizes separate corrected candidate; see corrected-candidate audit.
+        validation_summary: 'CORR-1 GPT implementation/source review accepted after two distinct test-fixture corrections. Lane ontodoc-corr1-validation-20261113-b: HTTP 6 and MCP 12 integration tests pass; later unit compile failed and corrected. Lane ontodoc-corr1-validation-20261113-c exit 0: MCP 17 and HTTP 5 unit tests, cargo fmt --check and four-job all-target Clippy -D warnings. Exact-ID typed fallback and predispatch refusal proven; four-file scope checked. No evaluation or frozen writes.'
+    dod_status: pass
+  CORR-2:
+    title: Remove temporary full-response sizing allocations without changing serialization errors
+    status: DONE
+    classification: implementation-ready
+    type: code
+    assurance_profile: full
+    complexity: complex
+    validation_tier: unit-fast
+    impact_risk: medium
+    depends_on:
+    - CORR-1
+    owner_files:
+    - src/cli.rs
+    - src/mcp.rs
+    allowed_write_set:
+    - src/cli.rs
+    - src/mcp.rs
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib cli::'
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib mcp::'
+    - cargo fmt --check
+    expected_evidence:
+    - Allocation-free sizing preserves byte threshold, all serde errors, truncation order and complete envelope limits; escaped text and late serialization error regressions.
+    non_goals:
+    - No new dependencies, ranking changes, held-out access, frozen writes or publication.
+    rollback:
+    - Revert this task changes only; preserve concurrent and historical work.
+    stop_conditions:
+    - New ADR choice or wider writes required.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+        coder-worker-test-challenger: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: User proceed authorizes selected performance repairs.
+        validation_summary: 'Parent reviewed GPT patch: fixed-storage CLI counter preserves late serde errors and truncation bytes; MCP maps errors to false. Lane ontodoc-corr2-validation-20261113-a exit 0: four-job cargo test --lib cli:: (11), mcp:: (18), cargo fmt --check, cargo clippy --all-targets -- -D warnings. Scope cli.rs/mcp.rs only. No performance claim or held-out access.'
+    dod_status: pass
+  CORR-3:
+    title: Replace graph and ancestry scans while retaining exact artifact semantics
+    status: DONE
+    classification: implementation-ready
+    type: code
+    assurance_profile: full
+    complexity: complex
+    validation_tier: unit-fast
+    impact_risk: medium
+    depends_on:
+    - CORR-2
+    owner_files:
+    - src/graph.rs
+    - src/tiers.rs
+    allowed_write_set:
+    - src/graph.rs
+    - src/tiers.rs
+    required_validation:
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib graph::'
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib tiers::'
+    - cargo fmt --check
+    expected_evidence:
+    - Synthetic flat/nested headings match old reference edges, diagnostics and tiers; arbitrary public chunk inputs retain linear semantics; comparison/work counts establish complexity.
+    non_goals:
+    - No new dependencies, ranking changes, held-out access, frozen writes or publication.
+    rollback:
+    - Revert this task changes only; preserve concurrent and historical work.
+    stop_conditions:
+    - New ADR choice or wider writes required.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+        coder-worker-test-challenger: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: User proceed authorizes selected indexing repairs.
+        validation_summary: 'GPT patch and parent source review accepted. Lane ontodoc-corr3-validation-20261113-a exit 0: graph 7, tiers 6, ignored synthetic timing 2, store canonical mtime/independent-root 1; fmt and four-job all-target Clippy pass. Complete old-reference equality includes arbitrary spans/levels/IDs. Ordered lookup O(log C), stack bounded by u8 levels; no general performance claim. Only graph.rs/tiers.rs changed.'
+    dod_status: pass
+  CORR-LOCK:
+    title: Release the publication lock when its logical owner exits despite retained duplicate descriptors
+    status: DONE
+    classification: implementation-ready
+    assurance_profile: full
+    complexity: complex
+    type: code
+    validation_tier: release
+    impact_risk: high
+    depends_on:
+    - CORR-3
+    owner_files:
+    - src/store.rs
+    allowed_write_set:
+    - src/store.rs
+    non_goals:
+    - No retry, test serialization, public API, schema, ranking or publication-order changes; no attribution of the earlier failure without holder evidence.
+    required_validation:
+    - CARGO_BUILD_JOBS=4 cargo test --lib store::tests::held_lock_blocks_and_released_lock_is_reclaimed -- --exact
+    - 'CARGO_BUILD_JOBS=4 cargo test --lib store::'
+    - CARGO_BUILD_JOBS=4 cargo test --all-targets
+    - cargo fmt --check
+    - just --justfile /opt/d1/_wrk/ontocode/justfile compiler-lane-detached ontodoc-corrlock-clippy-20261113-a env CARGO_BUILD_JOBS=4 cargo clippy --all-targets -- -D warnings
+    - git diff --check
+    expected_evidence:
+    - Retained-duplicate regression fails with raw File lifetime and passes with private explicit-unlock guard; successor remains exclusive after old duplicate closes. Existing commit/maintenance and owner-death process tests pass. Original parallel failure retained; no claim its holder was identified.
+    rollback:
+    - Revert only this task store.rs changes, retaining failed validation evidence and prior work.
+    stop_conditions:
+    - Broader writes, changed lock scope or ADR semantics required; repeated unresolved validation failure.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-worker: null
+        coder-worker-test-challenger: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: User authorized review, robust issue fixes and proceed; scoped prerequisite registered before edits.
+        validation_summary: 'GPT patch and independent GPT challenge PASS; parent diff review accepted. Red retained-duplicate regression lane ontodoc-corrlock-red-20261113-a exit 101 at expected Locked. Green lane ontodoc-corrlock-green-20261113-a exit 0: exact regression, store suite, default-parallel all-target suite, fmt. ontodoc-corrlock-clippy-20261113-a exit 0 all-target -D warnings; git diff --check exit 0. Only store.rs changed; original incident holder remains unknown.'
+    dod_status: pass
+  CORR-4:
+    title: Validate and package separately identified corrected candidate with synthetic evidence
+    status: DONE
+    classification: architecture-paperwork
+    type: documentation
+    validation_tier: release
+    depends_on:
+    - CORR-3
+    - CORR-LOCK
+    owner_files:
+    - tmp/release-010/corrected/
+    - docs/
+    - .memory-bank/
+    - CHANGELOG.md
+    allowed_write_set:
+    - tmp/release-010/corrected/
+    - docs/
+    - .memory-bank/
+    - CHANGELOG.md
+    required_validation:
+    - cargo fmt --check
+    - CARGO_BUILD_JOBS=4 cargo test --all-targets
+    - just --justfile /opt/d1/_wrk/ontocode/justfile compiler-lane-detached ontodoc-corrected-clippy-20261113-a env CARGO_BUILD_JOBS=4 cargo clippy --all-targets -- -D warnings
+    - CARGO_BUILD_JOBS=4 cargo build --release --locked
+    - git diff --check
+    expected_evidence:
+    - Separate source snapshot, binary/package hashes, all-outcomes docs, synthetic parity/performance and installation checks; original bytes/custody preserved; no new quality claim.
+    non_goals:
+    - No tag/upload, held-out rerun, ingress installation or original artifact mutation.
+    rollback:
+    - Preserve original evidence; remove only new owned disposable staging.
+    stop_conditions:
+    - Validation fails or package identity cannot be bound.
+    known_blockers: []
+    closeout:
+      role_results:
+        coder-manager: null
+      main_session_evidence:
+        authorized_by: user
+        authorization_ref: User proceed authorized separate corrected candidate and local packaging under ./.
+        validation_summary: 'Corrected source captured SHA 7bb1ee28ccf8; source reverified. CORR-LOCK green lane default-parallel all-target tests and fmt exit 0; ontodoc-corrected-clippy-20261113-a and ontodoc-corrected-release-20261113-a exit 0. Six package selftests; deterministic archives and extracted install smoke exit 0. Archive-binary smoke-final exit 0: 30 artifact comparisons, five-tool transport parity, cap errors, six large responses; staging/children cleaned. Two distinct helper failures preserved and corrected. validation.json binds all identities; original binary/archive/custody hashes preserved. Mixed synthetic timing supports no broad gain. git diff --check passed; no tag/upload.'
+    dod_status: pass
+  REL-6:
+    title: Given accepted evaluation closeout and release inputs, package the exact measured binary, verify installation, then tag and publish to the owner-selected destination
+    status: BLOCKED
+    classification: architecture-paperwork
+    assurance_profile: full
+    complexity: complex
+    depends_on:
+    - OD-4.0
+    - REL-2
+    - REL-3
+    - REL-4
+    - REL-5
+    type: documentation
+    validation_tier: unit-fast
+    impact_risk: low
+    owner_files:
+    - CHANGELOG.md
+    - tmp/release-010/package/
+    - .memory-bank/audit_session-2026-11-12-release-preparation.md
+    allowed_write_set:
+    - CHANGELOG.md
+    - tmp/release-010/package/
+    - .memory-bank/audit_session-2026-11-12-release-preparation.md
+    non_goals:
+    - No retrieval changes, held-out access, publication or owner decisions beyond this card.
+    required_validation:
+    - git diff --check
+    - PYTHONDONTWRITEBYTECODE=1 python3 scripts/verify_release.py
+    expected_evidence:
+    - Package contains binary, README, MIT licence, dependency licence texts, deployment guide and SHA256SUMS; binary hash equals accepted held-out report.
+    - Selected candidate and annotated tag have exact source/Cargo/toolchain inventory and bytes; install smoke, tag and publication receipts recorded; distribute EVALUATION_0.1.0.md with all outcomes. Current verifier pins preserved F only; corrected candidate needs separate identities/validation.
+    rollback:
+    - Revert only this task’s new changes; preserve pre-existing edits, historical evidence and evaluation custody.
+    stop_conditions:
+    - An unresolved owner decision, ADR conflict or write outside the declared scope is required.
+    - Publication requires selected candidate/tag identity, destination/exposure and embedded-path decisions. Preserve measured binary and consumed custody.
+    known_blockers:
+    - Corrected candidate locally validated separately; destination, package-only versus repository/history exposure and embedded-path acceptance remain undecided. No tag/upload. See audit_session-2026-11-13-corrected-candidate.md.
+    closeout:
+      role_results:
+        coder-manager: null
 ```
 
 ## Required Traceability
@@ -2563,93 +3135,15 @@ tasks:
 | REQ-052 | ADR rev 13 model-judged exploratory labels: admission, provenance, exploratory-only reporting | implementation | FIX-14, EVAL-2.1 | gates/run model-judged regressions |
 | REQ-053 | ADR rev 14-15 pool extension and one-time withdrawal of still-unanswered queries | implementation | FIX-15, EVAL-2.1 | pool-extension regressions; qrels gate |
 
+| REQ-054 | User 2026-11-12: proceed docs/RELEASE_0.1.0_PLAN.md | implementation | REL-0, REL-1, REL-2, REL-3, REL-4, REL-5, REL-6 | Scoped release validation and retained candidate identity |
+| REQ-055 | User 2026-11-13: challenge completed/planned work with GPT subagents, consolidate and proceed | implementation | REVIEW-9, REVIEW-9-DOC | Synthetic verifier failure tests, existing artifact verification and evidence-backed review |
+| REQ-056 | User proceed authorizes separately identified corrected candidate; preserve original measurement | implementation | CORR-0, CORR-1, CORR-2, CORR-3, CORR-4 | Parity, semantic equivalence, synthetic performance and new artifact identities |
+
 ## Decisions And Non-Goals
 
-- ADR9 accepts [trusted preparation and promotion](ADR_ONTODOC_SERVICE.md#trusted-evaluation-preparation-and-promotion-accepted-not-implemented).
-  EVAL-1.3 implements bounded provenance/admission with synthetic proof; EVAL-2.x
-  supplies trusted review/human evidence. EVAL-3.2 recommends only; OD-4.1 applies
-  H5-first defaults or records no-op before final OD-4.0. No ranking, code,
-  real benchmark access, listener or guard removal occurs in EVAL-1.6.
+Historical decisions preserved verbatim in [release-010-plan-decisions.md](archive/release-010-plan-decisions.md). Current design authority is ADR revision 16; held-out miss attribution is unavailable for the registered experiment by explicit owner approval. All other gates remain.
 
-- EVAL-2.1's manager may create/update `eval/annotation.md` (guideline,
-  judge identities, blinding, adjudication rule) and
-  `eval/audit_session-preparation.md` (operator manifest audit); the label
-  worker does not write or approve them.
-- EVAL-2.0's manager, separately from the data worker, may create/update exactly
-  `eval/audit_session-query-approval.md` to record authentic final-query approval
-  and its hash before the first ranking invocation, then append pool/preparation
-  evidence. This manager-only paperwork authority does not enter the worker's
-  allowed write set or permit self-approval, fabricated reviewer provenance or
-  ranking before approval. Missing trusted operator evidence stops pooling.
-
-- SAFETY-0 accepts ADR8 local rooted-reader/membership/work/publication contracts;
-  [decision evidence](audit_session-2026-11-10-safety0-local-contracts.md).
-  Implement OD-3.4 → OD-3.6 → OD-3.5, then OD-3.9; EVAL-1.6 remains independent.
-  HTTP-0 still needs the owner's exposure/admission choice. No code, listener,
-  schema/ranking change or measurement is authorized by this documentation closure.
-
-- Current consolidation: [fresh GPT challenge](audit_session-2026-11-10-review-safety-priorities.md). Preserve all 22 DONE cards and existing receipts. Select OD-3.8, then SAFETY-0 → OD-3.4 → OD-3.6 → OD-3.5, with OD-3.9 after its decision; EVAL-1.6 → EVAL-1.3 completes independent evaluation admission. HTTP-0 remains owner-blocked. This explicitly supersedes the earlier HTTP-dependent safety ordering, not its deployment gate.
-
-- EVAL-1.5's explicit authority-conflict resolution permits manager-owned
-  documentation only in `ADR_ONTODOC_SERVICE.md`, this plan (including EVAL-3.x
-  command bindings), `audit_session-2026-11-10-eval15-attempt-identity.md`,
-  `MEMORY.md`, `project_architecture.md`, `project_plan-current.md`,
-  `project_pending-tasks.md` (all under `.memory-bank/`) and `AGENTS.md`.
-  This is separate from the unchanged coder-worker implementation write set;
-  manager closeout/status changes still use the strict manager loop.
-
-- 2026-11-11 [review/simplify consolidation](audit_session-2026-11-11-review-simplify-consolidate.md):
-  FIX-1 → SIMPL-1 → HTTP-1 (folder registry, no listener; split from the HTTP-0
-  exposure gate) → PERF-1 (concurrent admission) → HTTP-2 (still needs HTTP-0).
-  EVAL-2.x stays owner/human-gated.
-- Review decision: [2026-11-10 consolidated challenge](audit_session-2026-11-10-consolidated-review.md).
-  Preserve all 15 historical DONE cards; those receipts do not validate today's tree.
-  Execute OD-3.0 first, then prefer wire/privacy repairs and bounded I/O/work.
-- EVAL-1.3 is DONE (2026-11-11); measurement admits only a pinned trusted preparation.
-  A separate audit registry service is not required by the accepted ADR.
-- EVAL-1.4's [bounded capture seam](audit_session-2026-11-10-eval14-bounded-traversal.md)
-  uses corpus-owned pre-filter enumeration and explicit ignore bytes with public
-  matchers; successfully readable regular-control parity is tested. Unsafe or
-  unreadable controls refuse. This conforms to ADR2 without accepting the
-  ordinary automatic walker's symlink conflict or claiming rooted HTTP I/O.
-  Preserve the [partial-progress audit](audit_session-2026-11-10-eval14-input-capture.md)
-  as the record of the earlier unaccepted draft and validation corrections.
-- Before EVAL-3.x execution, rebind each required command to the implemented CLI
-  after EVAL-1.3; existing historical command shapes are not executable evidence.
-  ADR revision 6 uses a canonical external `ONTODOC_BENCH` snapshot, the exact
-  audited `ONTODOC_FROZEN_BIN` and Git-resolved absolute `ONTODOC_GIT_COMMON`.
-  Pin paths, corpus and held-out snapshot bytes before the dev proof. Dev-only
-  parameter selection may update config.json under EVAL-3.1; recapture/revalidate
-  and register that final config before any held-out access. External
-  `audit_session-*` files record preregistration (registration/export hashes)
-  and outcomes (started/result hashes); mirror them to memory only afterward.
-  Run from the clean frozen checkout without rebuilding between freeze and
-  held-out execution.
-  These variable-bound commands are future protocols, not measurements run here.
-- HTTP follows HTTP-0 then HTTP-1/2 and the service-safety dependencies, not the
-  human-label chain. No listener is implemented or exposed by this plan revision.
-- Diagnostics remain Proposed; this consolidation does not accept any capability.
-  OD-4.0 records its final disposition, never implements it implicitly.
-- OD-3.1 records [service ADR revision 5](ADR_ONTODOC_SERVICE.md#schema-2-identity-and-canonical-artifacts-accepted-not-implemented):
-  schema 2 reserves `@empty` in IDs only, canonicalizes skip records and removes
-  persisted mtime; fresh checks remain current-byte hashes. OD-3.2 implements
-  these decisions; no code or benchmark identity changes occur in OD-3.1.
-  LF formatting between copied tier fragments is permitted, without accepting
-  provenance/diagnostics capabilities or changing the hypothesis family.
-
-- One package with a library and a binary; split into crates only when a second
-  consumer exists.
-- `ontocode-rs/` is read-only reference material; nothing imports from it.
-- No container, Windows or macOS build work.
-- Task ids were renumbered in revision 3 before any task started; no state was lost.
-- The section is the evaluation unit; the chunk budget is frozen at 1,200 bytes
-  and is not tuned in v1.
-- EVAL-2.1 uses two model judges (ADR rev 13), exploratory only. A confirmatory
-  claim still needs two humans; no model counts as a human label.
-- Parallel work: EVAL-1.0 depends only on OD-0.0; OD-1.2 and OD-1.3 both
-  depend only on OD-1.1; OD-1.7 and OD-1.8 can run beside OD-1.6.
-- Donor ideas are adopted as ideas only; licences (AGPL-3.0, none) forbid
-  copying code or data.
+REL-6 local preparation is authorized independently of publication: write CHANGELOG.md and an exact-byte binary package under tmp/release-010/package/ using build-package.py; retain deterministic archive, SHA256SUMS and clean-directory install/index/search smoke evidence. Package includes a standalone README derived from repository text, CHANGELOG, licences/notices and DEPLOYMENT; links to unshipped source/audits become labelled source references, and the selected target/capacity facts supersede stale guide prose. Exclude raw benchmark data and donor sources. Disposable staging is created uniquely and cleaned on exit. No tag, commit or upload occurs until the destination/exposure decision; REL-6 cannot close before those receipts.
 
 ## Closeout
 

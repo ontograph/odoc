@@ -33,8 +33,10 @@ pub const CANDIDATES: usize = 50;
 
 const MAX_TOKENIZER_INPUT_BYTES: usize = 512 * 1024 * 1024;
 
-// Chunk text historically selects the first matching document, while hierarchy
-// scoring selects the last. Keep both indices without cloning document paths.
+// Chunk text selects the first document with a path and hierarchy scoring the
+// last. The two differ only when documents share a path: Generation::validate
+// refuses that for every stored generation, but SearchIndex::new and try_new
+// also accept unvalidated input. Keeps both indices without cloning paths.
 type DocumentMap<'a> = HashMap<&'a str, (usize, usize)>;
 
 fn document_map(generation: &Generation) -> DocumentMap<'_> {
@@ -346,6 +348,7 @@ impl SearchIndex {
             .map(|h| (h.chunk, h.score))
             .collect();
         let ppr = self.graph.ppr(&seeds);
+        // Mode::Graph and Mode::Hier fuse over this one pool, as the service ADR requires.
         let mut pool: Vec<usize> = lexical.iter().map(|h| h.chunk).collect();
         let scoped_ppr: Vec<f64> = ppr
             .iter()
@@ -429,18 +432,6 @@ pub fn rank(scores: &[f64], chunks: &[ChunkRecord], top_k: usize) -> Vec<Hit> {
     });
     hits.truncate(top_k);
     hits
-}
-
-/// Section ids in rank order, keeping each section's first occurrence.
-pub fn section_ranking<'a>(hits: &[Hit], chunks: &'a [ChunkRecord]) -> Vec<&'a str> {
-    let mut out: Vec<&str> = Vec::new();
-    for hit in hits {
-        let id = chunks[hit.chunk].section_id.as_str();
-        if !out.contains(&id) {
-            out.push(id);
-        }
-    }
-    out
 }
 
 #[cfg(test)]
@@ -672,31 +663,6 @@ mod tests {
         let mut sorted = got.clone();
         sorted.sort();
         assert_eq!(got, sorted);
-    }
-
-    #[test]
-    fn chunk_hits_map_to_sections_by_first_occurrence() {
-        let (_dir, index) = index();
-        let chunks = &index.generation.chunks;
-        let pos = |id: &str| chunks.iter().position(|c| c.id == id).unwrap();
-        let hits = [
-            Hit {
-                chunk: pos("alpha.md#alpha/usage~0"),
-                score: 3.0,
-            },
-            Hit {
-                chunk: pos("beta.md#beta~0"),
-                score: 2.0,
-            },
-            Hit {
-                chunk: pos("alpha.md#alpha/usage~0"),
-                score: 1.0,
-            },
-        ];
-        assert_eq!(
-            section_ranking(&hits, chunks),
-            vec!["alpha.md#alpha/usage", "beta.md#beta"]
-        );
     }
 
     #[test]

@@ -1,7 +1,7 @@
 # ADR: OntoDoc — Measurable Documentation Graph-RAG MCP Service
 
 Date: 2026-11-08
-Revision: 15 (2026-11-12). Revision 2 added donor ideas
+Revision: 20 (2026-11-15). Revision 20 accepts the opt-in stdio index refresh below (`serve --auto-index`), authorized by the owner's selection of option D and the instruction "update adr" on 2026-11-15. It is not implemented and needs an approved plan task. Revision 19 (2026-11-14). Revision 19 accepts the generation graph and document invariants below, authorized by the user's instruction to proceed with `docs/ONTOINDEX_IDEAS_PLAN.md`. OI-1 owns implementation and recovery proof. Revision 18 accepts citation-preserving search text withholding and related omission counts, authorized by the user's instruction to proceed with `docs/DONOR_CANDIDATES_PLAN.md`. Implementation belongs to DC-1; no schema or ranking change follows. Revision 2 added donor ideas
 (`audit_session-2026-11-08-donor-ideas-review.md`); revision 3 applies the plan
 challenge (`audit_session-2026-11-08-plan-challenge.md`): section-level
 evaluation unit, frozen chunk budget, raw-score abstention, specified PPR, power
@@ -52,6 +52,8 @@ grade >=1 after the extension (`oi-cn-020/021/044`, `oi-lk-039/040`,
 splits, pool and qrels, the seeded split is recomputed over the remaining 329
 queries, and the list is disclosed in every report. Decided from labels alone,
 before any run; no measurement exists.
+Revision 16 (2026-11-13, owner reply "proceed tasks" to the explicit diagnostic-limitation approval question) accepts unavailable held-out per-stage miss attribution for the registered 0.1.0 experiment only. The frozen CLI supports miss attribution on dev runs. Record this omission in the audit/report companion; retain all other integrity, identity, statistical and once-only gates. Frozen artifacts and registration remain unchanged.
+Revision 17 (2026-11-13, user instruction to proceed with `docs/GRAPHRAG_REFERENCES_PLAN.md`) applies item 8's citation contract to `related`: chunk neighbours (`NEXT`, `LINKS_TO`) and parent-section neighbours (`CONTAINS`) always carry indexed citations; unresolved `MENTIONS` omit the citation field. An endpoint of the wrong kind or an unknown endpoint refuses the request as a corrupt generation. Existing order, 100-neighbour cap, complete-response byte limits and request shape remain. Development targets unreleased 0.1.1 independently of REL-6; the preserved 0.1.0 packages, measured binary and evaluation custody remain immutable. No ranking or schema change, new measurement or GR-5 diagnosis is authorized by this amendment.
 Owner: OntoDoc maintainers
 
 ## Status
@@ -59,6 +61,23 @@ Owner: OntoDoc maintainers
 Accepted
 
 ## Context
+
+### Revision 19: Generation Edge And Document Invariants
+
+Publication and every generation load must refuse these violations as `StoreError::Corrupt`, using a fixed reason per rule with no corpus text:
+
+- E1: edge kind outside `CONTAINS`, `NEXT`, `LINKS_TO`, `MENTIONS`.
+- E2: either endpoint of `LINKS_TO` or `NEXT` is not a chunk id.
+- E3: a `NEXT` edge joins chunks with different paths.
+- E4: a `MENTIONS` edge has a non-chunk source or a target without the `code:` prefix. The target remains unresolved.
+- E5: a `CONTAINS` edge is neither document path to section, section to section, nor section to chunk.
+- D1: two document records share a path. This is accepted separately from the edge rules.
+
+`Generation::validate` owns the check after unique-id validation. Schema remains 4: these rules enforce builder invariants without changing valid artifact bytes or generation identity. Revision 17's endpoint refusal and existing duplicate-id load refusal provide the compatibility precedent. Edge order, duplicate edges, self-loops, manifest pairing and section membership are outside this amendment.
+
+A refused active generation makes all five tools unavailable for its corpus until operator repair; serving a graph with silently dropped edges is rejected. A same-id rebuild cannot replace it under the existing publication protocol. The accepted recovery is to stop the affected service, remove only the refused `.ontodoc/generations/<id>` directory, then run trusted CLI `index` and verify `status` before restarting. OI-1 must prove directory removal, republish and load in a synthetic regression before OI-DOC publishes these instructions. If that proof fails, stop and return for a separate publication-protocol decision. Do not repair or reindex the pinned benchmark stores. No release may ship this refusal before OI-DOC completes.
+
+This decision authorizes no ranking, freshness, budget, tokenizer, transport, tool, stored-field or publication-protocol change. OI-2's test-only census and OI-3's descriptive measurement are registered in the plan and add no product contract or quality claim.
 
 The user requires a new MCP service for documentation retrieval in this
 repository, written in Rust, whose quality claims are scientifically provable:
@@ -191,15 +210,26 @@ Two predecessors exist:
    extension is specified below. Both use the same five read-only tools:
    - `search`: query, top_k, mode `lexical|graph|hier`, optional `scope`,
      `explain` and `budget_bytes`. With `budget_bytes`, results go through
-     **breadth-first context assembly**. Every result first gets L0; leftover
+     **breadth-first context assembly**. Every result first attempts L0; leftover
      budget then upgrades results in rank order to L1 and then L2. A tier that
      doesn't fit stays at the previous tier and is never truncated. This is a
      feature with no quality claim. Each result carries `text_truncated`: true
      when its L0/L1 text was shortened by the tier byte cap at indexing (the
      stored flag; L2 is never shortened). The response `truncated` flag keeps
-     meaning omitted results (revision 10).
+     meaning omitted results (revision 10). Revision 18 permits citation-only
+     results when the budget or response bound withholds text: `tier: null`,
+     `text: ""`, `text_truncated: false`. This nullable tier is the explicit
+     per-result cap signal; withheld text alone does not set `truncated`.
+     Selected text above `MAX_RESPONSE_BYTES / 2` is withheld before copying.
+     If the complete serialized response overflows, remove texts and try
+     restoring each in rank order, continuing after any text that does not fit.
+     Omit trailing whole results only if citations alone exceed the bound.
+     CLI and MCP share this assembly rule; each existing bounding layer
+     measures its own serialized form. CLI pretty-printed output has no new cap.
    - `read`: chunk or section by id or path#anchor.
-   - `related`: graph neighbours of a chunk.
+   - `related`: graph neighbours of a chunk. Chunk and parent-section neighbours always carry citations; unresolved code mentions omit them. Unresolvable or wrong-kind endpoints fail as a corrupt generation (revision 17).
+     Revision 18 adds `omitted`: incident edges absent from `neighbours`
+     after the 100-item and serialized-byte bounds, preserving stored edge order.
    - `verify`: re-check citations against current bytes.
    - `status`: generation, counts, freshness and diagnostics.
 
@@ -207,7 +237,8 @@ Two predecessors exist:
    `{generation_id, path, heading_path, byte_start, byte_end, line_start,
    line_end, sha256}`. Responses are bounded by item count and serialized bytes,
    with explicit `truncated` flags. Indexing is a CLI action (`ontodoc index`),
-   never an MCP tool.
+   never an MCP tool. Revision 20's opt-in stdio refresh adds no tool; see
+   [Opt-In Stdio Index Refresh](#opt-in-stdio-index-refresh-accepted-not-implemented).
 9. **Freshness:** `status` and every response report `fresh` or `stale`. The
    check compares admitted relative paths and SHA-256 hashes of current file
    bytes with the active manifest on every freshness check. Size or mtime
@@ -583,6 +614,85 @@ its redirectable ancestors from concurrent untrusted mutation throughout
 publication/cleanup. Corpus-reader containment does
 not claim race-safe publication against a hostile store administrator.
 
+## Opt-In Stdio Index Refresh (Accepted, Not Implemented)
+
+Authority: on 2026-11-15 the owner selected option D ("refresh while serving") from five options for local use, then instructed "update adr". The owner did not choose between the two refresh behaviours offered. This section records the recommended one: the call waits for the rebuild. Changing that choice needs an edit to this section before implementation starts. No code exists, and implementation needs an approved plan task.
+
+Purpose: a single local user starts the stdio server in a working folder and queries its Markdown files without running `ontodoc index` by hand.
+
+### Decision
+
+- `ontodoc serve` gains the opt-in flag `--auto-index`. It is off by default, and without it the server behaves exactly as before.
+- The flag exists for stdio only. `serve-http` does not accept it; the HTTP rules on index publication and the delivery boundary below are unchanged.
+- With the flag, each admitted tool call does the following inside its existing work permit, before its handler runs:
+  1. If the corpus has no active generation, build and publish one.
+  2. If the active generation loads and the item 9 freshness check reports it stale, build and publish a new one, then reload.
+  3. Otherwise do nothing extra.
+- Build and publication are the existing CLI path (`App::index`, `store::build_rooted`, `Store::publish`) with the same caps, lock and outcome rules. There is no incremental build and no second writer.
+- The call waits for the rebuild and answers from the new generation. Its `fresh` value still comes from the item 9 comparison.
+- A call makes at most one staleness check before its handler and at most one rebuild. The handler may reuse that check's result only when no rebuild happened.
+- No tool, request field, response field, schema version, ranking input or dependency is added. Generation bytes for a folder equal those of `ontodoc index` on the same folder.
+
+### Failure Behaviour
+
+| Case | Result |
+| --- | --- |
+| Rebuild fails and an active generation exists | The call is answered from that generation with `fresh: false` and the existing per-result `stale` flags |
+| Rebuild fails and no generation exists | The call returns the build's existing typed error |
+| Publication commits with uncertain durability or failed maintenance | The new generation is served; the outcome code goes to stderr |
+| The store lock is held by another publisher | Treated as a failed rebuild; a later call sees whatever that publisher committed |
+
+After a failed rebuild the server waits at least 30 seconds before trying again. The interval uses a monotonic clock held in process memory and never enters an index, a response or an evaluation output. Failures are logged to stderr as fixed codes, without paths, queries or operating-system text.
+
+### What Does Not Trigger A Rebuild
+
+A refused or corrupt active generation (revision 19), an unsupported schema, an unsafe or unsupported filesystem, and every other load error keep their typed errors and their operator recovery. The server never deletes, repairs or replaces a generation it could not load.
+
+### Bounds And Work Ownership
+
+- The rebuild runs under the call's own permit, as the accepted rule on actual blocking work requires. No detached lane, background thread or timer is added.
+- The stdio server admits one operation at a time, so a rebuild makes concurrent calls return `busy`.
+- A client timeout does not stop the rebuild. The work keeps its permit until it ends, and a later call finds the published generation.
+- The existing build limits apply unchanged: 100,000 probes, 2 MiB per file, 128 MiB of source work and the artifact ceiling. Exceeding one fails the rebuild; nothing partial is published.
+- These are admission policies, not measured capacity or latency guarantees.
+
+### Trust And Safety
+
+- A local user starts the stdio process for a folder they chose. That user is the trusted operator, and the flag is their standing instruction to index that folder. Tool arguments never select a root or carry an indexing option.
+- Writes go only to `<root>/.ontodoc/` through `src/store.rs`. Corpus documents are never written.
+- The five tools keep `read_only_hint`: it describes the corpus documents. With the flag set, the server instructions must state that the server maintains its own index store.
+- Operators must not use the flag on a pinned benchmark corpus root or on any store bound by an evaluation registration. Evaluation commands do not go through `serve`.
+
+### Alternatives Considered
+
+| Alternative | Disposition |
+| --- | --- |
+| Answer from the stale index and refresh in the background | Rejected: it needs work outside the call's permit, and an agent would read outdated text |
+| File watcher | Rejected: a new dependency or a polling thread, while the per-call item 9 check already sees every change |
+| Overlay index for changed files | Rejected: a second index and a merge step for no stated need |
+| Wrapper script that indexes, then serves | Not selected by the owner; it remains usable and needs no code |
+| Index store outside the corpus folder | Rejected: it changes store location and corpus identity |
+
+`../ontoindex` was reviewed read-only on 2026-11-15 by a GPT-6-Astra explorer as an idea source; no code, prompt or data was copied. The idea adopted is one rebuild at a time, started by a query that finds the index stale. Immutable generations, the atomic pointer swap, a pinned snapshot per call and stale labels were already present here. The review found that the donor's background refresh swallows scheduling errors, that its overlay capture has no file or byte cap, and that an earlier report of out-of-memory failures was not reproduced.
+
+### Required Evidence For The Implementing Task
+
+- With the flag off, existing tests pass unedited and responses are unchanged.
+- With no index, the first call builds one and answers.
+- After a file edit, the next call returns the new text with `fresh: true` and a new generation ID.
+- A failed rebuild gives the stale-flagged answer or the typed error above, and the retry interval prevents a rebuild on every call.
+- A corrupt generation is not rebuilt.
+- The permit is held through the rebuild, and a concurrent call returns `busy`.
+- `serve-http` rejects the flag.
+- The generation bytes equal those of `ontodoc index` for the same folder.
+- The same task updates the operator documentation and the service-boundary wording in `AGENTS.md`.
+
+### Limits
+
+- Every rebuild is a full one. Its cost on a large folder is not measured.
+- The staleness check hashes every admitted file on every call. `search`, `read` and `status` already did this; `related` and `verify` now do too.
+- This section adds no evidence about retrieval quality.
+
 ## Folder-Scoped HTTP MCP Architecture (Accepted, Not Implemented)
 
 Status 2026-11-11: implemented. HTTP-1 is the startup folder registry
@@ -707,9 +817,9 @@ OntoDoc code. Anonymous or direct public listeners remain unauthorized.
 ### Delivery Boundary
 
 HTTP-2 (DONE 2026-11-11) implements the contracts above; `tests/http.rs`
-holds the synthetic checks. Still outside this ADR: automatic indexing,
-database creation by the listener, authentication in OntoDoc, sessions/SSE
-and non-loopback binds. `docs_share/` does not exist in this checkout.
+holds the synthetic checks. Still outside this ADR for the HTTP listener:
+automatic indexing, database creation by the listener, authentication in
+OntoDoc, sessions/SSE and non-loopback binds. Revision 20 changes stdio only. `docs_share/` does not exist in this checkout.
 
 The acceptance checks were to prove with small synthetic corpora
 that each folder has its own endpoint/store, all five tools stay within that
@@ -875,7 +985,7 @@ the default until the separately scoped promotion task validates that change.
   - No test query is a near duplicate of a dev query (normalised token Jaccard
     ≥ 0.8 fails).
   - Pools and the benchmark files regenerate byte for byte.
-  - Every miss in a report is assigned one stage: `not_indexed`,
+  - Except for the revision-16 registered experiment limitation, every miss in a report is assigned one stage: `not_indexed`,
     `chunk_boundary`, `lexical_miss`, `fusion_displaced` or `truncated`.
     Abstention is off for ranking metrics.
 - **Rejected data source:** link-derived silver qrels (link text as the query,

@@ -29,7 +29,7 @@ use super::stats::{self, Decision, Interval, SplitMix64};
 
 pub const CUTOFF: usize = 10;
 /// Chunks fetched per query before collapsing to sections.
-const FETCH: usize = 50;
+pub(super) const FETCH: usize = 50;
 pub const MIN_EFFECT: f64 = 0.05;
 pub const ALPHA: f64 = 0.05;
 const Z95: f64 = 1.959_963_984_540_054;
