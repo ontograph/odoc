@@ -104,7 +104,18 @@ async fn tool(addr: SocketAddr, path: &str, name: &str, args: Value) -> Value {
         json!({ "name": name, "arguments": args }),
     )
     .await;
-    reply["result"]["structuredContent"].clone()
+    tool_body(&reply)
+}
+
+/// The JSON text block every tool result carries; `structuredContent`, when
+/// present, must equal it (ADR revision 21).
+fn tool_body(frame: &Value) -> Value {
+    let result = &frame["result"];
+    let text: Value = serde_json::from_str(result["content"][0]["text"].as_str().unwrap()).unwrap();
+    if let Some(structured) = result.get("structuredContent") {
+        assert_eq!(structured, &text, "text/structured parity");
+    }
+    text
 }
 
 #[tokio::test]
@@ -256,7 +267,7 @@ async fn complete_http_responses_match_stdio_for_large_and_escaped_ids() {
             assert_eq!(text.len() + 1, MAX_RESPONSE_BYTES);
         }
         if index == 5 {
-            let search = &response["result"]["structuredContent"];
+            let search = &tool_body(&response);
             assert_eq!(search["truncated"], false);
             let hits = search["results"].as_array().unwrap();
             assert_eq!(hits.len(), 2);
@@ -352,7 +363,7 @@ async fn cited_related_overflow_truncates_identically_over_stdio_and_http() {
     assert_eq!(remote, native);
     assert_eq!(remote["id"], request["id"]);
     assert_ne!(remote["result"]["isError"], true);
-    let related = &remote["result"]["structuredContent"];
+    let related = &tool_body(&remote);
     assert_eq!(related["truncated"], true);
     let neighbours = related["neighbours"].as_array().unwrap();
     assert!(!neighbours.is_empty());

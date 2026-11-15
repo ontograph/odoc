@@ -171,6 +171,10 @@ truncated where supported or refused. Inbound stdio frames have a separate 128 K
 
 The default search mode is lexical BM25 with `top_k=10` and abstention disabled. `graph` and `hier` are opt-in; omitted fusion weights remain `0.3`. The model-judged exploratory evaluation does not authorize promoting either mode or changing these defaults.
 
+Every search response also carries `unmatched_terms`: the query terms, after the tokenization described below, that occur in no chunk heading or text anywhere in the corpus, in query order. It ignores `scope`, uses no threshold and never withholds results. When it names the key words of a question, the corpus may not cover that question, or it uses other words. It is not a relevance score, and an empty list does not mean the answer is present.
+
+Every MCP tool result carries its JSON as one text content block. When both copies fit the 128 KiB frame, `structuredContent` repeats the same JSON. When they do not, `structuredContent` is omitted before any search text is withheld or any result is truncated, so clients must read the text block when `structuredContent` is absent. No `outputSchema` is published.
+
 Every search response carries `abstention_score`: the top BM25 score divided by the summed IDF of the query terms, or 0 when nothing matches. Results are withheld (`abstained`) only when the caller passes `threshold`. No validated cutoff exists for general corpora, so any cutoff a caller applies is advisory. Common words have low IDF, so a query made of them can still score high.
 
 Matching uses exact lowercase words, with `snake_case` and camelCase words also split into parts. There is no stemming and no stop-word removal: `recovered` does not match `recover`, and words such as `what` or `how` count like any other term. Prefer distinctive words the expected text is likely to contain, and pass `scope` when the path prefix is known. The MCP tool description says the same.

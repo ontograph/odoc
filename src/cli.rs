@@ -591,6 +591,9 @@ pub struct SearchResponse {
     pub mode: SearchMode,
     pub abstained: Option<AbstainReason>,
     pub abstention_score: f64,
+    /// Query terms, in query order, that occur in no indexed chunk of this
+    /// corpus (ignoring `scope`). Not a relevance or abstention signal.
+    pub unmatched_terms: Vec<String>,
     pub results: Vec<SearchResult>,
     pub truncated: bool,
 }
@@ -974,6 +977,11 @@ impl App {
             mode: req.mode,
             abstained: ranked.abstained,
             abstention_score: ranked.abstention_score,
+            // Bounded by MAX_QUERY_BYTES through `validate`.
+            unmatched_terms: crate::search::tokenize::query_terms(&req.query)
+                .into_iter()
+                .filter(|t| !index.bm25().contains(t))
+                .collect(),
             results,
             truncated: false,
         })
@@ -2089,6 +2097,45 @@ mod tests {
     }
 
     #[test]
+    fn unmatched_terms_list_query_terms_absent_from_every_chunk() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::create_dir(root.path().join("sub")).unwrap();
+        std::fs::write(root.path().join("a.md"), "# Alpha\n\nbeta text\n").unwrap();
+        std::fs::write(root.path().join("sub/b.md"), "# B\n\ngamma\n").unwrap();
+        let app = App::new(root.path());
+        app.index().unwrap();
+        let index = app.load_index().unwrap();
+        let search = |query: &str, scope: Option<&str>| {
+            app.search(
+                &index,
+                &SearchRequest {
+                    query: query.into(),
+                    mode: SearchMode::Lexical,
+                    top_k: 10,
+                    scope: scope.map(Into::into),
+                    explain: false,
+                    budget_bytes: None,
+                    alpha: None,
+                    beta: None,
+                    threshold: None,
+                },
+            )
+            .unwrap()
+        };
+        // Query order and lowercasing follow `query_terms`; headings count.
+        // `zeta_Omega` yields "zeta_omega", "zeta", "omega": all absent.
+        let r = search("Zeta alpha zeta_Omega BETA", None);
+        assert_eq!(r.unmatched_terms, ["zeta", "zeta_omega", "omega"]);
+        assert!(!r.results.is_empty());
+        // `scope` filters results only; "gamma" exists outside the scope.
+        let r = search("gamma", Some("a.md"));
+        assert!(r.results.is_empty());
+        assert!(r.unmatched_terms.is_empty());
+        // No terms at all: nothing is listed.
+        assert!(search("!!", None).unmatched_terms.is_empty());
+    }
+
+    #[test]
     fn search_results_carry_the_stored_tier_truncation_flag() {
         let root = tempfile::tempdir().unwrap();
         // A 300-byte first sentence exceeds L0_CAP (200), so L0 is capped.
@@ -2128,7 +2175,7 @@ mod tests {
         // Compare bytes, including escaped text, rather than parsed JSON alone.
         let actual = serde_json::to_vec(&l2).unwrap();
         let mut expected = format!(
-            "{{\"generation_id\":{},\"fresh\":true,\"mode\":\"lexical\",\"abstained\":null,\"abstention_score\":{},\"results\":[",
+            "{{\"generation_id\":{},\"fresh\":true,\"mode\":\"lexical\",\"abstained\":null,\"abstention_score\":{},\"unmatched_terms\":[],\"results\":[",
             serde_json::to_string(&l2.generation_id).unwrap(),
             l2.abstention_score
         );

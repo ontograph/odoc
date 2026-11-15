@@ -9,12 +9,13 @@ The [OntoIndex ideas plan](../docs/ONTOINDEX_IDEAS_PLAN.md) completed all five t
 
 The [donor follow-up review](../docs/DONOR_REVIEW_PLAN.md) completed DR-1 documentation and evidence repairs after GPT source review found no runtime blocker. Original donor tasks stay closed; ranking, calibration, release and evaluation gates are unchanged.
 
-Updated: 2026-11-15
+Updated: 2026-11-16
 
 The [donor candidates plan](../docs/DONOR_CANDIDATES_PLAN.md) completed ADR18, citation-preserving responses, the descriptive census and documentation. All required Rust checks passed; independent review found no blockers. Link scanning is uncalibrated and selected preparation matching unconfirmed. Ranking candidates remain deferred; release and evaluation gates are unchanged.
 
 | Canonical plan | State | Remaining task | Counts |
 | --- | --- | --- | --- |
+| [SEARCH_RESPONSE_PLAN.md](../docs/SEARCH_RESPONSE_PLAN.md) | closed | None | 3 DONE (SR-ADR, SR-1, SR-DOC); [audit](audit_session-2026-11-16-search-response.md) |
 | [STDIO_AUTO_INDEX_PLAN.md](../docs/STDIO_AUTO_INDEX_PLAN.md) | closed | None | 7 DONE (AI-ADR, PQ-1, PQ-DOC, PQ-SMOKE, PQ-ARM, AI-1, AI-DOC); [audit](audit_session-2026-11-15-stdio-auto-index.md) |
 | [REFACTORING_PLAN.md](../docs/REFACTORING_PLAN.md) | closed | None | 7 DONE (revision 3 added RF-5, RF-CLOSE2) |
 | [GRAPHRAG_REVIEW_PLAN.md](../docs/GRAPHRAG_REVIEW_PLAN.md) | closed | None in selected scope | 2 DONE |

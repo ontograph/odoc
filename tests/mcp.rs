@@ -65,7 +65,27 @@ async fn call(
 async fn ok(client: &RunningService<RoleClient, ()>, name: &'static str, args: Value) -> Value {
     let result = call(client, name, args).await.unwrap();
     assert_ne!(result.is_error, Some(true), "{name}: {result:?}");
-    result.structured_content.unwrap()
+    body(&result)
+}
+
+/// The JSON text block, which every result carries; `structuredContent`, when
+/// present, must equal it (ADR revision 21).
+fn body(result: &CallToolResult) -> Value {
+    let text: Value = serde_json::from_str(&result.content[0].as_text().unwrap().text).unwrap();
+    if let Some(structured) = &result.structured_content {
+        assert_eq!(structured, &text, "text/structured parity");
+    }
+    text
+}
+
+/// The same rule on a raw JSON-RPC reply frame.
+fn frame_body(frame: &Value) -> Value {
+    let result = &frame["result"];
+    let text: Value = serde_json::from_str(result["content"][0]["text"].as_str().unwrap()).unwrap();
+    if let Some(structured) = result.get("structuredContent") {
+        assert_eq!(structured, &text, "text/structured parity");
+    }
+    text
 }
 
 #[tokio::test]
@@ -154,10 +174,12 @@ async fn oversized_third_hit_preserves_every_rank() {
 #[tokio::test]
 async fn rank_order_text_fit_keeps_later_small_hits() {
     let dir = tempfile::tempdir().unwrap();
-    for i in 0..2 {
+    // Two 45 KB texts fit one frame; a third does not (ADR revision 21 sends
+    // the text once when both copies would exceed the bound).
+    for i in 0..3 {
         fs::write(
             dir.path().join(format!("large{i}.md")),
-            format!("# Large {i}\n\n```text\n{}\n```\n", "needle ".repeat(5800)),
+            format!("# Large {i}\n\n```text\n{}\n```\n", "needle ".repeat(6500)),
         )
         .unwrap();
     }
@@ -171,26 +193,28 @@ async fn rank_order_text_fit_keeps_later_small_hits() {
     let app = App::new(dir.path());
     app.index().unwrap();
     let client = client(dir.path()).await;
-    let response = ok(&client, "search", json!({"query":"needle", "top_k":5})).await;
+    let result = call(&client, "search", json!({"query":"needle", "top_k":6}))
+        .await
+        .unwrap();
+    assert!(result.structured_content.is_none());
+    let response = body(&result);
     let hits = response["results"].as_array().unwrap();
-    assert_eq!(hits.len(), 5);
-    assert!(
-        hits[0]["citation"]["path"]
-            .as_str()
-            .unwrap()
-            .starts_with("large")
-    );
-    assert!(
-        hits[1]["citation"]["path"]
-            .as_str()
-            .unwrap()
-            .starts_with("large")
-    );
-    assert_eq!(hits[0]["tier"], "l2");
-    assert!(hits[0]["text"].as_str().unwrap().len() > 40_000);
-    assert_eq!(hits[1]["tier"], Value::Null);
-    assert_eq!(hits[1]["text"], "");
-    for hit in &hits[2..] {
+    assert_eq!(hits.len(), 6);
+    for hit in &hits[..3] {
+        assert!(
+            hit["citation"]["path"]
+                .as_str()
+                .unwrap()
+                .starts_with("large")
+        );
+    }
+    for hit in &hits[..2] {
+        assert_eq!(hit["tier"], "l2");
+        assert!(hit["text"].as_str().unwrap().len() > 45_000);
+    }
+    assert_eq!(hits[2]["tier"], Value::Null);
+    assert_eq!(hits[2]["text"], "");
+    for hit in &hits[3..] {
         assert_eq!(hit["tier"], "l2");
     }
     assert_eq!(response["truncated"], false);
@@ -547,7 +571,7 @@ fn stdio_server_writes_only_protocol_frames() {
         "params": { "name": "search", "arguments": { "query": "alpha" } } }));
     let reply = recv();
     assert_eq!(reply["id"], 2);
-    assert_eq!(reply["result"]["structuredContent"]["mode"], "lexical");
+    assert_eq!(frame_body(&reply)["mode"], "lexical");
     send(json!({ "jsonrpc": "2.0", "id": 3, "method": "tools/list" }));
     assert_eq!(recv()["result"]["tools"].as_array().unwrap().len(), 5);
     // Dropping the closure closes stdin, which ends the session.
@@ -599,7 +623,7 @@ fn stdio_auto_index_builds_on_first_call_and_writes_only_frames() {
     send(json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/call",
         "params": { "name": "status", "arguments": {} } }));
     let status = recv();
-    let content = &status["result"]["structuredContent"];
+    let content = &frame_body(&status);
     assert_eq!(content["fresh"], true, "{status}");
     assert_eq!(content["documents"], 1);
     drop(send);
@@ -730,9 +754,7 @@ fn complete_wire_frames_bound_escaped_tools_and_recover_after_errors() {
         let frame = wire.call(name, args);
         let result = &frame["result"];
         assert!(result.is_object(), "{name}: {frame}");
-        let text: Value =
-            serde_json::from_str(result["content"][0]["text"].as_str().unwrap()).unwrap();
-        assert_eq!(text, result["structuredContent"], "text/structured parity");
+        let text = frame_body(&frame);
         if name == "search" {
             assert_eq!(text["truncated"], false);
             assert_eq!(text["results"].as_array().unwrap().len(), 50);
@@ -753,13 +775,9 @@ fn complete_wire_frames_bound_escaped_tools_and_recover_after_errors() {
     .unwrap();
     App::new(dir.path()).index().unwrap();
     let read = wire.call("read", json!({"id":"large.md#large"}));
-    assert_eq!(read["result"]["structuredContent"]["truncated"], true);
-    assert!(
-        !read["result"]["structuredContent"]["text"]
-            .as_str()
-            .unwrap()
-            .is_empty()
-    );
+    let read = frame_body(&read);
+    assert_eq!(read["truncated"], true);
+    assert!(!read["text"].as_str().unwrap().is_empty());
     // Oversized decoded fields refuse while raw frames remain admitted.
     for (name, args) in [
         ("read", json!({"id":"\u{1}".repeat(16 * 1024 + 1)})),
@@ -1033,10 +1051,7 @@ async fn docs_share_folders_are_independent_corpora() {
             let crossed = call(&client, "verify", json!({ "citations": [other] })).await;
             let refused = match crossed {
                 Err(_) => true,
-                Ok(r) => {
-                    r.is_error == Some(true)
-                        || r.structured_content.unwrap()["results"][0]["state"] != "valid"
-                }
+                Ok(r) => r.is_error == Some(true) || body(&r)["results"][0]["state"] != "valid",
             };
             assert!(refused, "cross-corpus citation verified in {name}");
         }

@@ -124,6 +124,9 @@ Mention incidence is source-only: `code:<text>` targets belong to unresolved cod
   CLI response truncation is reused for text/structured parity; `src/cli.rs`
   owns shared public error redaction and escaped read bounds. See the
   [OD-3.3 compatibility decision](audit_session-2026-11-10-mcp-wire-bounds.md).
+  ADR revision 21: `structured` keeps text/structured parity only while both
+  copies fit; otherwise it sends the text block alone before shrinking. Search
+  adds `unmatched_terms` from `Bm25::contains`, ignoring scope.
   CORR-1 shares its typed cap error and exact native request-ID admission with HTTP; an unencodable HTTP refusal returns 413 before dispatch. CORR-2 shares fixed-storage sizing in `cli::json_fits`, preserving late serializer errors. CORR-3 uses validated sorted-span binary lookup in graph construction (linear fallback for arbitrary spans) and caches heading paths once per section in tiers. These repairs retain schema/ranking and original measured artifacts; see the [corrected-candidate audit](audit_session-2026-11-13-corrected-candidate.md).
 - ADR revision 7 separates local safety from HTTP exposure. `src/store.rs`
   owns OD-3.8 pointer/meta/artifact bounds and bounded publication serialization;

@@ -52,6 +52,11 @@ impl Bm25 {
         self.doc_len.is_empty()
     }
 
+    /// Whether any document contains `term`.
+    pub fn contains(&self, term: &str) -> bool {
+        self.postings.contains_key(term)
+    }
+
     pub fn idf(&self, term: &str) -> f64 {
         let n = self.postings.get(term).map_or(0, Vec::len) as f64;
         let total = self.len() as f64;

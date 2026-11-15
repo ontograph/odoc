@@ -1,7 +1,7 @@
 # ADR: OntoDoc — Measurable Documentation Graph-RAG MCP Service
 
 Date: 2026-11-08
-Revision: 20 (2026-11-15). Revision 20 accepts the opt-in stdio index refresh below (`serve --auto-index`), authorized by the owner's selection of option D and the instruction "update adr" on 2026-11-15. It is not implemented and needs an approved plan task. Revision 19 (2026-11-14). Revision 19 accepts the generation graph and document invariants below, authorized by the user's instruction to proceed with `docs/ONTOINDEX_IDEAS_PLAN.md`. OI-1 owns implementation and recovery proof. Revision 18 accepts citation-preserving search text withholding and related omission counts, authorized by the user's instruction to proceed with `docs/DONOR_CANDIDATES_PLAN.md`. Implementation belongs to DC-1; no schema or ranking change follows. Revision 2 added donor ideas
+Revision: 21 (2026-11-16). Revision 21 accepts two MCP search response changes in item 8, authorized by the owner reply "1 2" on 2026-11-16 to the agent task test report: a tool result whose complete frame would exceed the bound drops `structuredContent` before any text is withheld, and search returns `unmatched_terms`. No ranking, default, threshold, schema or quality claim changes. Implemented by SR-1 in `docs/SEARCH_RESPONSE_PLAN.md`. Revision 20 (2026-11-15). Revision 20 accepts the opt-in stdio index refresh below (`serve --auto-index`), authorized by the owner's selection of option D and the instruction "update adr" on 2026-11-15. It is not implemented and needs an approved plan task. Revision 19 (2026-11-14). Revision 19 accepts the generation graph and document invariants below, authorized by the user's instruction to proceed with `docs/ONTOINDEX_IDEAS_PLAN.md`. OI-1 owns implementation and recovery proof. Revision 18 accepts citation-preserving search text withholding and related omission counts, authorized by the user's instruction to proceed with `docs/DONOR_CANDIDATES_PLAN.md`. Implementation belongs to DC-1; no schema or ranking change follows. Revision 2 added donor ideas
 (`audit_session-2026-11-08-donor-ideas-review.md`); revision 3 applies the plan
 challenge (`audit_session-2026-11-08-plan-challenge.md`): section-level
 evaluation unit, frozen chunk budget, raw-score abstention, specified PPR, power
@@ -226,6 +226,16 @@ Two predecessors exist:
      Omit trailing whole results only if citations alone exceed the bound.
      CLI and MCP share this assembly rule; each existing bounding layer
      measures its own serialized form. CLI pretty-printed output has no new cap.
+     Revision 21: every MCP tool result carries its JSON as one text content
+     block, and also as `structuredContent` when that complete result fits the
+     bound. Otherwise `structuredContent` is omitted first, and the text then
+     follows the rules above; the two copies never differ. Clients that read
+     `structuredContent` must fall back to the text block, as the MCP
+     specification allows when no `outputSchema` is published.
+     Revision 21: search also returns `unmatched_terms`, the query terms, in
+     query order, that occur in no indexed chunk heading or text of the corpus.
+     It ignores `scope`, applies no threshold, never withholds results and is
+     not a relevance or abstention signal.
    - `read`: chunk or section by id or path#anchor.
    - `related`: graph neighbours of a chunk. Chunk and parent-section neighbours always carry citations; unresolved code mentions omit them. Unresolvable or wrong-kind endpoints fail as a corrupt generation (revision 17).
      Revision 18 adds `omitted`: incident edges absent from `neighbours`

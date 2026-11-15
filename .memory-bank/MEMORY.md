@@ -8,7 +8,7 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
 - [Current project status](project_plan-current.md) - in-progress plan and next task.
 - [Pending tasks](project_pending-tasks.md) - waiting and blocked work.
 - [Architecture](project_architecture.md) - owners and change-home rules.
-- [Service ADR](ADR_ONTODOC_SERVICE.md) - folder MCP, safety/custody, schema 4, exploratory evaluation exceptions, citations, accepted generation invariants; opt-in stdio index refresh accepted, not implemented (rev 20).
+- [Service ADR](ADR_ONTODOC_SERVICE.md) - folder MCP, safety/custody, schema 4, exploratory evaluation exceptions, citations, accepted generation invariants; opt-in stdio index refresh (rev 20); text-first MCP results and `unmatched_terms` (rev 21, implemented).
 - [Evidence/diagnostics ADR](ADR_ONTODOC_EVIDENCE_DIAGNOSTICS.md) - proposed existing-tool extensions and trusted CLI diagnostics; not accepted or implemented.
 - [Agent rules](../AGENTS.md) - repository-wide instructions.
 

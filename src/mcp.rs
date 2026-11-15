@@ -14,7 +14,9 @@ use std::task::{Context, Poll};
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::JsonRpcMessage;
-use rmcp::model::{CallToolResult, ErrorData, Implementation, ServerCapabilities, ServerInfo};
+use rmcp::model::{
+    CallToolResult, Content, ErrorData, Implementation, ServerCapabilities, ServerInfo,
+};
 use rmcp::service::{RxJsonRpcMessage, TxJsonRpcMessage};
 use rmcp::transport::Transport;
 use rmcp::{RoleServer, ServerHandler, ServiceExt, tool, tool_handler, tool_router};
@@ -249,24 +251,34 @@ fn validate_tool_arguments(request: &rmcp::model::CallToolRequestParams) -> Resu
 
 fn structured<T: Bounded>(value: Result<T, AppError>) -> Result<CallToolResult, ErrorData> {
     let mut value = value.map_err(to_mcp)?;
+    // Both copies when the complete result fits; the transport checks the
+    // final envelope and ID as well, so a near-boundary result may be refused.
+    let result = CallToolResult::structured(serde_json::to_value(&value).map_err(to_mcp_json)?);
+    if fits_json(&result, MAX_RESPONSE_BYTES) {
+        return Ok(result);
+    }
+    // ADR revision 21: drop `structuredContent` before withholding any text.
     loop {
-        let json = serde_json::to_value(&value).map_err(|e| to_mcp(e.into()))?;
-        let result = CallToolResult::structured(json);
-        // Preserve rmcp's text/structured parity. The transport checks the final
-        // envelope and ID as well; a near-boundary result may still be refused.
+        let result = text_only(&value).map_err(to_mcp_json)?;
         if fits_json(&result, MAX_RESPONSE_BYTES) {
             return Ok(result);
         }
         value
-            .shrink(|candidate| {
-                let json = serde_json::to_value(candidate)?;
-                Ok(fits_json(
-                    &CallToolResult::structured(json),
-                    MAX_RESPONSE_BYTES,
-                ))
-            })
+            .shrink(|candidate| Ok(fits_json(&text_only(candidate)?, MAX_RESPONSE_BYTES)))
             .map_err(to_mcp)?;
     }
+}
+
+/// The text block alone, with the same bytes `CallToolResult::structured` writes.
+fn text_only(value: &impl Serialize) -> Result<CallToolResult, serde_json::Error> {
+    let json = serde_json::to_value(value)?;
+    Ok(CallToolResult::success(vec![Content::text(
+        json.to_string(),
+    )]))
+}
+
+fn to_mcp_json(e: serde_json::Error) -> ErrorData {
+    to_mcp(e.into())
 }
 
 /// Counts the native serde encoding without allocating an oversized byte buffer.
@@ -529,7 +541,9 @@ impl OntoDocServer {
     /// removal, so prefer distinctive terms the document is likely to contain.
     /// `scope` restricts results to paths with that prefix. `abstention_score` is
     /// always returned; results are withheld only when `threshold` is passed, and
-    /// no validated cutoff exists.
+    /// no validated cutoff exists. `unmatched_terms` lists query words found
+    /// nowhere in this corpus; when it names your key terms, the corpus may not
+    /// cover the question, or it uses other words.
     #[tool(annotations(
         title = "Search documentation",
         read_only_hint = true,
@@ -651,6 +665,9 @@ impl ServerHandler for OntoDocServer {
                  Related omitted counts incident edges absent after item and byte bounds. \
                  Search matches exact words without stemming; rephrase with terms from \
                  the expected text when results miss. \
+                 `unmatched_terms` lists query words absent from the whole corpus. \
+                 Every result carries its JSON as text; `structuredContent` repeats it \
+                 only when both copies fit the response bound. \
                  Results may be stale when `fresh` is false; run `ontodoc index` to refresh.{refresh}"
             ))
     }
@@ -812,6 +829,39 @@ pub async fn serve_stdio(root: &Path, auto_index: bool) -> std::io::Result<()> {
 mod tests {
     use super::*;
     use tokio::io::AsyncReadExt;
+
+    #[test]
+    fn structured_content_is_dropped_before_text_is_withheld() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("a.md"), "# A\n\nalpha\n").unwrap();
+        let app = App::new(root.path());
+        app.index().unwrap();
+        let index = app.load_index().unwrap();
+        let read = |n: usize| {
+            let mut r = app.read(&index, "a.md#a").unwrap();
+            r.text = "x".repeat(n);
+            r
+        };
+        let text = |r: &CallToolResult| r.content[0].as_text().unwrap().text.clone();
+        let both = structured(Ok(read(10))).unwrap();
+        assert_eq!(
+            both.structured_content.as_ref().unwrap().to_string(),
+            text(&both)
+        );
+        // Each copy fits alone (~70 KB); both together exceed 128 KiB.
+        let once = structured(Ok(read(70_000))).unwrap();
+        assert!(once.structured_content.is_none());
+        let body: serde_json::Value = serde_json::from_str(&text(&once)).unwrap();
+        assert_eq!(body["truncated"], false);
+        assert_eq!(body["text"].as_str().unwrap().len(), 70_000);
+        assert!(fits_json(&once, MAX_RESPONSE_BYTES));
+        // Above one copy's room, the text-only result is truncated as before.
+        let cut = structured(Ok(read(200_000))).unwrap();
+        assert!(cut.structured_content.is_none());
+        let body: serde_json::Value = serde_json::from_str(&text(&cut)).unwrap();
+        assert_eq!(body["truncated"], true);
+        assert!(fits_json(&cut, MAX_RESPONSE_BYTES));
+    }
 
     #[test]
     fn mcp_sizing_matches_native_bytes_and_refuses_serializer_errors() {

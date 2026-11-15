@@ -2,6 +2,8 @@
 
 ## 0.1.1 — unreleased
 
+MCP tool results whose text and `structuredContent` copies would together exceed the 128 KiB frame now omit `structuredContent` and send the JSON once, as text, before withholding any search text (ADR revision 21). On the agent test corpus, two `top_k: 50` searches that withheld 22 and 24 texts now return all 50. Smaller results are unchanged. Clients must fall back to the text block when `structuredContent` is absent. Search responses add `unmatched_terms`, listing query terms found in no indexed chunk of the corpus; it applies no threshold and changes no ranking. No schema, default or quality claim changes.
+
 `ontodoc serve --auto-index` (stdio only, off by default, ADR revision 20) builds the index on the first call when none exists and rebuilds it when a call finds it stale; the call waits. A failed rebuild answers from the previous generation with `fresh: false` and is not retried for 30 seconds. Corrupt generations are never rebuilt. `serve-http` rejects the flag. Without it, behaviour is unchanged. No tool, field, schema, ranking or quality claim changes.
 
 The MCP `search` description and server instructions now state that matching is on exact lowercase words without stemming or stop-word removal, that `scope` is a path-prefix filter, and that `abstention_score` is always returned while abstention needs a caller `threshold` with no validated cutoff. README documents the same, plus link diagnostics. Text only; no ranking, defaults, schema or quality claim changes.
