@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.1.1 — unreleased
+## 0.1.1 — 2026-11-16, local release
+
+Installed locally only; not published. Built from tag `v0.1.1` in a clean worktree with home build paths remapped.
 
 MCP tool results whose text and `structuredContent` copies would together exceed the 128 KiB frame now omit `structuredContent` and send the JSON once, as text, before withholding any search text (ADR revision 21). On the agent test corpus, two `top_k: 50` searches that withheld 22 and 24 texts now return all 50. Smaller results are unchanged. Clients must fall back to the text block when `structuredContent` is absent. Search responses add `unmatched_terms`, listing query terms found in no indexed chunk of the corpus; it applies no threshold and changes no ranking. No schema, default or quality claim changes.
 
