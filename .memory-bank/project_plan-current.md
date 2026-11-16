@@ -15,6 +15,7 @@ The [donor candidates plan](../docs/DONOR_CANDIDATES_PLAN.md) completed ADR18, c
 
 | Canonical plan | State | Remaining task | Counts |
 | --- | --- | --- | --- |
+| Local 0.1.1 release | closed | None | tag `v0.1.1`, installed at `~/.local/opt/ontodoc-0.1.1`; [audit](audit_session-2026-11-16-local-release-011.md) |
 | [SEARCH_RESPONSE_PLAN.md](../docs/SEARCH_RESPONSE_PLAN.md) | closed | None | 3 DONE (SR-ADR, SR-1, SR-DOC); [audit](audit_session-2026-11-16-search-response.md) |
 | [STDIO_AUTO_INDEX_PLAN.md](../docs/STDIO_AUTO_INDEX_PLAN.md) | closed | None | 7 DONE (AI-ADR, PQ-1, PQ-DOC, PQ-SMOKE, PQ-ARM, AI-1, AI-DOC); [audit](audit_session-2026-11-15-stdio-auto-index.md) |
 | [REFACTORING_PLAN.md](../docs/REFACTORING_PLAN.md) | closed | None | 7 DONE (revision 3 added RF-5, RF-CLOSE2) |
