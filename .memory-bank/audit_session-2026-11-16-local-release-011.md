@@ -17,7 +17,7 @@ Authority: owner instruction "push version / prepare to release and commit / mak
 | --- | --- |
 | `cargo test --all-targets --locked` | exit 0; lib 242 passed, 4 ignored; every integration target passed |
 | `cargo fmt --check` | exit 0 |
-| Clippy lane `ontodoc-rel011-clippy-20261116`, `cargo clippy --all-targets --locked -- -D warnings` | still queued behind another session's OntoIndex test run when this audit was committed; no result yet |
+| Clippy lane `ontodoc-rel011-clippy-20261116`, `cargo clippy --all-targets --locked -- -D warnings` | exit_code 0, state terminal (2,528 s elapsed, mostly queued behind another session's OntoIndex test run) |
 | Earlier lane `ontodoc-sr1-clippy-20261116` on `83caad9` | exit_code 0, state terminal. `git diff --stat 83caad9 v0.1.1` shows only `CHANGELOG.md`, so the tagged Rust source is identical. The other session's `src/search/dense.rs` was created at 10:17, after that lane ran at 02:12 |
 
 ## Install
