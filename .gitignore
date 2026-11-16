@@ -3,3 +3,4 @@
 .ontoindex
 /tmp/
 *.integrate.lock
+__pycache__/

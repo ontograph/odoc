@@ -14,6 +14,7 @@
 
 pub mod baseline;
 pub mod bm25;
+pub mod dense;
 pub mod fusion;
 pub mod ppr;
 pub mod tokenize;

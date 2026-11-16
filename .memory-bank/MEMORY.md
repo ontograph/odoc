@@ -8,13 +8,14 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
 - [Current project status](project_plan-current.md) - in-progress plan and next task.
 - [Pending tasks](project_pending-tasks.md) - waiting and blocked work.
 - [Architecture](project_architecture.md) - owners and change-home rules.
-- [Service ADR](ADR_ONTODOC_SERVICE.md) - folder MCP, safety/custody, schema 4, exploratory evaluation exceptions, citations, accepted generation invariants; opt-in stdio index refresh (rev 20); text-first MCP results and `unmatched_terms` (rev 21, implemented).
+- [Service ADR](ADR_ONTODOC_SERVICE.md) - accepted service contracts through revision 21 (implemented).
 - [Evidence/diagnostics ADR](ADR_ONTODOC_EVIDENCE_DIAGNOSTICS.md) - proposed existing-tool extensions and trusted CLI diagnostics; not accepted or implemented.
+- [Hybrid retrieval](ADR_ONTODOC_HYBRID_RETRIEVAL.md) - proposed rev 3; [plan](../docs/HYBRID_RETRIEVAL_PLAN.md) blocked after stage 0.
+- [Retrieval research](ADR_ONTODOC_RETRIEVAL_RESEARCH.md) - rev 4; [plan](../docs/RETRIEVAL_RESEARCH_PLAN.md) closed: step 1 met no threshold; [audit](audit_session-2026-11-16-retrieval-research.md).
+- [Agentic retrieval](ADR_ONTODOC_AGENTIC_RETRIEVAL.md) - proposed bounded client policy and evaluation; no implementation approval.
 - [Agent rules](../AGENTS.md) - repository-wide instructions.
 
 ## Active Plans
-
-
 
 - [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - closed, 74 done. REL-6 closed 2026-11-15 as a local install of the corrected 0.1.0 (`~/.local/opt/ontodoc-0.1.0`, symlink `ontodoc-0.1.0`), with no public release; [local release audit](audit_session-2026-11-15-local-release.md). Original artifacts and custody are preserved.
 - [0.1.0 release plan](../docs/RELEASE_0.1.0_PLAN.md) - release preparation authorized; unresolved owner decisions retained.
@@ -28,10 +29,7 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
 - [Preparation approval](audit_session-2026-11-12-preparation-approval.md) - owner pin accepted; unchanged manifest and bound inputs checked; EVAL-2.1 closed.
 - [Review round 8 and preparation](audit_session-2026-11-12-review-round8.md) - ADR rev 14-15 pool extension then withdrawal of 12 unanswered queries; historical qrels gate passed (kappa 0.846).
 - [EVAL-2.0 preparation](audit_session-2026-11-11-eval20-preparation.md) - owner decisions, FIX-13, query rounds 1-2.
-- [Review rounds 6-7](audit_session-2026-11-11-review-round6.md) - FIX-10/11: numeric tests, test speed, prune self-heal (ADR rev 11); FIX-12 table-aware first sentence, schema 3 (rev 12).
-- [Review round 5](audit_session-2026-11-11-review-round5.md) - FIX-9 staging order, ranking-sanity check, docs drift, plan archive.
 - [Owner decisions](audit_session-2026-11-11-owner-decisions.md) - ten approved; ADR rev 10; HTTP-2 loopback listener, FIX-7/SIMPL-3/FIX-8 DONE.
-- [Review round 4](audit_session-2026-11-11-review-round4.md) - FIX-5 pre-reservation refusals, FIX-6 heading cap DONE.
 
 ## Standing Facts
 

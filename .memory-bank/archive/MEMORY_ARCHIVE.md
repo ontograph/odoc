@@ -79,3 +79,9 @@ Moved verbatim from `MEMORY.md`; links rewritten one level up.
 ## Replaced 2026-11-15 (REL-6 local install closeout)
 
 - [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - 73 done, REL-6 publication blocked; corrected candidate locally validated/packaged; original artifacts/custody preserved; destination/exposure and embedded-path decisions pending.
+
+## Moved 2026-11-16 (retrieval research links)
+
+- [Review rounds 6-7](../audit_session-2026-11-11-review-round6.md) - FIX-10/11: numeric tests, test speed, prune self-heal (ADR rev 11); FIX-12 table-aware first sentence, schema 3 (rev 12).
+- [Review round 5](../audit_session-2026-11-11-review-round5.md) - FIX-9 staging order, ranking-sanity check, docs drift, plan archive.
+- [Review round 4](../audit_session-2026-11-11-review-round4.md) - FIX-5 pre-reservation refusals, FIX-6 heading cap DONE.

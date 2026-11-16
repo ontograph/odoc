@@ -15,6 +15,8 @@ The [donor candidates plan](../docs/DONOR_CANDIDATES_PLAN.md) completed ADR18, c
 
 | Canonical plan | State | Remaining task | Counts |
 | --- | --- | --- | --- |
+| [RETRIEVAL_RESEARCH_PLAN.md](../docs/RETRIEVAL_RESEARCH_PLAN.md) | closed | None | 6 DONE (RR-0 registration, RR-1 step 1, RR-2 and RR-3 not opened, RR-HY, RR-DOC); step 1 met no threshold; [audit](audit_session-2026-11-16-retrieval-research.md) |
+| [HYBRID_RETRIEVAL_PLAN.md](../docs/HYBRID_RETRIEVAL_PLAN.md) | blocked | HY-2, HY-3 wait for ADR decisions | 2 DONE (HY-0 stage 0, HY-1 fusion functions), 2 BLOCKED; [audit](audit_session-2026-11-16-hybrid-stage0.md) |
 | Local 0.1.1 release | closed | None | tag `v0.1.1`, installed at `~/.local/opt/ontodoc-0.1.1`; [audit](audit_session-2026-11-16-local-release-011.md) |
 | [SEARCH_RESPONSE_PLAN.md](../docs/SEARCH_RESPONSE_PLAN.md) | closed | None | 3 DONE (SR-ADR, SR-1, SR-DOC); [audit](audit_session-2026-11-16-search-response.md) |
 | [STDIO_AUTO_INDEX_PLAN.md](../docs/STDIO_AUTO_INDEX_PLAN.md) | closed | None | 7 DONE (AI-ADR, PQ-1, PQ-DOC, PQ-SMOKE, PQ-ARM, AI-1, AI-DOC); [audit](audit_session-2026-11-15-stdio-auto-index.md) |

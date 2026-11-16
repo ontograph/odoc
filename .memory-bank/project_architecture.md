@@ -82,6 +82,7 @@ Mention incidence is source-only: `code:<text>` targets belong to unresolved cod
 | `src/store.rs` | generations, lock, pointer, shared artifact/captured-byte validation with raw collection preflight; streaming sorted freshness manifest; prune moves to `tmp-<id>` before deletion | OD-1.4, EVAL-1.4, OD-3.6, FIX-11 |
 | `src/search/{tokenize,baseline,bm25}.rs` | tokenizer, B0, B1, pre-fusion abstention on normalised raw BM25 | OD-1.5 |
 | `src/search/{ppr,fusion}.rs` | PPR over LINKS_TO+NEXT (B2), doc-score blend (B3), scope, explain | OD-1.6 |
+| `src/search/dense.rs` | exact-cosine top-k and one-based RRF for the offline hybrid experiment; no caller, unreachable from `Mode`, CLI and MCP | HY-1 |
 | `src/search/mod.rs` | checked aggregate tokenizer-input admission and shared first-text/last-hierarchy document map; trusted compatibility constructor retained | OD-1.6, OD-3.6 |
 | `src/assemble.rs` | breadth-first budgeted context assembly (L0 → L1 → L2), no quality claim | OD-1.8 |
 | `src/cite.rs` | exact active-generation chunk/section membership before rooted current-byte verification (valid / moved / stale / missing) | OD-1.7, OD-3.4 |
