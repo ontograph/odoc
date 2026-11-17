@@ -5,10 +5,12 @@ type: project
 
 # Pending Tasks
 
-Updated: 2026-11-17. The owner authorized the [0.1.2 release](../docs/RELEASE_0.1.2_PLAN.md):
-bump, build, commit, local install, GitHub release and push to private
-`er77/ontodoc`. Current release work is REL-012; the publication blockers below
-describe the historical 0.1.0 candidate. Public exposure remains undecided.
+Updated: 2026-11-17. The [0.1.2 release](../docs/RELEASE_0.1.2_PLAN.md) is complete:
+commit `8e94a3d`, annotated tag `v0.1.2`, private `er77/ontodoc` GitHub release,
+verified download and default local install. No release work remains in the
+authorized scope; [audit](audit_session-2026-11-17-release-012.md). Publication
+blockers below describe the historical 0.1.0 candidate. Public exposure remains
+undecided.
 
 The [refactoring plan](../docs/REFACTORING_PLAN.md) is closed with 5 DONE: research-document corrections, `section_ranking` removal and the pinned `eval misses` move. [Audit](audit_session-2026-11-15-refactoring.md) records commands and limits. No ranking, schema or default changed.
 

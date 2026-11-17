@@ -11,17 +11,19 @@ The [donor follow-up review](../docs/DONOR_REVIEW_PLAN.md) completed DR-1 docume
 
 Updated: 2026-11-17
 
-The owner authorized version bump, binary build, commit, local install, GitHub
-release and push. [0.1.2 release](../docs/RELEASE_0.1.2_PLAN.md) is in progress;
-use private `er77/ontodoc` because no remote or explicit public exposure scope
-exists. The candidate includes current committed source, including disconnected
-offline hybrid helpers. Existing retrieval defaults and evaluation custody stay
-unchanged. Public repository exposure still requires an owner decision.
+The [0.1.2 release](../docs/RELEASE_0.1.2_PLAN.md) is published in private
+`er77/ontodoc`: release commit `8e94a3d`, annotated tag `v0.1.2`, Linux binary
+archive and checksums. The default local `ontodoc` now runs 0.1.2, with 0.1.1
+preserved. Full tests, formatting, Clippy, package verification and downloaded
+five-tool smoke passed; [release audit](audit_session-2026-11-17-release-012.md).
+Retrieval defaults and evaluation custody remain unchanged. Public exposure
+still requires an owner decision.
 
 The [donor candidates plan](../docs/DONOR_CANDIDATES_PLAN.md) completed ADR18, citation-preserving responses, the descriptive census and documentation. All required Rust checks passed; independent review found no blockers. Link scanning is uncalibrated and selected preparation matching unconfirmed. Ranking candidates remain deferred; release and evaluation gates are unchanged.
 
 | Canonical plan | State | Remaining task | Counts |
 | --- | --- | --- | --- |
+| [RELEASE_0.1.2_PLAN.md](../docs/RELEASE_0.1.2_PLAN.md) | closed | None | REL-012 complete; private GitHub release and local install verified |
 | [RETRIEVAL_RESEARCH_PLAN.md](../docs/RETRIEVAL_RESEARCH_PLAN.md) | closed | None | 6 DONE (RR-0 registration, RR-1 step 1, RR-2 and RR-3 not opened, RR-HY, RR-DOC); step 1 met no threshold; [audit](audit_session-2026-11-16-retrieval-research.md) |
 | [HYBRID_RETRIEVAL_PLAN.md](../docs/HYBRID_RETRIEVAL_PLAN.md) | blocked | HY-2, HY-3 wait for ADR decisions | 2 DONE (HY-0 stage 0, HY-1 fusion functions), 2 BLOCKED; [audit](audit_session-2026-11-16-hybrid-stage0.md) |
 | Local 0.1.1 release | closed | None | tag `v0.1.1`, installed at `~/.local/opt/ontodoc-0.1.1`; [audit](audit_session-2026-11-16-local-release-011.md) |
