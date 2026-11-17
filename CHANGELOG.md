@@ -2,7 +2,7 @@
 
 ## 0.1.2 — 2026-11-17
 
-First GitHub release, distributed through the private `er77/ontodoc` repository.
+Published at [`ontograph/odoc`](https://github.com/ontograph/odoc/releases/tag/v0.1.2), following the initial private release. The public package refreshes documentation and adds a checksum-verified `install.sh`; the original build tag and binary bytes are preserved.
 Includes the 0.1.1 CLI and five-tool MCP service, with remapped build paths.
 The source also includes experimental dense-candidate and reciprocal-rank
 fusion helpers; they are not wired into retrieval and do not change ranking,

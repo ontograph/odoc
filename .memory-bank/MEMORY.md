@@ -17,6 +17,7 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
 
 ## Active Plans
 
+- [Public distribution](../docs/PUBLIC_RELEASE_PLAN.md) - link codebase and 0.1.2 release to public `ontograph/odoc`, with README and verified GitHub installer.
 - [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - closed, 74 done. REL-6 closed 2026-11-15 as a local install of the corrected 0.1.0 (`~/.local/opt/ontodoc-0.1.0`, symlink `ontodoc-0.1.0`), with no public release; [local release audit](audit_session-2026-11-15-local-release.md). Original artifacts and custody are preserved.
 - [Refactoring plan](../docs/REFACTORING_PLAN.md) - closed, 5 DONE: `section_ranking` removed, `eval misses` pinned and moved to `eval::sweep`; [audit](audit_session-2026-11-15-refactoring.md).
 

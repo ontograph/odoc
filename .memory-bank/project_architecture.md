@@ -19,6 +19,8 @@ inputs, model-judging record (`eval/judging/`) and preparation manifest.
 five tools, loopback HTTP, schema-4 reindexing and current safety/evaluation
 limits. It links measured capacity observations and the registered model-judged exploratory evaluation. No confirmatory quality claim or default promotion follows; lexical defaults and the retrieval flow are unchanged.
 
+Public source and releases live at `https://github.com/ontograph/odoc`. Root `install.sh` owns Linux x86_64 GNU binary installation from GitHub releases: resolve a version, download bounded assets over HTTPS, verify the archive checksum and executable version, then atomically replace a binary with a retained backup. `tests/test_install.py` uses local download fixtures for success and refusal paths. No installer network request belongs to the service retrieval path.
+
 ## Accepted Folder-Scoped HTTP Design (Implemented)
 
 Implemented 2026-11-11 (heading kept for links): HTTP-1 registry and the

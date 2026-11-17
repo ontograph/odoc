@@ -1,5 +1,7 @@
 # OntoDoc
 
+[Source](https://github.com/ontograph/odoc) · [Releases](https://github.com/ontograph/odoc/releases) · [MIT licence](LICENSE)
+
 Standalone Rust MCP service for cited documentation retrieval. It exposes
 five read-only tools over **stdio** (one configured corpus) or over a
 **loopback HTTP** listener (one endpoint per `docs_share/<folder>/`). Index publication is a trusted CLI action. Retrieval uses local
@@ -12,24 +14,34 @@ their integrity prerequisites remain unresolved.
 
 ## Install And Index
 
-Release `v0.1.2` is available from the private
-[`er77/ontodoc` GitHub repository](https://github.com/er77/ontodoc/releases/tag/v0.1.2).
-For the prebuilt Linux x86_64 GNU binary (glibc 2.39+, Linux 5.6+), authenticate
-with GitHub CLI and install into a directory you own:
+Install the latest prebuilt Linux x86_64 GNU release from [ontograph/odoc](https://github.com/ontograph/odoc/releases). It requires glibc 2.39+, Linux 5.6+ with `openat2`, and libgcc_s. The installer needs `curl`, `tar`, `sha256sum` and standard GNU utilities; Rust and GitHub authentication are not required.
 
 ```sh
-gh release download v0.1.2 --repo er77/ontodoc \
-  --pattern 'ontodoc-0.1.2-linux-x86_64-gnu.tar.gz' --pattern SHA256SUMS
-sha256sum -c SHA256SUMS
-tar -xzf ontodoc-0.1.2-linux-x86_64-gnu.tar.gz
-./ontodoc-0.1.2/bin/ontodoc --version
+curl -fsSL https://raw.githubusercontent.com/ontograph/odoc/main/install.sh -o install.sh
+sh install.sh
+export PATH="$HOME/.local/bin:$PATH"
+ontodoc --version
 ```
 
-Native Linux with `openat2` support (Linux 5.6 or newer), Rust **1.95.0**, edition 2024. The root toolchain file pins rustfmt
-and Clippy. From this repository root:
+The script verifies the archive's SHA-256 before running or installing its binary. It installs to `~/.local/bin/ontodoc`, backs up an existing binary or symlink before replacement, and needs no `sudo`. Inspect the downloaded script before running it. Pin a version or choose a writable absolute directory:
 
 ```sh
+sh install.sh --version 0.1.2 --bin-dir "$HOME/.local/bin"
+```
+
+You can also install directly with `curl -fsSL https://raw.githubusercontent.com/ontograph/odoc/main/install.sh | sh`. To remove an installation, remove its `ontodoc` binary; backups named `ontodoc.bak-*` remain available for rollback. The installer supports Linux x86_64 GNU only.
+
+To build from source, use Rust **1.95.0**, edition 2024. The toolchain file pins rustfmt and Clippy:
+
+```sh
+git clone https://github.com/ontograph/odoc.git
+cd odoc
 CARGO_BUILD_JOBS=4 cargo install --locked --path .
+```
+
+Index your documentation, then search it:
+
+```sh
 ontodoc --root /absolute/path/to/dedicated-docs index
 ontodoc --root /absolute/path/to/dedicated-docs status
 ontodoc --root /absolute/path/to/dedicated-docs search "atomic publication" --mode lexical --top-k 5

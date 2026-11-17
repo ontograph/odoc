@@ -11,13 +11,14 @@ The [donor follow-up review](../docs/DONOR_REVIEW_PLAN.md) completed DR-1 docume
 
 Updated: 2026-11-17
 
+The owner selected public `ontograph/odoc` for source and releases and requested a README and GitHub installation script. [Public distribution](../docs/PUBLIC_RELEASE_PLAN.md) is in progress. `origin` points to the selected repository; the previous private destination is retained as `previous`. The original binary and build tag remain unchanged.
+
 The [0.1.2 release](../docs/RELEASE_0.1.2_PLAN.md) is published in private
 `er77/ontodoc`: release commit `8e94a3d`, annotated tag `v0.1.2`, Linux binary
 archive and checksums. The default local `ontodoc` now runs 0.1.2, with 0.1.1
 preserved. Full tests, formatting, Clippy, package verification and downloaded
 five-tool smoke passed; [release audit](audit_session-2026-11-17-release-012.md).
-Retrieval defaults and evaluation custody remain unchanged. Public exposure
-still requires an owner decision.
+Retrieval defaults and evaluation custody remain unchanged. The owner subsequently authorized the public destination above.
 
 The [donor candidates plan](../docs/DONOR_CANDIDATES_PLAN.md) completed ADR18, citation-preserving responses, the descriptive census and documentation. All required Rust checks passed; independent review found no blockers. Link scanning is uncalibrated and selected preparation matching unconfirmed. Ranking candidates remain deferred; release and evaluation gates are unchanged.
 
