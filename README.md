@@ -62,6 +62,36 @@ a historical-snapshot API.
 
 ## Connect An MCP Client
 
+Index your documentation as shown above, then register OntoDoc with your client. The commands below assume the installer default, `~/.local/bin/ontodoc`; replace it if you installed elsewhere, and replace `/absolute/path/to/dedicated-docs` with your documentation directory.
+
+### Codex
+
+Register a local stdio server with the [Codex CLI](https://developers.openai.com/codex/mcp):
+
+```sh
+codex mcp add ontodoc -- "$HOME/.local/bin/ontodoc" \
+  --root /absolute/path/to/dedicated-docs serve
+codex mcp get ontodoc
+```
+
+This saves the server in your Codex configuration (`~/.codex/config.toml` by default). Start a new Codex session after registration.
+
+### Claude Code
+
+Register a local stdio server with [Claude Code](https://code.claude.com/docs/en/mcp):
+
+```sh
+claude mcp add --transport stdio --scope user ontodoc -- "$HOME/.local/bin/ontodoc" \
+  --root /absolute/path/to/dedicated-docs serve
+claude mcp get ontodoc
+```
+
+User scope makes the server available across your projects. Use `--scope project` instead to save it in the current project's `.mcp.json`; review and approve that server when Claude Code prompts. Start a new Claude Code session and use `/mcp` to check the connection.
+
+In either client, ask: "Use OntoDoc's status tool, then search the documentation for atomic publication." The server exposes `search`, `read`, `related`, `verify` and `status`. After editing documents, rerun `ontodoc --root /absolute/path/to/dedicated-docs index`, or append `--auto-index` after `serve` when registering the server to enable [automatic indexing](#automatic-indexing-for-local-stdio-use).
+
+### Other MCP clients
+
 Configure the client to start the installed binary with an absolute corpus
 root. For clients using an `mcpServers` JSON configuration:
 
