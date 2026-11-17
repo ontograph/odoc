@@ -5,6 +5,11 @@ type: project
 
 # Pending Tasks
 
+Updated: 2026-11-17. The owner authorized the [0.1.2 release](../docs/RELEASE_0.1.2_PLAN.md):
+bump, build, commit, local install, GitHub release and push to private
+`er77/ontodoc`. Current release work is REL-012; the publication blockers below
+describe the historical 0.1.0 candidate. Public exposure remains undecided.
+
 The [refactoring plan](../docs/REFACTORING_PLAN.md) is closed with 5 DONE: research-document corrections, `section_ranking` removal and the pinned `eval misses` move. [Audit](audit_session-2026-11-15-refactoring.md) records commands and limits. No ranking, schema or default changed.
 
 [OntoIndex ideas](../docs/ONTOINDEX_IDEAS_PLAN.md) has no remaining tasks in the authorized scope. ADR19 refusal/recovery, calibrated census, capacity measurement and documentation are complete; [evidence](audit_session-2026-11-14-ontoindex-ideas.md) records validation. Additional load cost, new link-resolution rules and a capacity acceptance target remain deferred; release and evaluation gates are unchanged.

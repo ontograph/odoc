@@ -12,6 +12,19 @@ their integrity prerequisites remain unresolved.
 
 ## Install And Index
 
+Release `v0.1.2` is available from the private
+[`er77/ontodoc` GitHub repository](https://github.com/er77/ontodoc/releases/tag/v0.1.2).
+For the prebuilt Linux x86_64 GNU binary (glibc 2.39+, Linux 5.6+), authenticate
+with GitHub CLI and install into a directory you own:
+
+```sh
+gh release download v0.1.2 --repo er77/ontodoc \
+  --pattern 'ontodoc-0.1.2-linux-x86_64-gnu.tar.gz' --pattern SHA256SUMS
+sha256sum -c SHA256SUMS
+tar -xzf ontodoc-0.1.2-linux-x86_64-gnu.tar.gz
+./ontodoc-0.1.2/bin/ontodoc --version
+```
+
 Native Linux with `openat2` support (Linux 5.6 or newer), Rust **1.95.0**, edition 2024. The root toolchain file pins rustfmt
 and Clippy. From this repository root:
 

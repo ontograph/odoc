@@ -18,7 +18,7 @@ Active-only project router. Keep at or below 100 lines. Closed plans live under
 ## Active Plans
 
 - [OntoDoc implementation plan](ONTODOC_IMPLEMENTATION_PLAN.md) - closed, 74 done. REL-6 closed 2026-11-15 as a local install of the corrected 0.1.0 (`~/.local/opt/ontodoc-0.1.0`, symlink `ontodoc-0.1.0`), with no public release; [local release audit](audit_session-2026-11-15-local-release.md). Original artifacts and custody are preserved.
-- [0.1.0 release plan](../docs/RELEASE_0.1.0_PLAN.md) - release preparation authorized; unresolved owner decisions retained.
+- [0.1.2 release plan](../docs/RELEASE_0.1.2_PLAN.md) - authorized build, local install, commit and GitHub publication to private `er77/ontodoc`; in progress. Historical 0.1.0 evidence is preserved.
 - [Refactoring plan](../docs/REFACTORING_PLAN.md) - closed, 5 DONE: `section_ranking` removed, `eval misses` pinned and moved to `eval::sweep`; [audit](audit_session-2026-11-15-refactoring.md).
 
 

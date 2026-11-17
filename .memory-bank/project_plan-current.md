@@ -9,7 +9,14 @@ The [OntoIndex ideas plan](../docs/ONTOINDEX_IDEAS_PLAN.md) completed all five t
 
 The [donor follow-up review](../docs/DONOR_REVIEW_PLAN.md) completed DR-1 documentation and evidence repairs after GPT source review found no runtime blocker. Original donor tasks stay closed; ranking, calibration, release and evaluation gates are unchanged.
 
-Updated: 2026-11-16
+Updated: 2026-11-17
+
+The owner authorized version bump, binary build, commit, local install, GitHub
+release and push. [0.1.2 release](../docs/RELEASE_0.1.2_PLAN.md) is in progress;
+use private `er77/ontodoc` because no remote or explicit public exposure scope
+exists. The candidate includes current committed source, including disconnected
+offline hybrid helpers. Existing retrieval defaults and evaluation custody stay
+unchanged. Public repository exposure still requires an owner decision.
 
 The [donor candidates plan](../docs/DONOR_CANDIDATES_PLAN.md) completed ADR18, citation-preserving responses, the descriptive census and documentation. All required Rust checks passed; independent review found no blockers. Link scanning is uncalibrated and selected preparation matching unconfirmed. Ranking candidates remain deferred; release and evaluation gates are unchanged.
 

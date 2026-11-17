@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.2 — 2026-11-17
+
+First GitHub release, distributed through the private `er77/ontodoc` repository.
+Includes the 0.1.1 CLI and five-tool MCP service, with remapped build paths.
+The source also includes experimental dense-candidate and reciprocal-rank
+fusion helpers; they are not wired into retrieval and do not change ranking,
+defaults or the schema. No embedding service or model is bundled.
+
+The bundled evaluation companion describes the original measured 0.1.0
+binary. This release makes no new retrieval-quality or performance claim.
+
 ## 0.1.1 — 2026-11-16, local release
 
 Installed locally only; not published. Built from tag `v0.1.1` in a clean worktree with home build paths remapped.
