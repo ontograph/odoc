@@ -11,7 +11,7 @@ The [donor follow-up review](../docs/DONOR_REVIEW_PLAN.md) completed DR-1 docume
 
 Updated: 2026-11-17
 
-The owner selected public `ontograph/odoc` for source and releases and requested a README and GitHub installation script. [Public distribution](../docs/PUBLIC_RELEASE_PLAN.md) is in progress. `origin` points to the selected repository; the previous private destination is retained as `previous`. The original binary and build tag remain unchanged.
+Public source and [release v0.1.2](https://github.com/ontograph/odoc/releases/tag/v0.1.2) now live at `ontograph/odoc`, with default branch `main`. [Public distribution](../docs/PUBLIC_RELEASE_PLAN.md) is complete: README, checksum-verified installer, merged destination ancestry and anonymous installation/CLI/five-tool smoke passed. `origin` points there; `previous` retains the private destination. Original binary and build tag remain unchanged; [audit](audit_session-2026-11-17-public-release.md).
 
 The [0.1.2 release](../docs/RELEASE_0.1.2_PLAN.md) is published in private
 `er77/ontodoc`: release commit `8e94a3d`, annotated tag `v0.1.2`, Linux binary
@@ -24,6 +24,7 @@ The [donor candidates plan](../docs/DONOR_CANDIDATES_PLAN.md) completed ADR18, c
 
 | Canonical plan | State | Remaining task | Counts |
 | --- | --- | --- | --- |
+| [PUBLIC_RELEASE_PLAN.md](../docs/PUBLIC_RELEASE_PLAN.md) | closed | None | PUB-1 complete; public source, release and anonymous GitHub installer verified |
 | [RELEASE_0.1.2_PLAN.md](../docs/RELEASE_0.1.2_PLAN.md) | closed | None | REL-012 complete; private GitHub release and local install verified |
 | [RETRIEVAL_RESEARCH_PLAN.md](../docs/RETRIEVAL_RESEARCH_PLAN.md) | closed | None | 6 DONE (RR-0 registration, RR-1 step 1, RR-2 and RR-3 not opened, RR-HY, RR-DOC); step 1 met no threshold; [audit](audit_session-2026-11-16-retrieval-research.md) |
 | [HYBRID_RETRIEVAL_PLAN.md](../docs/HYBRID_RETRIEVAL_PLAN.md) | blocked | HY-2, HY-3 wait for ADR decisions | 2 DONE (HY-0 stage 0, HY-1 fusion functions), 2 BLOCKED; [audit](audit_session-2026-11-16-hybrid-stage0.md) |

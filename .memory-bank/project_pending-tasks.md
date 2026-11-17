@@ -5,14 +5,13 @@ type: project
 
 # Pending Tasks
 
-The [public distribution task](../docs/PUBLIC_RELEASE_PLAN.md) is active: publish source and 0.1.2 to `ontograph/odoc`, document installation, and verify the installer against anonymous GitHub downloads. The user's explicit destination resolves public exposure for this codebase.
+The [public distribution task](../docs/PUBLIC_RELEASE_PLAN.md) is complete: source/main, 0.1.2 release, README and GitHub installer are published at `ontograph/odoc`. Both anonymous install forms and CLI/five-tool smoke passed. No public-distribution task remains; [audit](audit_session-2026-11-17-public-release.md).
 
 Updated: 2026-11-17. The [0.1.2 release](../docs/RELEASE_0.1.2_PLAN.md) is complete:
 commit `8e94a3d`, annotated tag `v0.1.2`, private `er77/ontodoc` GitHub release,
 verified download and default local install. No release work remains in the
 authorized scope; [audit](audit_session-2026-11-17-release-012.md). Publication
-blockers below describe the historical 0.1.0 candidate. Public exposure remains
-undecided.
+blockers below describe the historical 0.1.0 candidate. The subsequent owner instruction selects the public destination above.
 
 The [refactoring plan](../docs/REFACTORING_PLAN.md) is closed with 5 DONE: research-document corrections, `section_ranking` removal and the pinned `eval misses` move. [Audit](audit_session-2026-11-15-refactoring.md) records commands and limits. No ranking, schema or default changed.
 
