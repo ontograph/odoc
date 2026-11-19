@@ -1,6 +1,6 @@
 # OntoDoc
 
-[Source](https://github.com/ontograph/odoc) · [Releases](https://github.com/ontograph/odoc/releases) · [MIT licence](LICENSE)
+[Source](https://github.com/ontograph/odoc) · [Releases](https://github.com/ontograph/odoc/releases) · [AGPL licence](LICENSE)
 
 Standalone Rust MCP service for cited documentation retrieval. It exposes
 five read-only tools over **stdio** (one configured corpus) or over a
